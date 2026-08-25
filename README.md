@@ -1,16 +1,61 @@
-# React + Vite
+# MVEC Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A React + Vite frontend for a multi-vendor e-commerce platform.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- MVEC brand link returns to the home page.
+- Responsive home page inspired by the supplied Alibaba login layout.
+- Sky-blue visual panel instead of the original promotional image.
+- Login page:
+  - Continue with Google UI
+  - Email or telephone
+  - Password
+  - Remember me
+  - Full forgot-password flow UI: Gmail address → OTP verification → new password
+- Sign-up page:
+  - Continue with Google UI
+  - Full name
+  - Telephone
+  - Email
+  - Gender
+  - Account type: Buyer or Vendor
+  - Role-specific helper text
+- React Router navigation.
+- Frontend only. Google authentication, database, real email/OTP delivery, and password persistence are not connected yet.
 
-## React Compiler
+## Run
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+```bash
+npm install
+npm run dev
+```
 
-## Expanding the ESLint configuration
+Then open the local URL shown by Vite.
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## Suggested next backend work
+
+1. Add your Express/Node API.
+2. Store users with a `role` field (`buyer` or `vendor`).
+3. Add real Google OAuth.
+4. Hash passwords with bcrypt if password login remains enabled.
+5. Add JWT/session authentication.
+6. Redirect vendors to a vendor dashboard and buyers to the shopping experience after login.
+
+## Password reset flow
+
+The frontend now includes a three-step password recovery experience:
+
+1. User enters the Gmail address associated with the account.
+2. User enters a six-digit OTP.
+3. After verification, the user chooses a new password.
+
+For the frontend prototype, the OTP is generated locally and displayed as a **Frontend demo OTP** so the complete flow can be tested.
+
+For production, do **not** generate or expose the OTP in React. The backend should:
+- Generate a cryptographically secure OTP.
+- Store a hashed OTP with an expiry time.
+- Send the OTP through an email provider such as Gmail/Google Workspace, SendGrid, Resend, or SMTP.
+- Verify the OTP on the server.
+- Allow a password reset only after successful server-side verification.
+- Hash the new password before storing it.
