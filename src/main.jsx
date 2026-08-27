@@ -1,16 +1,2 @@
-import React from 'react';
-import ReactDOM from 'react-dom/client';
-import { BrowserRouter } from 'react-router-dom';
-import App from './App';
-import './styles.css';
-import { AuthProvider } from './context/AuthContext';
-
-ReactDOM.createRoot(document.getElementById('root')).render(
-  <React.StrictMode>
-    <AuthProvider>
-      <BrowserRouter>
-        <App />
-      </BrowserRouter>
-    </AuthProvider>
-  </React.StrictMode>
-);
+import React from 'react';import ReactDOM from 'react-dom/client';import {BrowserRouter} from 'react-router-dom';import App from './App';import './styles.css';import {AuthProvider} from './context/AuthContext';import {ThemeProvider} from './context/ThemeContext';import {MarketplaceProvider} from './context/MarketplaceContext';
+ReactDOM.createRoot(document.getElementById('root')).render(<React.StrictMode><ThemeProvider><AuthProvider><MarketplaceProvider><BrowserRouter><App/></BrowserRouter></MarketplaceProvider></AuthProvider></ThemeProvider></React.StrictMode>);

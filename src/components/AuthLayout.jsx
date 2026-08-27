@@ -1,11 +1,12 @@
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router-dom';import {useTheme} from '../context/ThemeContext';
 
 export default function AuthLayout({ title, subtitle, children }) {
+  const {theme,toggleTheme}=useTheme();
   return (
     <main className="alibaba-auth-page">
       <header className="alibaba-header">
         <Link to="/" className="mvec-logo">MVEC</Link>
-        <button className="language-btn" type="button">
+        <button className="site-theme-toggle auth-theme-toggle" onClick={toggleTheme} type="button">{theme==='dark'?'☀️':'🌙'}</button><button className="language-btn" type="button">
           English <span>⌄</span>
         </button>
       </header>

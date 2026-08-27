@@ -2,8 +2,10 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import AuthLayout from '../components/AuthLayout';
 import FormField from '../components/FormField';
+import { useAuth } from '../context/AuthContext';
 
 export default function ForgotPassword() {
+  const { resetPassword } = useAuth();
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
   const [email, setEmail] = useState('');
@@ -70,7 +72,7 @@ export default function ForgotPassword() {
     setStep(3);
   };
 
-  const resetPassword = (e) => {
+  const resetPasswordForm = async (e) => {
     e.preventDefault();
     setError('');
     setMessage('');
@@ -85,6 +87,7 @@ export default function ForgotPassword() {
       return;
     }
 
+    try { await resetPassword(email.trim(), password); } catch (err) { setError(err.message); return; }
     setMessage('Password reset complete. You can now log in with your new password.');
     setTimeout(() => navigate('/login'), 1600);
   };
@@ -193,7 +196,7 @@ export default function ForgotPassword() {
       )}
 
       {step === 3 && (
-        <form onSubmit={resetPassword} className="auth-form">
+        <form onSubmit={resetPasswordForm} className="auth-form">
           <FormField
             label="New password"
             name="newPassword"
