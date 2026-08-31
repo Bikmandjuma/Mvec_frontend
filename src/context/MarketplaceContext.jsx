@@ -21,8 +21,8 @@ export function MarketplaceProvider({ children }) {
     return !exists;
   };
   const isWishlisted = (id) => wishlist.some(x => String(x.id) === String(id));
-  const clearWishlist = () => persist('mvec_wishlist', [], setWishlist);
-  const value = useMemo(() => ({cart,wishlist,cartCount:cart.reduce((n,x)=>n+(Number(x.qty)||1),0),wishlistCount:wishlist.length,addToCart,removeFromCart,updateCartQty,toggleWishlist,isWishlisted,clearWishlist}), [cart,wishlist]);
+  const clearWishlist = () => persist('mvec_wishlist', [], setWishlist); const clearCart = () => persist('mvec_cart', [], setCart);
+  const value = useMemo(() => ({cart,wishlist,cartCount:cart.reduce((n,x)=>n+(Number(x.qty)||1),0),wishlistCount:wishlist.length,addToCart,removeFromCart,updateCartQty,toggleWishlist,isWishlisted,clearWishlist,clearCart}), [cart,wishlist]);
   return <MarketplaceContext.Provider value={value}>{children}</MarketplaceContext.Provider>;
 }
 export const useMarketplace = () => useContext(MarketplaceContext);

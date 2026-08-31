@@ -3,6 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 import DashboardLayout from "../components/DashboardLayout";
 import Icon from "../components/Icon";
 import Pagination from "../components/Pagination";
+import SmartTable from "../components/SmartTable";
 
 // -----------------------------------------------------------------------------
 // Demo data
@@ -218,8 +219,12 @@ function GenericAdminTable({ title, subtitle, type }) {
     rows = users;
   }
 
-  const [list, setList] = useState(rows);
+  const storageKey = `mvec_admin_${type}`;
+  const [list, setList] = useState(() => { try { return JSON.parse(localStorage.getItem(storageKey)) || rows; } catch { return rows; } });
   const [query, setQuery] = useState("");
+  const [editing, setEditing] = useState(null);
+  const [viewing, setViewing] = useState(null);
+  const [deleting, setDeleting] = useState(null);
   const [page, setPage] = useState(1);
 
   const perPage = 6;
@@ -243,16 +248,9 @@ function GenericAdminTable({ title, subtitle, type }) {
   );
 
   function deleteItem(item) {
-    setList((current) =>
-      current.filter((entry) => entry !== item)
-    );
-
-    if (
-      shown.length === 1 &&
-      currentPage > 1
-    ) {
-      setPage(currentPage - 1);
-    }
+    const next = list.filter((entry) => entry !== item); setList(next); localStorage.setItem(storageKey, JSON.stringify(next));
+    setDeleting(null);
+    if (shown.length === 1 && currentPage > 1) setPage(currentPage - 1);
   }
 
   return (
@@ -266,9 +264,8 @@ function GenericAdminTable({ title, subtitle, type }) {
           <p>{subtitle}</p>
         </div>
 
-        <button className="gradient-btn">
-          <Icon name="plus" />
-          Add new
+        <button className="gradient-btn" onClick={() => setEditing({id:`NEW-${Date.now()}`, name:"", email:"", role:type==="vendors"?"Vendor":type==="users"?"Buyer":"", status:"Active"})}>
+          <Icon name="plus" /> Add new
         </button>
       </div>
 
@@ -336,7 +333,7 @@ function GenericAdminTable({ title, subtitle, type }) {
                   </span>
 
                   <span className="row-actions">
-                    <button type="button">
+                    <button type="button" onClick={() => setEditing(item)}>
                       <Icon name="edit" />
                     </button>
 
@@ -383,14 +380,13 @@ function GenericAdminTable({ title, subtitle, type }) {
                   </span>
 
                   <span className="row-actions">
-                    <button type="button">
+                    <button type="button" title="View vendor" onClick={() => setViewing(item)}>
+                      <Icon name="eye" />
+                    </button>
+                    <button type="button" title="Edit vendor" onClick={() => setEditing(item)}>
                       <Icon name="edit" />
                     </button>
-
-                    <button
-                      type="button"
-                      onClick={() => deleteItem(item)}
-                    >
+                    <button type="button" title="Delete vendor" onClick={() => setDeleting(item)}>
                       <Icon name="trash" />
                     </button>
                   </span>
@@ -430,7 +426,7 @@ function GenericAdminTable({ title, subtitle, type }) {
                   </span>
 
                   <span className="row-actions">
-                    <button type="button">
+                    <button type="button" onClick={() => setEditing(item)}>
                       <Icon name="edit" />
                     </button>
 
@@ -483,7 +479,7 @@ function GenericAdminTable({ title, subtitle, type }) {
                   </span>
 
                   <span className="row-actions">
-                    <button type="button">
+                    <button type="button" onClick={() => setEditing(item)}>
                       <Icon name="edit" />
                     </button>
                   </span>
@@ -517,7 +513,7 @@ function GenericAdminTable({ title, subtitle, type }) {
                   </span>
 
                   <span className="row-actions">
-                    <button type="button">
+                    <button type="button" onClick={() => setEditing(item)}>
                       <Icon name="edit" />
                     </button>
 
@@ -541,11 +537,27 @@ function GenericAdminTable({ title, subtitle, type }) {
           perPage={perPage}
         />
       </div>
+      {editing && <AdminEditModal value={editing} isNew={String(editing.id).startsWith("NEW-")} onCancel={() => setEditing(null)} onSave={(next) => {
+        const isNew = String(editing.id).startsWith("NEW-");
+        const saved = isNew ? [{...next, id: Date.now()} , ...list] : list.map(x => x.id === editing.id ? next : x);
+        setList(saved); localStorage.setItem(storageKey, JSON.stringify(saved)); setEditing(null);
+      }} />}
+      {viewing && type === "vendors" && <VendorQuickView vendor={viewing} onClose={() => setViewing(null)} />}
+      {deleting && type === "vendors" && <DeleteVendorModal vendor={deleting} onCancel={() => setDeleting(null)} onDelete={() => deleteItem(deleting)} />}
     </DashboardLayout>
   );
 }
 
-function AdminReports(){const rows=[['Marketplace revenue','01 Aug – 27 Aug','18,450,000 RWF'],['Vendor sales','01 Aug – 27 Aug','12,840,000 RWF'],['Transactions','01 Aug – 27 Aug','428'],['Refunds','01 Aug – 27 Aug','14'],['Platform commission','01 Aug – 27 Aug','2,760,000 RWF']];return <DashboardLayout admin><div className="dash-page-head"><div><span className="eyebrow">ADMIN CONTROL</span><h1>Reports</h1><p>Platform-wide revenue, vendors, orders, payments and marketplace performance.</p></div><button className="gradient-btn">Export report</button></div><div className="metric-grid"><Metric label="Revenue" value="18.45M RWF" change="+12.4%" icon="chart"/><Metric label="Orders" value="428" change="+8.2%" icon="cart"/><Metric label="Vendors" value="86" change="+6.1%" icon="shop"/><Metric label="Commission" value="2.76M RWF" change="+10.3%" icon="wallet"/></div><div className="data-card"><div className="data-card-head"><div><h3>Platform reports</h3><span>Frontend demo data · ready for API</span></div><select><option>30 Days</option><option>3 Months</option><option>1 Year</option></select></div><div className="data-table"><div className="data-row module-row"><span className="table-label">Report</span><span className="table-label">Range</span><span className="table-label">Summary</span><span className="table-label">Action</span></div>{rows.map((r,i)=><div className="data-row module-row" key={i}><span><b>{r[0]}</b></span><span>{r[1]}</span><span>{r[2]}</span><span><button className="filter-btn">Export</button></span></div>)}</div></div></DashboardLayout>}
+function VendorQuickView({vendor,onClose}){return <div className="modal-backdrop"><div className="modal vendor-view-modal"><button className="modal-close" onClick={onClose}>×</button><span className="eyebrow">VENDOR PROFILE</span><h2>{vendor.name}</h2><p>MVEC marketplace vendor overview.</p><div className="vendor-detail-grid"><div><span>Category</span><b>{vendor.category}</b></div><div><span>Products</span><b>{vendor.products}</b></div><div><span>Rating</span><b>★ {vendor.rating}</b></div><div><span>Status</span><b className="status active">Approved</b></div><div><span>Vendor ID</span><b>VND-{String(vendor.id).padStart(4,'0')}</b></div><div><span>Trust</span><b>Verified ✓</b></div></div><div className="verified-box"><b>🔒 Protected settlement</b><p>Eligible order funds are shown as held by MVEC until delivery confirmation and release according to the marketplace workflow.</p></div><button className="gradient-btn" onClick={onClose}>Done</button></div></div>}
+function DeleteVendorModal({vendor,onCancel,onDelete}){return <div className="modal-backdrop"><div className="modal confirm-modal"><button className="modal-close" onClick={onCancel}>×</button><div className="danger-icon">!</div><h2>Delete this vendor?</h2><p>You are about to delete <strong>{vendor.name}</strong>. This action removes the vendor from the current frontend dataset. Are you sure you want to continue?</p><div className="modal-actions"><button className="outline-btn" onClick={onCancel}>Cancel</button><button className="danger-btn" onClick={onDelete}>Yes, delete vendor</button></div></div></div>}
+
+function AdminEditModal({value,isNew,onCancel,onSave}){
+ const [row,setRow]=useState(value);
+ const fields=Object.keys(row).filter(k=>k!=="id" && k!=="image");
+ return <div className="modal-backdrop"><div className="modal" onMouseDown={e=>e.stopPropagation()}><button className="modal-close" onClick={onCancel}>×</button><h2>{isNew?"Add":"Edit"} record</h2><p>Changes are saved to the current MVEC frontend data set.</p>{fields.map(k=><label className="field" key={k}><span>{k.replace(/([A-Z])/g," $1")}</span><input value={row[k]??""} onChange={e=>setRow({...row,[k]:e.target.value})}/></label>)}<div className="modal-actions"><button className="outline-btn" onClick={onCancel}>Cancel</button><button className="gradient-btn" onClick={()=>onSave(row)}>Save changes</button></div></div></div>;
+}
+
+function AdminReports(){const rows=[['Marketplace revenue','01 Aug – 27 Aug','18,450,000 RWF'],['Vendor sales','01 Aug – 27 Aug','12,840,000 RWF'],['Transactions','01 Aug – 27 Aug','428'],['Refunds','01 Aug – 27 Aug','14'],['Platform commission','01 Aug – 27 Aug','2,760,000 RWF']];return <DashboardLayout admin><div className="dash-page-head"><div><span className="eyebrow">ADMIN CONTROL</span><h1>Reports</h1><p>Platform-wide revenue, vendors, orders, payments and marketplace performance.</p></div><button className="gradient-btn">Export report</button></div><div className="metric-grid"><Metric label="Revenue" value="18.45M RWF" change="+12.4%" icon="chart"/><Metric label="Orders" value="428" change="+8.2%" icon="cart"/><Metric label="Vendors" value="86" change="+6.1%" icon="shop"/><Metric label="Commission" value="2.76M RWF" change="+10.3%" icon="wallet"/></div><div className="data-card"><div className="data-card-head"><div><h3>Platform reports</h3><span>Frontend demo data · ready for API</span></div><select><option>30 Days</option><option>3 Months</option><option>1 Year</option></select></div><SmartTable columns={[{key:'report',label:'Report',render:r=><b>{r.report}</b>},{key:'range',label:'Range'},{key:'summary',label:'Summary'}]} rows={rows.map(r=>({report:r[0],range:r[1],summary:r[2]}))} rowKey={r=>r.report} searchPlaceholder="Search reports…" actions={r=><button className="filter-btn">Export</button>}/></div></DashboardLayout>}
 function AdminSettings(){return <DashboardLayout admin><div className="dash-page-head"><div><span className="eyebrow">ADMIN CONTROL</span><h1>Platform Settings</h1><p>Configure marketplace-wide rules and system behavior.</p></div><button className="gradient-btn">Save changes</button></div><div className="settings-grid"><div className="data-card"><h3>Marketplace</h3><label className="field"><span>Marketplace name</span><input defaultValue="MVEC"/></label><label className="field"><span>Default currency</span><select defaultValue="RWF"><option>RWF</option><option>USD</option></select></label><label className="field"><span>Vendor approval</span><select defaultValue="Manual"><option>Manual</option><option>Automatic</option></select></label></div><div className="data-card"><h3>Commerce rules</h3><label className="field"><span>Platform commission</span><input defaultValue="10%"/></label><label className="field"><span>Order cancellation window</span><input defaultValue="24 hours"/></label><label className="field"><span>Reviews moderation</span><select defaultValue="Required"><option>Required</option><option>Optional</option></select></label></div><div className="data-card"><h3>Notifications</h3><label className="field"><span>Order notifications</span><select defaultValue="Enabled"><option>Enabled</option><option>Disabled</option></select></label><label className="field"><span>Shipping notifications</span><select defaultValue="Enabled"><option>Enabled</option><option>Disabled</option></select></label><label className="field"><span>Payout notifications</span><select defaultValue="Enabled"><option>Enabled</option><option>Disabled</option></select></label></div></div></DashboardLayout>}
 
 // -----------------------------------------------------------------------------

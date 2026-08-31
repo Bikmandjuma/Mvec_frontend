@@ -22,7 +22,7 @@ export default function ForgotPassword() {
     setMessage('');
 
     if (!email.trim()) {
-      setError('Please enter the Gmail address linked to your MVEC account.');
+      setError('Please enter the phone number or email linked to your MVEC account.');
       return;
     }
 
@@ -112,9 +112,9 @@ export default function ForgotPassword() {
       }
       subtitle={
         step === 1
-          ? 'Enter your Gmail address to reset your MVEC password.'
+          ? 'Enter your phone number or email to reset your MVEC password.'
           : step === 2
-            ? `Enter the 6-digit OTP sent to ${email}.`
+            ? `Enter the 6-digit OTP prepared for ${email}.`
             : 'Choose a strong password that you have not used before.'
       }
     >
@@ -138,10 +138,10 @@ export default function ForgotPassword() {
       {step === 1 && (
         <form onSubmit={sendOtp} className="auth-form">
           <FormField
-            label="Gmail address"
+            label="Phone number or email"
             name="email"
             type="email"
-            placeholder="Enter your Gmail address"
+            placeholder="Phone number or email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
           />
@@ -149,7 +149,7 @@ export default function ForgotPassword() {
           <div className="security-note">
             <div className="security-icon">✉</div>
             <div>
-              <strong>Why do we need your email?</strong>
+              <strong>Why do we need verification?</strong>
               <p>MVEC uses a one-time verification code to make sure you own the account before allowing a password change.</p>
             </div>
           </div>
