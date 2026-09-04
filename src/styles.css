@@ -300,3 +300,21 @@ button:disabled{cursor:not-allowed;opacity:.55;transform:none!important}
 @media(max-width:900px){.main-nav-links{justify-content:flex-start}.dash-page-head>.row-actions{flex-wrap:wrap}.dash-page-head>.row-actions>*{flex:0 0 auto}.smart-table-tools .dash-filter{min-width:0}}
 @media(max-width:600px){.gradient-btn,.outline-btn,.filter-btn,.table-action-btn{min-height:40px}.modal-backdrop{padding:8px}.modal{max-height:calc(100vh - 16px);width:min(620px,96vw)}.product-editor .editor-actions{position:static}.smart-table-tools .dash-filter{width:100%}.dash-page-head>.row-actions>*{width:100%}}
 .auth-language{position:relative;margin-left:10px}.auth-language-menu{position:absolute;right:0;top:calc(100% + 8px);min-width:150px;padding:6px;background:var(--surface);border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow);z-index:40}.auth-language-menu button{display:block;width:100%;text-align:left;border:0;background:transparent;color:var(--text);padding:9px 10px;border-radius:7px;min-height:0}.auth-language-menu button:hover,.auth-language-menu button.active{background:var(--soft);color:var(--blue-deep)}
+
+/* v9 marketplace and affiliate refinements */
+.hero-animated-title{position:relative;display:inline-block;isolation:isolate}
+.hero-animated-title>span,.hero-animated-title>em{display:inline-block;animation:heroWordFloat 4.8s ease-in-out infinite;will-change:transform}
+.hero-animated-title>span:nth-child(2){animation-delay:-1.4s}.hero-animated-title>em{animation-delay:-2.7s}
+.hero-title-spark{position:absolute;font-style:normal;color:var(--blue);font-size:.24em;line-height:1;opacity:.72;pointer-events:none;animation:heroSparkFloat 3.6s ease-in-out infinite}
+.spark-one{right:-.65em;top:.12em}.spark-two{left:42%;bottom:-.32em;animation-delay:-1.8s}
+@keyframes heroWordFloat{0%,100%{transform:translate3d(0,0,0) rotate(0)}50%{transform:translate3d(0,-7px,0) rotate(-.35deg)}}
+@keyframes heroSparkFloat{0%,100%{transform:translate3d(0,0,0) scale(.85);opacity:.42}50%{transform:translate3d(0,-10px,0) scale(1.16);opacity:1}}
+.notification-link{position:relative}.notification-dot{position:absolute;right:2px;top:2px;width:7px;height:7px;border-radius:50%;background:#25addb;border:2px solid var(--surface);box-sizing:content-box}
+.affiliate-product-meta{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:14px 0}.affiliate-product-meta span{display:flex;flex-direction:column;gap:3px;padding:9px 10px;border:1px solid var(--border);border-radius:9px;background:var(--soft);font-size:10px;color:var(--muted-text)}.affiliate-product-meta b{font-size:12px;color:var(--text)}
+.affiliate-link-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.affiliate-link-actions .gradient-btn,.affiliate-link-actions .outline-btn{flex:1 1 150px;min-width:0}.copy-link-btn{gap:7px}.affiliate-total-label{color:var(--blue-deep)}
+.supplier-search-grid{align-items:stretch}.supplier-search-grid>.data-card{display:flex;flex-direction:column}.supplier-search-grid>.data-card>.gradient-btn{margin-top:auto}
+@media(max-width:700px){.hero-title-spark{display:none}.affiliate-product-meta{grid-template-columns:1fr}.affiliate-link-actions{display:grid;grid-template-columns:1fr}.affiliate-link-actions>*{width:100%}.notification-link{flex:0 0 32px}}
+@media(prefers-reduced-motion:reduce){.hero-animated-title>span,.hero-animated-title>em,.hero-title-spark{animation:none!important}}
+
+/* Product editor: always opens as an in-context dashboard dialog, never as a blank route. */
+.product-editor-backdrop{position:fixed;inset:0;z-index:120;background:rgba(15,29,36,.58);overflow:auto;padding:24px;display:flex;align-items:flex-start;justify-content:center;-webkit-overflow-scrolling:touch}.product-editor-modal{width:min(1180px,100%);margin:auto;background:var(--page);border:1px solid var(--border);border-radius:18px;box-shadow:0 30px 90px rgba(0,0,0,.28);overflow:hidden}.product-editor-modal .product-editor{max-width:none;padding:22px}.product-editor-modal .editor-head{position:sticky;top:0;z-index:3;background:var(--page);padding-bottom:14px;border-bottom:1px solid var(--border)}@media(max-width:700px){.product-editor-backdrop{padding:8px}.product-editor-modal{border-radius:12px}.product-editor-modal .product-editor{padding:14px}.product-editor-modal .editor-head{position:static}}

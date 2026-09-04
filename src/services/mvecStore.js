@@ -77,6 +77,11 @@ export function createOrder(order) {
     trackingNumber: `MVEC-TRK-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`,
     ...order,
   };
+  if (created.supplier || created.orderType === "supplier") {
+    created.commission = 0;
+    created.commissionStatus = "Not applicable";
+    if (created.pricing) created.pricing = {...created.pricing, commissionRate:0, mvecCommission:0, vendorSettlement:Number(created.total||created.pricing.basePrice||0), supplierSettlement:Number(created.total||created.pricing.basePrice||0)};
+  }
   if(created.affiliateCode){
     created.affiliateCommission=calculateAffiliateCommission(created.total||0);
     const wallet=getAffiliateWallet();
@@ -243,19 +248,21 @@ export function canBuyerCancel(order) {
 export function releaseSettlement(id, actor = "delivery") {
   const existing = readOrdersRaw().find(o => String(o.id) === String(id));
   if (existing?.settlementStatus === "RELEASED") return existing;
+  const supplierOrder=!!(existing?.supplier || existing?.orderType === "supplier");
   const order = updateOrder(id, {
     settlementStatus: "RELEASED",
     releasedAt: new Date().toISOString(),
     status: "Completed",
     deliveryStatus: "Delivered",
-    commissionStatus: "Payable",
+    commissionStatus: supplierOrder ? "Not applicable" : "Payable",
   });
   if (order) {
     const gross=Number(order.heldAmount||order.total||0);
-    const mvecCommission=Number(order.pricing?.mvecCommission ?? order.commission ?? calculateCommission(gross));
-    const affiliateCommission=Number(order.affiliateCommission||0);
-    recordLedgerEntry({type:"SETTLEMENT_RELEASED",orderId:order.id,transactionId:order.transactionId,amount:gross,status:"RELEASED",grossAmount:gross,mvecCommission,affiliateCommission,vendorSettlement:Math.max(0,gross-mvecCommission-affiliateCommission)});
-    recordLedgerEntry({type:"MVEC_COMMISSION",orderId:order.id,transactionId:order.transactionId,amount:mvecCommission,status:"PAYABLE"});
+    const mvecCommission=supplierOrder ? 0 : Number(order.pricing?.mvecCommission ?? order.commission ?? calculateCommission(gross));
+    const affiliateCommission=supplierOrder ? 0 : Number(order.affiliateCommission||0);
+    const settlementAmount=Math.max(0,gross-mvecCommission-affiliateCommission);
+    recordLedgerEntry({type:"SETTLEMENT_RELEASED",orderId:order.id,transactionId:order.transactionId,amount:gross,status:"RELEASED",grossAmount:gross,mvecCommission,affiliateCommission,...(supplierOrder?{supplierSettlement:settlementAmount}:{vendorSettlement:settlementAmount})});
+    if(!supplierOrder && mvecCommission>0) recordLedgerEntry({type:"MVEC_COMMISSION",orderId:order.id,transactionId:order.transactionId,amount:mvecCommission,status:"PAYABLE"});
     if(affiliateCommission>0 && order.affiliateCode){
       const wallet=getAffiliateWallet();
       const next={...wallet,available:Number(wallet.available||0)+affiliateCommission,totalEarned:Number(wallet.totalEarned||0)+affiliateCommission,pending:Math.max(0,Number(wallet.pending||0)-affiliateCommission)};

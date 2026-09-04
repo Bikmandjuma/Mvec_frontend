@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import DashboardLayout from '../components/DashboardLayout';
 import Icon from '../components/Icon';
@@ -68,17 +69,21 @@ function SellerOverview(){
   const [period,setPeriod]=useState('30 Days');
   const chart=getPeriodChart(period); const labels=getPeriodLabels(period); const metrics=getPeriodMetrics(period);
   const products=readJSON(PRODUCT_KEY,initialProducts);
-  return <><div className="dash-page-head"><div><span className="eyebrow">SELLER PLATFORM</span><h1>Good morning, Seller 👋</h1><p>Everything you need to operate your MVEC store.</p></div><Link to="/vendor/products?add=1" className="gradient-btn"><Icon name="plus"/> Add product</Link></div><div className="metric-grid"><Metric label="Sales" value={money(metrics.sales)} icon="chart" sub={`${period} performance`}/><Metric label="Orders" value={metrics.orders} icon="cart" sub={`${period} orders`}/><Metric label="Products" value={products.length} icon="box" sub="Published catalog"/><Metric label="Earnings" value={money(Math.round(metrics.sales*0.635))} icon="wallet" sub="After fees"/><Metric label="Pending payout" value={money(Math.round(metrics.sales*0.154))} icon="wallet" sub="Awaiting settlement"/><Metric label="Low-stock items" value={products.filter(p=>Number(p.stock)<=5).length} icon="bell" sub="Needs attention"/></div><div className="dash-grid"><div className="data-card chart-card"><div className="data-card-head"><div><h3>Sales overview</h3><span>{period} performance</span></div><select value={period} onChange={e=>setPeriod(e.target.value)}><option>Today</option><option>7 Days</option><option>30 Days</option><option>3 Months</option><option>6 Months</option><option>1 Year</option></select></div><div className="fake-chart">{chart.map((h,i)=><div key={i} style={{height:h+'%'}}><span>{labels[i]}</span></div>)}</div></div><div className="data-card"><div className="data-card-head"><div><h3>Inventory alerts</h3><span>Reorder soon</span></div><Link to="/vendor/inventory">View all</Link></div>{products.filter(p=>Number(p.stock)<=9).slice(0,6).map(p=><div className="activity-row" key={p.id}><div><b>{p.name}</b><small>{p.stock} units remaining</small></div><em className="status warning">Low stock</em></div>)}</div></div><div className="data-card"><div className="data-card-head"><div><h3>Recent orders</h3><span>Latest customer activity</span></div><Link to="/vendor/orders">View all</Link></div>{demoOrders.map(o=><div className="activity-row" key={o.id}><div><b>{o.id}</b><small>{o.buyer} · {o.vendor}</small></div><div><strong>{money(o.total)}</strong><em className={'status '+(o.payment==='SUCCESS'?'active':'warning')}>{o.status}</em></div></div>)}</div></>}
+  return <><div className="dash-page-head"><div><span className="eyebrow">SELLER PLATFORM</span><h1>Good morning, Seller 👋</h1><p>Everything you need to operate your MVEC store.</p></div></div><div className="metric-grid"><Metric label="Sales" value={money(metrics.sales)} icon="chart" sub={`${period} performance`}/><Metric label="Orders" value={metrics.orders} icon="cart" sub={`${period} orders`}/><Metric label="Products" value={products.length} icon="box" sub="Published catalog"/><Metric label="Earnings" value={money(Math.round(metrics.sales*0.635))} icon="wallet" sub="After fees"/><Metric label="Pending payout" value={money(Math.round(metrics.sales*0.154))} icon="wallet" sub="Awaiting settlement"/><Metric label="Low-stock items" value={products.filter(p=>Number(p.stock)<=5).length} icon="bell" sub="Needs attention"/></div><div className="dash-grid"><div className="data-card chart-card"><div className="data-card-head"><div><h3>Sales overview</h3><span>{period} performance</span></div><select value={period} onChange={e=>setPeriod(e.target.value)}><option>Today</option><option>7 Days</option><option>30 Days</option><option>3 Months</option><option>6 Months</option><option>1 Year</option></select></div><div className="fake-chart">{chart.map((h,i)=><div key={i} style={{height:h+'%'}}><span>{labels[i]}</span></div>)}</div></div><div className="data-card"><div className="data-card-head"><div><h3>Inventory alerts</h3><span>Reorder soon</span></div><Link to="/vendor/inventory">View all</Link></div>{products.filter(p=>Number(p.stock)<=9).slice(0,6).map(p=><div className="activity-row" key={p.id}><div><b>{p.name}</b><small>{p.stock} units remaining</small></div><em className="status warning">Low stock</em></div>)}</div></div><div className="data-card"><div className="data-card-head"><div><h3>Recent orders</h3><span>Latest customer activity</span></div><Link to="/vendor/orders">View all</Link></div>{demoOrders.map(o=><div className="activity-row" key={o.id}><div><b>{o.id}</b><small>{o.buyer} · {o.vendor}</small></div><div><strong>{money(o.total)}</strong><em className={'status '+(o.payment==='SUCCESS'?'active':'warning')}>{o.status}</em></div></div>)}</div></>}
 
 
 const emptyProduct={name:'',sku:'',category:'',brand:'',shortDescription:'',description:'',price:'',discountPrice:'',costPrice:'',stock:'',minStock:5,status:'Draft',images:[],videos:[],color:'',size:'',material:'',weight:'',capacity:'',model:'',tax:0,dimensions:'',shippingInfo:'Standard delivery'};
 
 function ProductForm({product,onSave,onCancel}){
   const [form,setForm]=useState(()=>{const base=product?{...emptyProduct,...product,...(product.variants||{})}:{...emptyProduct};return {...base,images:Array.isArray(base.images)?base.images:(base.image?[base.image]:[]),videos:Array.isArray(base.videos)?base.videos:[]};});
-  const [categories,setCategories]=useState(()=>readJSON(CATEGORY_KEY,defaultCategories));
+  const [categories,setCategories]=useState(()=>{
+    const stored=readJSON(CATEGORY_KEY,defaultCategories);
+    const values=Array.isArray(stored)?stored.map(c=>typeof c==='string'?c:(c?.name||'')).map(c=>String(c).trim()).filter(Boolean):[];
+    return [...new Set(values.length?values:defaultCategories)];
+  });
   const [newCategory,setNewCategory]=useState('');
   const update=e=>setForm(f=>({...f,[e.target.name]:e.target.value}));
-  const addCategory=()=>{const name=newCategory.trim();if(!name)return;if(!categories.includes(name)){const next=[...categories,name];setCategories(next);localStorage.setItem(CATEGORY_KEY,JSON.stringify(next));}setForm(f=>({...f,category:name}));setNewCategory('');};
+  const addCategory=()=>{const name=newCategory.trim();if(!name)return;const existing=categories.map(c=>typeof c==='string'?c:(c?.name||'')).filter(Boolean);if(!existing.some(c=>c.toLowerCase()===name.toLowerCase())){const next=[...existing,name];setCategories(next);localStorage.setItem(CATEGORY_KEY,JSON.stringify(next));}setForm(f=>({...f,category:name}));setNewCategory('');};
   const addImages=e=>{[...e.target.files||[]].forEach(file=>{const reader=new FileReader();reader.onload=()=>setForm(f=>({...f,images:[...f.images,reader.result]}));reader.readAsDataURL(file);});e.target.value='';};
   const addVideo=()=>{const url=window.prompt('Paste a product video URL');if(url?.trim())setForm(f=>({...f,videos:[...f.videos,{type:'url',src:url.trim()}]}));}; const addVideoFiles=e=>{[...e.target.files||[]].forEach(file=>{const reader=new FileReader();reader.onload=()=>setForm(f=>({...f,videos:[...f.videos,{type:'file',src:reader.result,name:file.name}]}));reader.readAsDataURL(file);});e.target.value='';};
   const removeImage=i=>setForm(f=>({...f,images:f.images.filter((_,x)=>x!==i)}));
@@ -93,15 +98,87 @@ function ProductModule(){
   const {user}=useAuth();
   const owner=user?.companyName||user?.fullName||'Kigali Tech Store';
   const normalize=p=>({...p,images:Array.isArray(p.images)?p.images:(p.image?[p.image]:[]),videos:Array.isArray(p.videos)?p.videos:[],status:p.status||'Active'});
+  const location=useLocation();
+  const navigate=useNavigate();
   const [rows,setRows]=useState(()=>readJSON(PRODUCT_KEY,initialProducts).map(normalize).filter(p=>!p.vendor||p.vendor===owner));
-  const location=useLocation(); const navigate=useNavigate(); const [editing,setEditing]=useState(()=>new URLSearchParams(location.search).get('add')==='1'?true:null); const [page,setPage]=useState(1); const [q,setQ]=useState(''); const [statusFilter,setStatusFilter]=useState(''); const per=6;
-  const persist=next=>{setRows(next);localStorage.setItem(PRODUCT_KEY,JSON.stringify(next));};
-  const filtered=useMemo(()=>rows.filter(p=>JSON.stringify(p).toLowerCase().includes(q.toLowerCase())&&(!statusFilter||p.status===statusFilter)),[rows,q,statusFilter]); const totalPages=Math.max(1,Math.ceil(filtered.length/per)); const current=Math.min(page,totalPages); const shown=filtered.slice((current-1)*per,current*per);
-  const exportCsv=()=>{const cols=['name','sku','category','brand','price','stock','status'];const csv=[cols.join(','),...filtered.map(p=>cols.map(k=>`"${String(p[k]??'').replace(/"/g,'""')}"`).join(','))].join('\n');const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`mvec-products-${new Date().toISOString().slice(0,10)}.csv`;a.click();URL.revokeObjectURL(url)};
-  if(editing!==null)return <ProductForm product={editing===true?null:editing} onCancel={()=>{setEditing(null);if(new URLSearchParams(location.search).get('add')==='1')navigate('/vendor/products',{replace:true})}} onSave={p=>{const owned=normalize({...p,vendor:owner});const next=editing===true?[owned,...rows]:rows.map(x=>x.id===p.id?owned:x);persist(next);setEditing(null);setPage(1);navigate('/vendor/products',{replace:true});}}/>;
-  return <><div className="dash-page-head"><div><span className="eyebrow">SELLER PLATFORM</span><h1>Products</h1><p>Manage product details, pricing, stock, media and publishing status.</p></div><button className="gradient-btn" onClick={()=>setEditing(true)}><Icon name="plus"/> Add product</button></div><div className="dash-toolbar"><div className="dash-filter"><Icon name="search"/><input value={q} onChange={e=>{setQ(e.target.value);setPage(1)}} placeholder="Search products, SKU, brand or category…"/></div><select className="table-filter-select" value={statusFilter} onChange={e=>{setStatusFilter(e.target.value);setPage(1)}}><option value="">All statuses</option>{[...new Set(rows.map(p=>p.status).filter(Boolean))].map(x=><option key={x}>{x}</option>)}</select><button className="filter-btn" onClick={exportCsv}>Export CSV</button></div><div className="data-card"><div className="data-card-head"><div><h3>Product catalog</h3><span>{filtered.length} products</span></div><span className="muted">Create · Edit · Archive · Restore · Delete</span></div><div className="product-admin-list">{shown.map(p=><div className="product-admin-row" key={p.id}><div className="admin-product-main">{p.image?<img src={p.image} alt=""/>:<div className="product-placeholder"><Icon name="box"/></div>}<div><b>{p.name}</b><small>{p.sku} · {p.brand||'No brand'} · {p.category}</small></div></div><div><b>{money(p.price)}</b><small>Stock: {p.stock}</small></div><em className={'status '+(p.status==='Active'?'active':'warning')}>{p.status}</em><div className="row-actions"><button title="Edit product" onClick={()=>setEditing(normalize(p))}><Icon name="edit"/></button><button title={p.status==='Archived'?'Restore product':'Archive product'} onClick={()=>persist(rows.map(x=>x.id===p.id?{...x,status:x.status==='Archived'?'Active':'Archived'}:x))}><Icon name={p.status==='Archived'?'check':'box'}/></button><button title="Delete product" onClick={()=>{if(window.confirm(`Delete ${p.name}?`))persist(rows.filter(x=>x.id!==p.id))}}><Icon name="trash"/></button></div></div>)}</div><Pagination page={current} setPage={setPage} total={filtered.length} perPage={per}/></div></>
-}
+  const [editing,setEditing]=useState(null);
+  const [page,setPage]=useState(1);
+  const [q,setQ]=useState('');
+  const [statusFilter,setStatusFilter]=useState('');
+  const per=6;
 
+  // Open the same editor for both entry points: the overview button and the Products page button.
+  useEffect(()=>{
+    const params=new URLSearchParams(location.search);
+    if(params.get('add')==='1') {
+      setEditing({mode:'create'});
+      navigate('/vendor/products',{replace:true});
+    }
+  },[location.search,navigate]);
+
+  useEffect(()=>{
+    if(!editing) return;
+    const onKeyDown=e=>{if(e.key==='Escape') setEditing(null);};
+    document.addEventListener('keydown',onKeyDown);
+    return()=>document.removeEventListener('keydown',onKeyDown);
+  },[editing]);
+
+  const persist=next=>{setRows(next);localStorage.setItem(PRODUCT_KEY,JSON.stringify(next));};
+  const filtered=useMemo(()=>rows.filter(p=>JSON.stringify(p).toLowerCase().includes(q.toLowerCase())&&(!statusFilter||p.status===statusFilter)),[rows,q,statusFilter]);
+  const totalPages=Math.max(1,Math.ceil(filtered.length/per));
+  const current=Math.min(page,totalPages);
+  const shown=filtered.slice((current-1)*per,current*per);
+  const closeEditor=()=>{
+    setEditing(null);
+    if(new URLSearchParams(location.search).get('add')==='1') navigate('/vendor/products',{replace:true});
+  };
+  const saveProduct=p=>{
+    const owned=normalize({...p,vendor:owner});
+    const next=editing?.mode==='create'?[owned,...rows]:rows.map(x=>x.id===p.id?owned:x);
+    persist(next);
+    setEditing(null);
+    setPage(1);
+    navigate('/vendor/products',{replace:true});
+  };
+  const exportCsv=()=>{
+    const cols=['name','sku','category','brand','price','stock','status'];
+    const csv=[cols.join(','),...filtered.map(p=>cols.map(k=>`"${String(p[k]??'').replace(/"/g,'""')}"`).join(','))].join('\n');
+    const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});
+    const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url;
+    a.download=`mvec-products-${new Date().toISOString().slice(0,10)}.csv`; a.click(); URL.revokeObjectURL(url);
+  };
+  return <>
+    <div className="dash-page-head">
+      <div><span className="eyebrow">SELLER PLATFORM</span><h1>Products</h1><p>Manage product details, pricing, stock, media and publishing status.</p></div>
+      <button type="button" className="gradient-btn" onClick={()=>setEditing({mode:'create'})}><Icon name="plus"/> Add product</button>
+    </div>
+    <div className="dash-toolbar">
+      <div className="dash-filter"><Icon name="search"/><input value={q} onChange={e=>{setQ(e.target.value);setPage(1)}} placeholder="Search products, SKU, brand or category…"/></div>
+      <select className="table-filter-select" value={statusFilter} onChange={e=>{setStatusFilter(e.target.value);setPage(1)}}><option value="">All statuses</option>{[...new Set(rows.map(p=>p.status).filter(Boolean))].map(x=><option key={x}>{x}</option>)}</select>
+      <button type="button" className="filter-btn" onClick={exportCsv}>Export CSV</button>
+    </div>
+    <div className="data-card">
+      <div className="data-card-head"><div><h3>Product catalog</h3><span>{filtered.length} products</span></div><span className="muted">Create · Edit · Archive · Restore · Delete</span></div>
+      <div className="product-admin-list">
+        {shown.map(p=><div className="product-admin-row" key={p.id}>
+          <div className="admin-product-main">{p.image?<img src={p.image} alt=""/>:<div className="product-placeholder"><Icon name="box"/></div>}<div><b>{p.name}</b><small>{p.sku} · {p.brand||'No brand'} · {p.category}</small></div></div>
+          <div><b>{money(p.price)}</b><small>Stock: {p.stock}</small></div>
+          <em className={'status '+(p.status==='Active'?'active':'warning')}>{p.status}</em>
+          <div className="row-actions"><button type="button" title="Edit product" onClick={()=>setEditing({mode:'edit',product:normalize(p)})}><Icon name="edit"/></button><button type="button" title={p.status==='Archived'?'Restore product':'Archive product'} onClick={()=>persist(rows.map(x=>x.id===p.id?{...x,status:x.status==='Archived'?'Active':'Archived'}:x))}><Icon name={p.status==='Archived'?'check':'box'}/></button><button type="button" title="Delete product" onClick={()=>{if(window.confirm(`Delete ${p.name}?`))persist(rows.filter(x=>x.id!==p.id))}}><Icon name="trash"/></button></div>
+        </div>)}
+      </div>
+      <Pagination page={current} setPage={setPage} total={filtered.length} perPage={per}/>
+    </div>
+    {editing&&typeof document!=='undefined'&&createPortal(
+      <div className="product-editor-backdrop" role="dialog" aria-modal="true" aria-label={editing.mode==='create'?'Add product':'Edit product'} onMouseDown={e=>{if(e.target===e.currentTarget) closeEditor();}}>
+        <div className="product-editor-modal" onMouseDown={e=>e.stopPropagation()}>
+          <ProductForm product={editing.mode==='edit'?editing.product:null} onCancel={closeEditor} onSave={saveProduct}/>
+        </div>
+      </div>,
+      document.body
+    )}
+  </>;
+}
 function ModulePage({type}){const c=cfg[type],initial=modules[type]||[];const storageKey=`mvec_vendor_${type}`;const [rows,setRows]=useState(()=>readJSON(storageKey,initial));const [page,setPage]=useState(1);const [q,setQ]=useState('');const [statusFilter,setStatusFilter]=useState('');const [editing,setEditing]=useState(null);const filtered=useMemo(()=>rows.filter(r=>(Array.isArray(r)?r.join(' '):JSON.stringify(r)).toLowerCase().includes(q.toLowerCase())&&(!statusFilter||String(r[r.length-1])===statusFilter)),[rows,q,statusFilter]);const per=6;const totalPages=Math.max(1,Math.ceil(filtered.length/per));const current=Math.min(page,totalPages);const shown=filtered.slice((current-1)*per,current*per);const editable=['stores','promotions','team','shipping'].includes(type);const add=()=>{if(type==='team')setEditing({row:['New staff member','Sales Staff','Orders, Customers','Active'],new:true});else if(type==='stores')setEditing({row:['New Store','Electronics','0','New','Pending'],new:true});else if(type==='promotions')setEditing({row:['New promotion','CODE','10%','Draft','30 Sep 2026'],new:true});else if(type==='shipping')setEditing({row:['New zone','0 RWF','1–3 days','Standard','Active'],new:true});};const saveEdit=(nextRow,isNew,original)=>{const next=isNew?[nextRow,...rows]:rows.map(r=>r===original?nextRow:r);setRows(next);localStorage.setItem(storageKey,JSON.stringify(next));setEditing(null);setPage(1)};const exportCsv=()=>{const esc=v=>`"${String(v??'').replace(/"/g,'""')}"`;const csv=[c.headers.map(esc).join(','),...filtered.map(r=>r.map(esc).join(','))].join('\n');const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`mvec-${type}-${new Date().toISOString().slice(0,10)}.csv`;a.click();URL.revokeObjectURL(url)};const statuses=[...new Set(rows.map(r=>String(r[r.length-1]??'')).filter(Boolean))];return <><div className="dash-page-head"><div><span className="eyebrow">SELLER PLATFORM</span><h1>{c.title}</h1><p>{c.desc}</p></div>{editable&&<button className="gradient-btn" onClick={add}><Icon name="plus"/> Add {type==='team'?'staff member':type==='stores'?'store':type.slice(0,-1)}</button>}</div><div className="dash-toolbar"><div className="dash-filter"><Icon name="search"/><input value={q} onChange={e=>{setQ(e.target.value);setPage(1)}} placeholder={`Search ${c.title.toLowerCase()}…`}/></div>{statuses.length>1&&<select className="table-filter-select" value={statusFilter} onChange={e=>{setStatusFilter(e.target.value);setPage(1)}}><option value="">All statuses</option>{statuses.map(x=><option key={x}>{x}</option>)}</select>}<button className="filter-btn" onClick={exportCsv}>Export CSV</button></div><div className="data-card"><div className="data-card-head"><div><h3>{c.title}</h3><span>{filtered.length} records</span></div><span className="muted">Marketplace records</span></div><div className="data-table"><div className={'data-row module-row '+(c.headers.length===4?'four':'')}>{c.headers.map(h=><span className="table-label" key={h}>{h}</span>)}{editable&&<span className="table-label">Actions</span>}</div>{shown.map((r,i)=><div className={'data-row module-row '+(c.headers.length===4?'four':'')} key={`${r[0]}-${i}`}>{r.map((v,j)=><span key={j}>{j===0?<b>{v}</b>:j===c.headers.length-1&&['Active','Completed','Processing','Pending','Scheduled','Unread','Read','Low stock','In stock','Out of stock'].includes(v)?<em className={'status '+(['Active','Completed','Read','In stock'].includes(v)?'active':'warning')}>{v}</em>:v}</span>)}{editable&&<span className="row-actions"><button title={`Edit ${c.title.toLowerCase()}`} onClick={()=>setEditing({row:[...r],original:r})}><Icon name="edit"/></button><button title="Delete record" onClick={()=>{const next=rows.filter(x=>x!==r);setRows(next);localStorage.setItem(storageKey,JSON.stringify(next))}}><Icon name="trash"/></button></span>}</div>)}</div><Pagination page={current} setPage={setPage} total={filtered.length} perPage={per}/></div>{editing&&<EditRows type={type} headers={c.headers} value={editing.row} isNew={editing.new} onCancel={()=>setEditing(null)} onSave={row=>saveEdit(row,editing.new,editing.original)}/>}</>}
 
 function EditRows({type,headers,value,isNew,onCancel,onSave}){const [row,setRow]=useState(value);return <div className="modal-backdrop" onMouseDown={onCancel}><div className="modal" onMouseDown={e=>e.stopPropagation()}><button className="modal-close" onClick={onCancel}>×</button><h2>{isNew?'Add':'Edit'} {cfg[type].title.slice(0,-1)}</h2><p>Update the fields below and save your changes.</p>{headers.map((h,i)=><label className="field" key={h}><span>{h}</span><input value={row[i]||''} onChange={e=>setRow(r=>r.map((x,j)=>j===i?e.target.value:x))}/></label>)}<div className="modal-actions"><button className="outline-btn" onClick={onCancel}>Cancel</button><button className="gradient-btn" onClick={()=>onSave(row)}>Save changes</button></div></div></div>}

@@ -2,13 +2,13 @@ import {useMemo,useState} from 'react';
 import {Link,useLocation} from 'react-router-dom';
 import Icon from '../components/Icon';
 import SmartTable from '../components/SmartTable';
-import DashboardLayout from '../components/DashboardLayout';import Storefront from '../components/Storefront';
+import DashboardLayout from '../components/DashboardLayout';import Storefront from '../components/Storefront';import NotificationPanel from '../components/NotificationPanel';
 import {products,categories,vendors} from '../data';
 import {getOrders,updateOrder,getCommissionRate,calculateCommission,store} from '../services/mvecStore';
 
 const money=n=>new Intl.NumberFormat('en-RW').format(Number(n)||0)+' RWF';
 const dateDMY=d=>new Date(d).toLocaleDateString('en-GB');
-const RELEASE='v8';
+const RELEASE='v9';
 const read=(k,f)=>{try{const v=JSON.parse(localStorage.getItem(`mvec_${RELEASE}_${k}`));return v??f}catch{return f}};
 const write=(k,v)=>localStorage.setItem(`mvec_${RELEASE}_${k}`,JSON.stringify(v));
 
@@ -67,7 +67,7 @@ function GenericTableModule({role,type}){
   shipping:[{id:'ZONE-001',zone:'Kigali City',fee:2000,eta:'Same day',method:'Standard / Pickup',status:'Active'},{id:'ZONE-002',zone:'Northern Province',fee:5000,eta:'2–4 days',method:'Standard',status:'Active'},{id:'ZONE-003',zone:'Southern Province',fee:7000,eta:'3–6 days',method:'Standard',status:'Active'},{id:'ZONE-004',zone:'Eastern Province',fee:7000,eta:'3–6 days',method:'Standard',status:'Paused'}],
   messages:[{id:'MSG-1001',from:role==='vendor'?'Aline Uwase':'Kigali Tech Store',subject:'Order delivery question',status:'Unread',date:'31/08/2026'},{id:'MSG-1002',from:'Rwanda Wholesale Suppliers',subject:'Wholesale stock update',status:'Read',date:'30/08/2026'}],
   'supply-requests':[{id:'SUP-2026-1001',vendor:'Kigali Tech Store',products:'Phones + accessories',total:2200000,status:'Awaiting acceptance',requested:'01/09/2026'},{id:'SUP-2026-1002',vendor:'Urban Closet',products:'Sneakers',total:860000,status:'Processing',requested:'30/08/2026'}],
-  transactions:[{id:'TXN-2026-0001',party:'Kigali Tech Store',order:'SUP-2026-1001',amount:2200000,fee:110000,status:'HELD',release:'After receipt'},{id:'TXN-2026-0002',party:'Smart Hub Rwanda',order:'SUP-2026-1002',amount:1480000,fee:74000,status:'RELEASED',release:'30/08/2026'}],
+  transactions:[{id:'TXN-2026-0001',party:'Kigali Tech Store',order:'SUP-2026-1001',amount:2200000,supplierSettlement:2200000,status:'HELD',release:'After receipt'},{id:'TXN-2026-0002',party:'Smart Hub Rwanda',order:'SUP-2026-1002',amount:1480000,supplierSettlement:1480000,status:'RELEASED',release:'30/08/2026'}],
   fraud:[{id:'RISK-1001',affiliate:'AFF-00045',signal:'Self-referral pattern',orders:2,risk:'High',status:'Flagged'},{id:'RISK-1002',affiliate:'AFF-00021',signal:'Repeated device clicks',orders:18,risk:'Medium',status:'Review'},{id:'RISK-1003',affiliate:'AFF-00018',signal:'Unusual conversion timing',orders:7,risk:'Low',status:'Monitoring'}],
   payments:[{id:'PAY-2026-0001',order:'MVEC-WIRELESS-NOISE-CANCELLING-HEADPHONES-2026-000001-4821',payer:'Aline Uwase',amount:68000,method:'MTN MoMo',status:'HELD'},{id:'PAY-2026-0002',order:'MVEC-SNEAKERS-2026-000002-4822',payer:'Jean Paul',amount:95000,method:'Airtel Money',status:'RELEASED'},{id:'PAY-2026-0003',order:'SUP-2026-1001',payer:'Kigali Tech Store',amount:2200000,method:'MTN MoMo',status:'PENDING'}],
   adminRefunds:[{id:'REF-ADM-001',order:'MVEC-WIRELESS-NOISE-CANCELLING-HEADPHONES-2026-000001-4821',requester:'Aline Uwase',reason:'Damaged on arrival',amount:68000,evidence:'Photo attached',status:'Pending review',date:'31/08/2026'},{id:'REF-ADM-002',order:'MVEC-SNEAKERS-2026-000002-4822',requester:'Jean Paul',reason:'Wrong size delivered',amount:95000,evidence:'Photo attached',status:'Approved',date:'30/08/2026'},{id:'REF-ADM-003',order:'SUP-2026-1001',requester:'Kigali Tech Store',reason:'Missing wholesale items',amount:2200000,evidence:'Delivery record',status:'Escalated',date:'29/08/2026'}],
@@ -83,7 +83,7 @@ function GenericTableModule({role,type}){
   trust:[{id:'TRUST-001',party:'Kigali Tech Store',type:'Vendor',score:94,completion:'98%',refundRate:'2%',disputeRate:'1%',rating:'4.8/5',trend:'+3'},{id:'TRUST-002',party:'Rwanda Wholesale Suppliers',type:'Supplier',score:91,completion:'96%',refundRate:'2%',disputeRate:'1%',rating:'4.7/5',trend:'+1'},{id:'TRUST-003',party:'Aline Uwase',type:'Buyer',score:88,completion:'94%',refundRate:'3%',disputeRate:'0%',rating:'4.6/5',trend:'Stable'}],
   system:[{id:'SYS-001',setting:'Marketplace availability',value:'Operational',scope:'Core platform',lastChanged:'02/09/2026',owner:'Operations'},{id:'SYS-002',setting:'Protected settlement',value:'Enabled',scope:'Payments',lastChanged:'01/09/2026',owner:'Finance'},{id:'SYS-003',setting:'Maintenance mode',value:'Off',scope:'Platform access',lastChanged:'29/08/2026',owner:'Engineering'},{id:'SYS-004',setting:'API health monitoring',value:'Enabled',scope:'Integrations',lastChanged:'02/09/2026',owner:'Engineering'}]
  };
- const defaultRows = role==='admin' && type==='refunds' ? defaults.adminRefunds : defaults[type]; const initial=rows||defaultRows||[]; const [data,setData]=useState(initial);
+ const defaultRows = role==='admin' && type==='refunds' ? defaults.adminRefunds : defaults[type]; const rawInitial=rows||defaultRows||[]; const initial=role==='supplier'&&type==='transactions'?rawInitial.map(({fee,...r})=>({...r,supplierSettlement:r.supplierSettlement??r.amount})):rawInitial; const [data,setData]=useState(initial);
  const save=next=>{setData(next);write(`mvec_${role}_${type}`,next)};
  const columns=useMemo(()=>{const keys=Object.keys(data[0]||{});return keys.map(k=>({key:k,label:k.replace(/([A-Z])/g,' $1').replace(/^./,s=>s.toUpperCase()),render:r=>typeof r[k]==='boolean'?r[k]?'Yes':'No':(k==='amount'||k==='budget'||k==='price'&&typeof r[k]==='number')?money(r[k]):k==='rating'?`★ ${r[k]}`:String(r[k])}))},[data]);
  const editable=['advertisements','subscription','shipping','categories'].includes(type);
@@ -130,6 +130,7 @@ function BuyerModule({type}){
  if(type==='recommendations') return <><Header eyebrow="BUYER" title="Recommended for you" desc="Recommendations can use purchases, searches, views and similar products."/><div className="product-grid">{products.slice(0,6).map(p=><div className="product-card" key={p.id}><Link to={`/product/${p.id}`} className="product-img"><img src={p.image} alt={p.name}/></Link><div className="product-info"><small>Recommended</small><Link to={`/product/${p.id}`} className="product-name">{p.name}</Link><b>{money(p.price)}</b></div></div>)}</div></>;
  if(type==='refunds') return <BuyerRefunds/>;
  if(type==='messages') return <BuyerMessages/>;
+ if(type==='notifications') return <><Header eyebrow="BUYER" title="Notifications" desc="Order, payment, delivery and marketplace updates in one place."/><NotificationPanel role="buyer"/></>;
  if(type==='support') return <><Header eyebrow="BUYER" title="Help & Support" desc="Get help with orders, payments, delivery and refunds."/><div className="dash-grid"><SettingCard title="Order problem" desc="Something went wrong with an order? Open the order and choose Report a problem."><Link className="gradient-btn" to="/orders">View my orders</Link></SettingCard><SettingCard title="Common questions"><div className="timeline">{['How do I track my order?','How are delivery fees calculated?','How do refunds work?','How can I contact a seller?'].map((x,i)=><div className="timeline-item done" key={x}><i/><div><b>{i+1}. {x}</b><small>MVEC Help Center</small></div></div>)}</div></SettingCard></div></>;
  if(type==='subscription') return <BuyerSubscription/>;
  return null;
