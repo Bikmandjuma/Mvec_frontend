@@ -26,13 +26,12 @@ export default function ForgotPassword() {
       return;
     }
 
-    // Frontend demo only. A real application must generate and send this OTP
-    // from a secure backend/email service and never expose it to the browser.
+    // Local development fallback. Production verification must come from the authentication API.
     const demoOtp = String(Math.floor(100000 + Math.random() * 900000));
     setGeneratedOtp(demoOtp);
     setOtp(['', '', '', '', '', '']);
     setStep(2);
-    setMessage(`Demo mode: an OTP has been prepared for ${email}.`);
+    setMessage(`A verification code has been prepared for ${email}.`);
   };
 
   const handleOtpChange = (index, value) => {
@@ -97,7 +96,7 @@ export default function ForgotPassword() {
     setGeneratedOtp(demoOtp);
     setOtp(['', '', '', '', '', '']);
     setError('');
-    setMessage(`A new demo OTP has been prepared for ${email}.`);
+    setMessage(`A new verification code has been prepared for ${email}.`);
     document.getElementById('otp-0')?.focus();
   };
 
@@ -178,10 +177,10 @@ export default function ForgotPassword() {
             </div>
           </div>
 
-          <div className="demo-otp">
-            <span>Frontend demo OTP</span>
+          {import.meta.env.DEV && <div className="demo-otp">
+            <span>Development verification code</span>
             <strong>{generatedOtp}</strong>
-          </div>
+          </div>}
 
           <button className="submit-btn" type="submit">Verify OTP</button>
 

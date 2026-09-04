@@ -4,9 +4,10 @@ import DashboardLayout from "../components/DashboardLayout";
 import Icon from "../components/Icon";
 import Pagination from "../components/Pagination";
 import SmartTable from "../components/SmartTable";
+import {getPeriodChart,getPeriodLabels,getPeriodMetrics} from "../services/analytics";
 
 // -----------------------------------------------------------------------------
-// Demo data
+// Marketplace data
 // -----------------------------------------------------------------------------
 
 const users = [
@@ -198,373 +199,60 @@ function Metric({ label, value, change, icon }) {
 
 function GenericAdminTable({ title, subtitle, type }) {
   let rows;
+  if(type==='users') rows=users.map((u,i)=>({...u,id:u.id||`USR-${i+1}`}));
+  else if(type==='vendors') rows=vendors.map(v=>({...v,status:v.status||'Approved'}));
+  else if(type==='products') rows=products.map(p=>({...p,status:p.status||'Published'}));
+  else if(type==='categories') rows=categories.map((name,index)=>({id:index+1,name,products:[148,122,98,86,72,64,54,41][index]||35,status:'Active'}));
+  else if(type==='orders') rows=demoOrders;
+  else rows=users;
 
-  if (type === "users") {
-    rows = users;
-  } else if (type === "vendors") {
-    rows = vendors;
-  } else if (type === "products") {
-    rows = products;
-  } else if (type === "categories") {
-    rows = categories.map((name, index) => ({
-      id: index + 1,
-      name,
-      products:
-        [148, 122, 98, 86, 72, 64, 54, 41][index] || 35,
-      status: "Active",
-    }));
-  } else if (type === "orders") {
-    rows = demoOrders;
-  } else {
-    rows = users;
-  }
-
-  const storageKey = `mvec_admin_${type}`;
-  const [list, setList] = useState(() => { try { return JSON.parse(localStorage.getItem(storageKey)) || rows; } catch { return rows; } });
-  const [query, setQuery] = useState("");
-  const [editing, setEditing] = useState(null);
-  const [viewing, setViewing] = useState(null);
-  const [deleting, setDeleting] = useState(null);
-  const [page, setPage] = useState(1);
-
-  const perPage = 6;
-
-  const filtered = list.filter((item) =>
-    JSON.stringify(item)
-      .toLowerCase()
-      .includes(query.toLowerCase())
-  );
-
-  const totalPages = Math.max(
-    1,
-    Math.ceil(filtered.length / perPage)
-  );
-
-  const currentPage = Math.min(page, totalPages);
-
-  const shown = filtered.slice(
-    (currentPage - 1) * perPage,
-    currentPage * perPage
-  );
-
-  function deleteItem(item) {
-    const next = list.filter((entry) => entry !== item); setList(next); localStorage.setItem(storageKey, JSON.stringify(next));
-    setDeleting(null);
-    if (shown.length === 1 && currentPage > 1) setPage(currentPage - 1);
-  }
-
-  return (
-    <DashboardLayout admin>
-      <div className="dash-page-head">
-        <div>
-          <span className="eyebrow">SUPER ADMIN</span>
-
-          <h1>{title}</h1>
-
-          <p>{subtitle}</p>
-        </div>
-
-        <button className="gradient-btn" onClick={() => setEditing({id:`NEW-${Date.now()}`, name:"", email:"", role:type==="vendors"?"Vendor":type==="users"?"Buyer":"", status:"Active"})}>
-          <Icon name="plus" /> Add new
-        </button>
-      </div>
-
-      <div className="dash-toolbar">
-        <div className="dash-filter">
-          <Icon name="search" />
-
-          <input
-            value={query}
-            onChange={(event) => {
-              setQuery(event.target.value);
-              setPage(1);
-            }}
-            placeholder={`Search ${title.toLowerCase()}...`}
-          />
-        </div>
-
-        <button className="filter-btn">
-          Filter ▾
-        </button>
-
-        <button className="filter-btn">
-          Export CSV
-        </button>
-      </div>
-
-      <div className="data-card">
-        <div className="data-card-head">
-          <div>
-            <h3>{title}</h3>
-            <span>{filtered.length} records</span>
-          </div>
-
-          <span className="muted">
-            Create · Read · Update · Delete
-          </span>
-        </div>
-
-        <div className="data-table">
-          {/* USERS */}
-          {type === "users" && (
-            <>
-              <div className="data-row table-label">
-                <span>User</span>
-                <span>Email</span>
-                <span>Role</span>
-                <span>Status</span>
-                <span>Actions</span>
-              </div>
-
-              {shown.map((item, index) => (
-                <div className="data-row" key={index}>
-                  <span>
-                    <b>{item.name}</b>
-                  </span>
-
-                  <span>{item.email}</span>
-
-                  <span>{item.role}</span>
-
-                  <span>
-                    <em className="status active">
-                      {item.status}
-                    </em>
-                  </span>
-
-                  <span className="row-actions">
-                    <button type="button" onClick={() => setEditing(item)}>
-                      <Icon name="edit" />
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => deleteItem(item)}
-                    >
-                      <Icon name="trash" />
-                    </button>
-                  </span>
-                </div>
-              ))}
-            </>
-          )}
-
-          {/* VENDORS */}
-          {type === "vendors" && (
-            <>
-              <div className="data-row table-label">
-                <span>Store</span>
-                <span>Category</span>
-                <span>Products</span>
-                <span>Rating</span>
-                <span>Status</span>
-                <span>Actions</span>
-              </div>
-
-              {shown.map((item) => (
-                <div className="data-row" key={item.id}>
-                  <span>
-                    <b>{item.name}</b>
-                  </span>
-
-                  <span>{item.category}</span>
-
-                  <span>{item.products}</span>
-
-                  <span>★ {item.rating}</span>
-
-                  <span>
-                    <em className="status active">
-                      Approved
-                    </em>
-                  </span>
-
-                  <span className="row-actions">
-                    <button type="button" title="View vendor" onClick={() => setViewing(item)}>
-                      <Icon name="eye" />
-                    </button>
-                    <button type="button" title="Edit vendor" onClick={() => setEditing(item)}>
-                      <Icon name="edit" />
-                    </button>
-                    <button type="button" title="Delete vendor" onClick={() => setDeleting(item)}>
-                      <Icon name="trash" />
-                    </button>
-                  </span>
-                </div>
-              ))}
-            </>
-          )}
-
-          {/* PRODUCTS */}
-          {type === "products" && (
-            <>
-              <div className="data-row table-label">
-                <span>Product</span>
-                <span>Vendor</span>
-                <span>Price</span>
-                <span>Stock</span>
-                <span>Status</span>
-                <span>Actions</span>
-              </div>
-
-              {shown.map((item) => (
-                <div className="data-row" key={item.id}>
-                  <span>
-                    <b>{item.name}</b>
-                  </span>
-
-                  <span>{item.vendor}</span>
-
-                  <span>{money(item.price)}</span>
-
-                  <span>{item.stock}</span>
-
-                  <span>
-                    <em className="status active">
-                      Published
-                    </em>
-                  </span>
-
-                  <span className="row-actions">
-                    <button type="button" onClick={() => setEditing(item)}>
-                      <Icon name="edit" />
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => deleteItem(item)}
-                    >
-                      <Icon name="trash" />
-                    </button>
-                  </span>
-                </div>
-              ))}
-            </>
-          )}
-
-          {/* ORDERS */}
-          {type === "orders" && (
-            <>
-              <div className="data-row table-label">
-                <span>Order</span>
-                <span>Buyer</span>
-                <span>Vendor</span>
-                <span>Total</span>
-                <span>Payment</span>
-                <span>Action</span>
-              </div>
-
-              {shown.map((item) => (
-                <div className="data-row" key={item.id}>
-                  <span>
-                    <b>{item.id}</b>
-                  </span>
-
-                  <span>{item.buyer}</span>
-
-                  <span>{item.vendor}</span>
-
-                  <span>{money(item.total)}</span>
-
-                  <span>
-                    <em
-                      className={`status ${
-                        item.payment === "SUCCESS"
-                          ? "active"
-                          : "warning"
-                      }`}
-                    >
-                      {item.payment}
-                    </em>
-                  </span>
-
-                  <span className="row-actions">
-                    <button type="button" onClick={() => setEditing(item)}>
-                      <Icon name="edit" />
-                    </button>
-                  </span>
-                </div>
-              ))}
-            </>
-          )}
-
-          {/* CATEGORIES */}
-          {type === "categories" && (
-            <>
-              <div className="data-row table-label">
-                <span>Category</span>
-                <span>Products</span>
-                <span>Status</span>
-                <span>Actions</span>
-              </div>
-
-              {shown.map((item) => (
-                <div className="data-row" key={item.id}>
-                  <span>
-                    <b>{item.name}</b>
-                  </span>
-
-                  <span>{item.products}</span>
-
-                  <span>
-                    <em className="status active">
-                      {item.status}
-                    </em>
-                  </span>
-
-                  <span className="row-actions">
-                    <button type="button" onClick={() => setEditing(item)}>
-                      <Icon name="edit" />
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => deleteItem(item)}
-                    >
-                      <Icon name="trash" />
-                    </button>
-                  </span>
-                </div>
-              ))}
-            </>
-          )}
-        </div>
-
-        <Pagination
-          page={currentPage}
-          setPage={setPage}
-          total={filtered.length}
-          perPage={perPage}
-        />
-      </div>
-      {editing && <AdminEditModal value={editing} isNew={String(editing.id).startsWith("NEW-")} onCancel={() => setEditing(null)} onSave={(next) => {
-        const isNew = String(editing.id).startsWith("NEW-");
-        const saved = isNew ? [{...next, id: Date.now()} , ...list] : list.map(x => x.id === editing.id ? next : x);
-        setList(saved); localStorage.setItem(storageKey, JSON.stringify(saved)); setEditing(null);
-      }} />}
-      {viewing && type === "vendors" && <VendorQuickView vendor={viewing} onClose={() => setViewing(null)} />}
-      {deleting && type === "vendors" && <DeleteVendorModal vendor={deleting} onCancel={() => setDeleting(null)} onDelete={() => deleteItem(deleting)} />}
-    </DashboardLayout>
-  );
+  const storageKey=`mvec_admin_${type}`;
+  const normalize=(saved)=>{
+    if(type!=='vendors') return saved;
+    return saved.map((item,index)=>{const seed=vendors.find(v=>v.id===item.id||v.name===item.name)||vendors[index]||{};return {...seed,...item,category:item.category||seed.category||'General',products:Number(item.products??seed.products??products.filter(p=>p.vendor===item.name).length),rating:item.rating||seed.rating||0,status:item.status||'Approved'};});
+  };
+  const [list,setList]=useState(()=>{try{const saved=JSON.parse(localStorage.getItem(storageKey));return normalize(saved||rows)}catch{return normalize(rows)}});
+  const [editing,setEditing]=useState(null); const [viewing,setViewing]=useState(null);
+  const readOnly=type==='users'||type==='vendors';
+  const persist=next=>{setList(next);localStorage.setItem(storageKey,JSON.stringify(next))};
+  const addNew=()=>{
+    if(type==='products')setEditing({id:`NEW-${Date.now()}`,name:'',vendor:'',price:0,stock:0,status:'Draft'});
+    else if(type==='categories')setEditing({id:`NEW-${Date.now()}`,name:'',products:0,status:'Active'});
+    else if(type==='orders')setEditing({id:`NEW-${Date.now()}`,buyer:'',vendor:'',total:0,payment:'PENDING',status:'Processing'});
+  };
+  const columns= type==='users' ? [
+    {key:'name',label:'User'},{key:'email',label:'Email'},{key:'role',label:'Role'},{key:'status',label:'Status',render:r=><em className={'status '+(r.status==='Active'?'active':'warning')}>{r.status}</em>}
+  ] : type==='vendors' ? [
+    {key:'name',label:'Store'},{key:'category',label:'Category'},{key:'products',label:'Products'},{key:'rating',label:'Rating',render:r=>`★ ${r.rating}`},{key:'status',label:'Status',render:r=><em className="status active">{r.status||'Approved'}</em>}
+  ] : type==='products' ? [
+    {key:'name',label:'Product'},{key:'vendor',label:'Vendor'},{key:'price',label:'Price',render:r=>money(r.price)},{key:'stock',label:'Stock'},{key:'status',label:'Status',render:r=><em className={'status '+(r.status==='Published'?'active':'warning')}>{r.status}</em>}
+  ] : type==='orders' ? [
+    {key:'id',label:'Order'},{key:'buyer',label:'Buyer'},{key:'vendor',label:'Vendor'},{key:'total',label:'Total',render:r=>money(r.total)},{key:'payment',label:'Payment',render:r=><em className={'status '+(r.payment==='SUCCESS'?'active':'warning')}>{r.payment}</em>},{key:'status',label:'Status'}
+  ] : [
+    {key:'name',label:'Category'},{key:'products',label:'Products'},{key:'status',label:'Status',render:r=><em className={'status '+(r.status==='Active'?'active':'warning')}>{r.status}</em>}
+  ];
+  return <DashboardLayout admin><div className="dash-page-head"><div><span className="eyebrow">SUPER ADMIN</span><h1>{title}</h1><p>{subtitle}</p></div>{!readOnly&&<button className="gradient-btn" onClick={addNew}><Icon name="plus"/> Add new</button>}</div>{readOnly&&<div className="verified-box"><b>Account data is protected</b><p>Administrators can review account information here, but personal identity fields such as names and email addresses are not editable from this page.</p></div>}<div className="data-card"><div className="data-card-head"><div><h3>{title}</h3><span>{list.length} records</span></div><span className="muted">{readOnly?'View-only account records':'Marketplace management records'}</span></div><SmartTable columns={columns} rows={list} rowKey={(r,i)=>r.id||r.email||r.name||i} searchPlaceholder={`Search ${title.toLowerCase()}…`} exportName={`admin-${type}`} actions={readOnly?(item=><button className="table-action-btn" onClick={()=>setViewing(item)}><Icon name="eye"/> View</button>):(item=><><button title="Edit" onClick={()=>setEditing(item)}><Icon name="edit"/></button>{type!=='orders'&&<button title="Delete" onClick={()=>{if(window.confirm(`Delete ${item.name||item.id}?`))persist(list.filter(x=>x!==item))}}><Icon name="trash"/></button>}</>)}/></div>{editing&&<AdminEditModal value={editing} isNew={String(editing.id).startsWith('NEW-')} onCancel={()=>setEditing(null)} onSave={next=>{const isNew=String(editing.id).startsWith('NEW-');persist(isNew?[{...next,id:Date.now()},...list]:list.map(x=>x===editing?next:x));setEditing(null)}}/>}{viewing&&type==='vendors'&&<VendorQuickView vendor={viewing} onClose={()=>setViewing(null)}/>} {viewing&&type==='users'&&<AdminRecordView title="User account" record={viewing} onClose={()=>setViewing(null)}/>}</DashboardLayout>;
 }
 
+function AdminRecordView({title,record,onClose}){return <div className="modal-backdrop" onMouseDown={onClose}><div className="modal" onMouseDown={e=>e.stopPropagation()}><button className="modal-close" onClick={onClose}>×</button><span className="eyebrow">ACCOUNT REVIEW</span><h2>{title}</h2><div className="vendor-detail-grid">{Object.entries(record).filter(([k])=>k!=='id').map(([k,v])=><div key={k}><span>{k.replace(/([A-Z])/g,' $1')}</span><b>{String(v)}</b></div>)}</div><button className="gradient-btn" onClick={onClose}>Done</button></div></div>}
+
 function VendorQuickView({vendor,onClose}){return <div className="modal-backdrop"><div className="modal vendor-view-modal"><button className="modal-close" onClick={onClose}>×</button><span className="eyebrow">VENDOR PROFILE</span><h2>{vendor.name}</h2><p>MVEC marketplace vendor overview.</p><div className="vendor-detail-grid"><div><span>Category</span><b>{vendor.category}</b></div><div><span>Products</span><b>{vendor.products}</b></div><div><span>Rating</span><b>★ {vendor.rating}</b></div><div><span>Status</span><b className="status active">Approved</b></div><div><span>Vendor ID</span><b>VND-{String(vendor.id).padStart(4,'0')}</b></div><div><span>Trust</span><b>Verified ✓</b></div></div><div className="verified-box"><b>🔒 Protected settlement</b><p>Eligible order funds are shown as held by MVEC until delivery confirmation and release according to the marketplace workflow.</p></div><button className="gradient-btn" onClick={onClose}>Done</button></div></div>}
-function DeleteVendorModal({vendor,onCancel,onDelete}){return <div className="modal-backdrop"><div className="modal confirm-modal"><button className="modal-close" onClick={onCancel}>×</button><div className="danger-icon">!</div><h2>Delete this vendor?</h2><p>You are about to delete <strong>{vendor.name}</strong>. This action removes the vendor from the current frontend dataset. Are you sure you want to continue?</p><div className="modal-actions"><button className="outline-btn" onClick={onCancel}>Cancel</button><button className="danger-btn" onClick={onDelete}>Yes, delete vendor</button></div></div></div>}
+function DeleteVendorModal({vendor,onCancel,onDelete}){return <div className="modal-backdrop"><div className="modal confirm-modal"><button className="modal-close" onClick={onCancel}>×</button><div className="danger-icon">!</div><h2>Delete this vendor?</h2><p>You are about to delete <strong>{vendor.name}</strong>. This action removes the vendor from the marketplace records. Are you sure you want to continue?</p><div className="modal-actions"><button className="outline-btn" onClick={onCancel}>Cancel</button><button className="danger-btn" onClick={onDelete}>Yes, delete vendor</button></div></div></div>}
 
 function AdminEditModal({value,isNew,onCancel,onSave}){
  const [row,setRow]=useState(value);
  const fields=Object.keys(row).filter(k=>k!=="id" && k!=="image");
- return <div className="modal-backdrop"><div className="modal" onMouseDown={e=>e.stopPropagation()}><button className="modal-close" onClick={onCancel}>×</button><h2>{isNew?"Add":"Edit"} record</h2><p>Changes are saved to the current MVEC frontend data set.</p>{fields.map(k=><label className="field" key={k}><span>{k.replace(/([A-Z])/g," $1")}</span><input value={row[k]??""} onChange={e=>setRow({...row,[k]:e.target.value})}/></label>)}<div className="modal-actions"><button className="outline-btn" onClick={onCancel}>Cancel</button><button className="gradient-btn" onClick={()=>onSave(row)}>Save changes</button></div></div></div>;
+ return <div className="modal-backdrop"><div className="modal" onMouseDown={e=>e.stopPropagation()}><button className="modal-close" onClick={onCancel}>×</button><h2>{isNew?"Add":"Edit"} record</h2><p>Update the marketplace record and save your changes.</p>{fields.map(k=><label className="field" key={k}><span>{k.replace(/([A-Z])/g," $1")}</span><input value={row[k]??""} onChange={e=>setRow({...row,[k]:e.target.value})}/></label>)}<div className="modal-actions"><button className="outline-btn" onClick={onCancel}>Cancel</button><button className="gradient-btn" onClick={()=>onSave(row)}>Save changes</button></div></div></div>;
 }
 
-function AdminReports(){const rows=[['Marketplace revenue','01 Aug – 27 Aug','18,450,000 RWF'],['Vendor sales','01 Aug – 27 Aug','12,840,000 RWF'],['Transactions','01 Aug – 27 Aug','428'],['Refunds','01 Aug – 27 Aug','14'],['Platform commission','01 Aug – 27 Aug','2,760,000 RWF']];return <DashboardLayout admin><div className="dash-page-head"><div><span className="eyebrow">ADMIN CONTROL</span><h1>Reports</h1><p>Platform-wide revenue, vendors, orders, payments and marketplace performance.</p></div><button className="gradient-btn">Export report</button></div><div className="metric-grid"><Metric label="Revenue" value="18.45M RWF" change="+12.4%" icon="chart"/><Metric label="Orders" value="428" change="+8.2%" icon="cart"/><Metric label="Vendors" value="86" change="+6.1%" icon="shop"/><Metric label="Commission" value="2.76M RWF" change="+10.3%" icon="wallet"/></div><div className="data-card"><div className="data-card-head"><div><h3>Platform reports</h3><span>Frontend demo data · ready for API</span></div><select><option>30 Days</option><option>3 Months</option><option>1 Year</option></select></div><SmartTable columns={[{key:'report',label:'Report',render:r=><b>{r.report}</b>},{key:'range',label:'Range'},{key:'summary',label:'Summary'}]} rows={rows.map(r=>({report:r[0],range:r[1],summary:r[2]}))} rowKey={r=>r.report} searchPlaceholder="Search reports…" actions={r=><button className="filter-btn">Export</button>}/></div></DashboardLayout>}
-function AdminSettings(){return <DashboardLayout admin><div className="dash-page-head"><div><span className="eyebrow">ADMIN CONTROL</span><h1>Platform Settings</h1><p>Configure marketplace-wide rules and system behavior.</p></div><button className="gradient-btn">Save changes</button></div><div className="settings-grid"><div className="data-card"><h3>Marketplace</h3><label className="field"><span>Marketplace name</span><input defaultValue="MVEC"/></label><label className="field"><span>Default currency</span><select defaultValue="RWF"><option>RWF</option><option>USD</option></select></label><label className="field"><span>Vendor approval</span><select defaultValue="Manual"><option>Manual</option><option>Automatic</option></select></label></div><div className="data-card"><h3>Commerce rules</h3><label className="field"><span>Platform commission</span><input defaultValue="10%"/></label><label className="field"><span>Order cancellation window</span><input defaultValue="24 hours"/></label><label className="field"><span>Reviews moderation</span><select defaultValue="Required"><option>Required</option><option>Optional</option></select></label></div><div className="data-card"><h3>Notifications</h3><label className="field"><span>Order notifications</span><select defaultValue="Enabled"><option>Enabled</option><option>Disabled</option></select></label><label className="field"><span>Shipping notifications</span><select defaultValue="Enabled"><option>Enabled</option><option>Disabled</option></select></label><label className="field"><span>Payout notifications</span><select defaultValue="Enabled"><option>Enabled</option><option>Disabled</option></select></label></div></div></DashboardLayout>}
+function AdminReports(){const [period,setPeriod]=useState('30 Days');const metrics=getPeriodMetrics(period);const rows=[['Marketplace revenue',period,money(metrics.sales)],['Vendor sales',period,money(Math.round(metrics.sales*.696))],['Transactions',period,metrics.orders],['Refunds',period,Math.max(1,Math.round(metrics.orders*.033))],['Platform commission',period,money(Math.round(metrics.sales*.1496))]].map(r=>({report:r[0],range:r[1],summary:r[2]}));return <DashboardLayout admin><div className="dash-page-head"><div><span className="eyebrow">ADMIN CONTROL</span><h1>Reports</h1><p>Platform-wide revenue, vendors, orders, payments and marketplace performance.</p></div><select className="period-select" value={period} onChange={e=>setPeriod(e.target.value)}><option>30 Days</option><option>3 Months</option><option>1 Year</option></select></div><div className="metric-grid"><Metric label="Revenue" value={money(metrics.sales)} change={`${period} revenue`} icon="chart"/><Metric label="Orders" value={metrics.orders} change={`${period} orders`} icon="cart"/><Metric label="Vendors" value="86" change="Active marketplace vendors" icon="shop"/><Metric label="Commission" value={money(Math.round(metrics.sales*.1496))} change={`${period} commission`} icon="wallet"/></div><div className="data-card"><div className="data-card-head"><div><h3>Platform reports</h3><span>{period} reporting data</span></div></div><SmartTable columns={[{key:'report',label:'Report',render:r=><b>{r.report}</b>},{key:'range',label:'Range'},{key:'summary',label:'Summary'}]} rows={rows} rowKey={r=>r.report} searchPlaceholder="Search reports…" exportName="admin-platform-reports"/></div></DashboardLayout>}
+function AdminSettings(){const initial={marketplaceName:'MVEC',currency:'RWF',vendorApproval:'Manual',commission:'10%',cancellation:'24 hours',reviews:'Required',orders:'Enabled',shipping:'Enabled',payouts:'Enabled'};const [settings,setSettings]=useState(()=>{try{return JSON.parse(localStorage.getItem('mvec_admin_settings'))||initial}catch{return initial}});const [saved,setSaved]=useState(false);const u=(key,value)=>setSettings(s=>({...s,[key]:value}));const save=()=>{localStorage.setItem('mvec_admin_settings',JSON.stringify(settings));setSaved(true);setTimeout(()=>setSaved(false),1800)};return <DashboardLayout admin><div className="dash-page-head"><div><span className="eyebrow">ADMIN CONTROL</span><h1>Platform Settings</h1><p>Configure marketplace-wide rules and system behavior.</p></div><button className="gradient-btn" onClick={save}>Save changes</button></div>{saved&&<div className="success-text">Platform settings saved.</div>}<div className="settings-grid"><div className="data-card"><h3>Marketplace</h3><label className="field"><span>Marketplace name</span><input value={settings.marketplaceName} onChange={e=>u('marketplaceName',e.target.value)}/></label><label className="field"><span>Default currency</span><select value={settings.currency} onChange={e=>u('currency',e.target.value)}><option>RWF</option><option>USD</option></select></label><label className="field"><span>Vendor approval</span><select value={settings.vendorApproval} onChange={e=>u('vendorApproval',e.target.value)}><option>Manual</option><option>Automatic</option></select></label></div><div className="data-card"><h3>Commerce rules</h3><label className="field"><span>Platform commission</span><input value={settings.commission} onChange={e=>u('commission',e.target.value)}/></label><label className="field"><span>Order cancellation window</span><input value={settings.cancellation} onChange={e=>u('cancellation',e.target.value)}/></label><label className="field"><span>Reviews moderation</span><select value={settings.reviews} onChange={e=>u('reviews',e.target.value)}><option>Required</option><option>Optional</option></select></label></div><div className="data-card"><h3>Notifications</h3><label className="field"><span>Order notifications</span><select value={settings.orders} onChange={e=>u('orders',e.target.value)}><option>Enabled</option><option>Disabled</option></select></label><label className="field"><span>Shipping notifications</span><select value={settings.shipping} onChange={e=>u('shipping',e.target.value)}><option>Enabled</option><option>Disabled</option></select></label><label className="field"><span>Payout notifications</span><select value={settings.payouts} onChange={e=>u('payouts',e.target.value)}><option>Enabled</option><option>Disabled</option></select></label></div></div></DashboardLayout>}
 
 // -----------------------------------------------------------------------------
 // Admin Dashboard
 // -----------------------------------------------------------------------------
 
-export default function AdminDashboard() {
+export default function AdminDashboard() {const [chartPeriod,setChartPeriod]=useState('30'); const [createOpen,setCreateOpen]=useState(false); const chartKey=chartPeriod==='7'?'7 Days':chartPeriod==='30'?'30 Days':chartPeriod==='90'?'3 Months':'1 Year'; const chart=getPeriodChart(chartKey); const labels=getPeriodLabels(chartKey); const periodMetrics=getPeriodMetrics(chartKey);
   const location = useLocation();
   const path = location.pathname;
 
@@ -630,7 +318,7 @@ export default function AdminDashboard() {
           </p>
         </div>
 
-        <button className="gradient-btn">
+        <button className="gradient-btn" onClick={()=>setCreateOpen(true)}>
           <Icon name="plus" />
           Create record
         </button>
@@ -640,29 +328,29 @@ export default function AdminDashboard() {
       <div className="metric-grid">
         <Metric
           label="Gross sales"
-          value="18.45M RWF"
-          change="+12.4% this month"
+          value={money(periodMetrics.sales)}
+          change={`${chartKey} revenue`}
           icon="chart"
         />
 
         <Metric
           label="Orders"
-          value={adminStats.orders}
-          change="+8.2% this month"
+          value={periodMetrics.orders}
+          change={`${chartKey} orders`}
           icon="cart"
         />
 
         <Metric
           label="Customers"
-          value="1,842"
-          change="+14.8% this month"
+          value={periodMetrics.customers}
+          change={`${chartKey} active customers`}
           icon="users"
         />
 
         <Metric
           label="Vendors"
-          value={adminStats.vendors}
-          change="6 awaiting review"
+          value={periodMetrics.activeVendors}
+          change="Active in selected period"
           icon="shop"
         />
       </div>
@@ -679,7 +367,7 @@ export default function AdminDashboard() {
               </span>
             </div>
 
-            <select defaultValue="30">
+            <select value={chartPeriod} onChange={e=>setChartPeriod(e.target.value)}>
               <option value="7">
                 7 days
               </option>
@@ -699,27 +387,14 @@ export default function AdminDashboard() {
           </div>
 
           <div className="fake-chart">
-            {[
-              36,
-              48,
-              44,
-              61,
-              55,
-              68,
-              63,
-              75,
-              69,
-              83,
-              78,
-              95,
-            ].map((height, index) => (
+            {chart.map((height, index) => (
               <div
                 key={index}
                 style={{
                   height: `${height}%`,
                 }}
               >
-                <span>{index + 1}</span>
+                <span>{labels[index]}</span>
               </div>
             ))}
           </div>
@@ -893,6 +568,7 @@ export default function AdminDashboard() {
             );
           })}
       </div>
+      {createOpen&&<div className="modal-backdrop" onMouseDown={()=>setCreateOpen(false)}><div className="modal" onMouseDown={e=>e.stopPropagation()}><button className="modal-close" onClick={()=>setCreateOpen(false)}>×</button><span className="eyebrow">CREATE RECORD</span><h2>Choose a record type</h2><p>Create marketplace records from the correct management area.</p><div className="quick-actions"><Link to="/admin/products" onClick={()=>setCreateOpen(false)}><span><Icon name="box"/></span><div><b>Product</b><small>Add or manage a product record</small></div></Link><Link to="/admin/categories" onClick={()=>setCreateOpen(false)}><span><Icon name="tag"/></span><div><b>Category</b><small>Add or manage a category</small></div></Link><Link to="/admin/orders" onClick={()=>setCreateOpen(false)}><span><Icon name="cart"/></span><div><b>Order</b><small>Review order records</small></div></Link></div></div></div>}
     </DashboardLayout>
   );
 }

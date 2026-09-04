@@ -5,7 +5,7 @@ const MOCK_USERS_KEY='mvec_users';
 const seeded=[
  {id:'u1',fullName:'Aline Uwase',telephone:'+250788100001',email:'buyer@mvec.rw',gender:'female',role:'buyer',password:'Buyer@123',companyName:''},
   {id:'u4',fullName:'Rwanda Wholesale Supplier',telephone:'+250788100004',email:'supplier@mvec.rw',gender:'other',role:'supplier',password:'Supplier@123',companyName:'Rwanda Wholesale Suppliers'},
-  {id:'u5',fullName:'MVEC Affiliate Demo',telephone:'+250788100005',email:'affiliate@mvec.rw',gender:'other',role:'affiliate',password:'Affiliate@123',companyName:''},
+  {id:'u5',fullName:'MVEC Affiliate Network',telephone:'+250788100005',email:'affiliate@mvec.rw',gender:'other',role:'affiliate',password:'Affiliate@123',companyName:''},
   {id:'u2',fullName:'Eric Mugabo',telephone:'+250788100002',email:'vendor@mvec.rw',gender:'male',role:'vendor',password:'Vendor@123',companyName:'Kigali Tech Store'},
  {id:'u3',fullName:'MVEC Administrator',telephone:'+250788100003',email:'admin@mvec.rw',gender:'other',role:'super_admin',password:'Admin@123',companyName:'MVEC Platform'},
 ];
@@ -14,7 +14,7 @@ function users(){
  if(!raw){localStorage.setItem(MOCK_USERS_KEY,JSON.stringify(seeded));return seeded;}
  let list=[];
  try{list=JSON.parse(raw);if(!Array.isArray(list)) throw new Error('invalid users');}catch{list=[...seeded];}
- // Keep demo accounts deterministic across previous browser sessions, while removing the old delivery demo account.
+ // Keep seeded accounts deterministic across previous browser sessions.
  const demoIds=new Set(['u1','u2','u3','u4','u5']);
  const byId=new Map(list.map(u=>[u.id,u]));
  seeded.forEach(seed=>byId.set(seed.id,{...(byId.get(seed.id)||{}),...seed}));
@@ -22,7 +22,7 @@ function users(){
  localStorage.setItem(MOCK_USERS_KEY,JSON.stringify(normalized));
  return normalized;
 }
-function mockLogin(identity,password){ const u=users().find(x=>(x.email.toLowerCase()===identity.toLowerCase()||x.telephone===identity)&&x.password===password); if(!u) throw new Error('Invalid email/telephone or password. Try one of the demo accounts.'); const {password:_,...safe}=u; return {token:`mock-${u.id}-${Date.now()}`,user:safe}; }
+function mockLogin(identity,password){ const u=users().find(x=>(x.email.toLowerCase()===identity.toLowerCase()||x.telephone===identity)&&x.password===password); if(!u) throw new Error('Invalid email/telephone or password. Please check your credentials and try again.'); const {password:_,...safe}=u; return {token:`mock-${u.id}-${Date.now()}`,user:safe}; }
 function mockRegister(payload){ const list=users(); if(list.some(x=>x.telephone===payload.telephone||(payload.email&&x.email&&x.email.toLowerCase()===payload.email.toLowerCase()))) throw new Error('An account with that email or telephone already exists.'); const u={id:`u${Date.now()}`,...payload}; list.push(u); localStorage.setItem(MOCK_USERS_KEY,JSON.stringify(list)); const {password:_,...safe}=u; return {token:`mock-${u.id}`,user:safe}; }
 export function AuthProvider({children}){
  const [user,setUser]=useState(null); const [loading,setLoading]=useState(true);

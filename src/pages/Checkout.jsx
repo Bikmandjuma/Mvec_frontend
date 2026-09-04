@@ -4,7 +4,7 @@ import Storefront from "../components/Storefront";
 import {products} from "../data";
 import {useMarketplace} from "../context/MarketplaceContext";
 import {useAuth} from "../context/AuthContext";
-import {createOrder, calculateCommission} from "../services/mvecStore";
+import {createOrder, snapshotOrderPricing} from "../services/mvecStore";
 
 const money=n=>new Intl.NumberFormat("en-RW").format(Number(n)||0)+" RWF";
 
@@ -14,11 +14,12 @@ export default function Checkout(){
   const {user}=useAuth();
   const pid=params.get("product"), p=products.find(x=>String(x.id)===pid);
   const items=useMemo(()=>p?[{...p,qty:Number(params.get("qty")||1)}]:cart,[p,cart,params]);
-  const [form,setForm]=useState({name:user?.fullName||"",phone:user?.telephone||"",email:user?.email||"",address:"KG 11 Ave, Kigali",method:"standard"});
+  const [form,setForm]=useState({name:user?.fullName||"",phone:user?.telephone||"",email:user?.email||"",province:"Kigali City",district:"Gasabo",sector:"Remera",address:"KG 11 Ave, Kigali",method:"standard"});
   const [error,setError]=useState("");
   const subtotal=items.reduce((s,x)=>s+x.price*(x.qty||1),0);
-  const shipping=form.method==="express"?10000:5000;
-  const total=subtotal+shipping;
+  const shipping=form.province==="Kigali City"?0:(form.method==="express"?10000:5000);
+  const pricing=snapshotOrderPricing(items,shipping,0,false);
+  const total=pricing.buyerTotal;
   function update(e){setForm({...form,[e.target.name]:e.target.value});}
   function continuePayment(e){
     e.preventDefault(); setError("");
@@ -27,14 +28,15 @@ export default function Checkout(){
     const order=createOrder({
       buyer:user?.fullName||form.name,buyerPhone:form.phone,buyerEmail:form.email||"",
       vendor:items[0].vendor, items:items.map(x=>({productId:x.id,name:x.name,qty:x.qty,price:x.price,image:x.image,vendor:x.vendor})),
-      subtotal,shipping,total,address:form.address,deliveryMethod:form.method,
-      commission:calculateCommission(subtotal), paymentMethod:null
+      subtotal,shipping,total,address:form.address,province:form.province,district:form.district,sector:form.sector,deliveryMethod:form.method,
+      pricing, commission:pricing.mvecCommission, paymentMethod:null,
+      internalSettlement:{baseProductPrice:pricing.basePrice,mvecCommission:pricing.mvecCommission,deliveryAllocation:pricing.delivery,discount:pricing.discount,vendorSettlement:pricing.vendorSettlement}
     });
     if(!p) clearCart();
     navigate(`/payment/${order.id}`);
   }
   return <Storefront><main className="checkout-page">
-    <div className="page-title"><span className="eyebrow">CHECKOUT</span><h1>Complete your order</h1><p>Simple checkout with phone-first delivery and direct payment.</p></div>
+    <div className="page-title"><span className="eyebrow">CHECKOUT</span><h1>Complete your order</h1><p>Simple phone-first checkout with protected MVEC settlement.</p></div>
     <div className="checkout-steps"><span className="active">1 Customer & delivery</span><span>2 Payment</span><span>3 Confirmation</span></div>
     {error&&<div className="form-alert error">{error}</div>}
     <form onSubmit={continuePayment}><div className="checkout-layout"><section className="checkout-main">
@@ -42,14 +44,14 @@ export default function Checkout(){
         <div className="two-col"><label className="field"><span>Name</span><input name="name" value={form.name} onChange={update} required/></label><label className="field"><span>Phone</span><input name="phone" value={form.phone} onChange={update} placeholder="+250 7xx xxx xxx" required/></label></div>
         <label className="field"><span>Email (optional)</span><input name="email" type="email" value={form.email} onChange={update} placeholder="you@example.com"/></label>
       </div>
-      <div className="form-card"><h2>Delivery address</h2><label className="field"><span>Where should we deliver?</span><input name="address" value={form.address} onChange={update} placeholder="Street, sector, district" required/></label>
-        <div className="delivery-options"><label><input type="radio" checked={form.method==="standard"} onChange={()=>setForm({...form,method:"standard"})}/> Standard delivery <b>5,000 RWF</b></label><label><input type="radio" checked={form.method==="express"} onChange={()=>setForm({...form,method:"express"})}/> Express delivery <b>10,000 RWF</b></label></div>
+      <div className="form-card"><h2>Delivery address</h2><div className="two-col"><label className="field"><span>Province / City</span><select name="province" value={form.province} onChange={update}><option>Kigali City</option><option>Northern Province</option><option>Southern Province</option><option>Eastern Province</option><option>Western Province</option></select></label><label className="field"><span>District</span><input name="district" value={form.district} onChange={update} placeholder="District"/></label></div><div className="two-col"><label className="field"><span>Sector</span><input name="sector" value={form.sector} onChange={update} placeholder="Sector"/></label><label className="field"><span>Street / landmark</span><input name="address" value={form.address} onChange={update} placeholder="Street, landmark" required/></label></div>
+        <div className="delivery-options"><label><input type="radio" checked={form.method==="standard"} onChange={()=>setForm({...form,method:"standard"})}/> Standard delivery <b>{form.province==="Kigali City"?"FREE":"5,000 RWF"}</b></label><label><input type="radio" checked={form.method==="express"} onChange={()=>setForm({...form,method:"express"})}/> Express delivery <b>10,000 RWF</b></label></div>
         <p className="tiny">Delivery is fulfilled by the seller or an assigned delivery partner. Delivery proof is recorded when the order arrives.</p>
       </div>
       <div className="form-card"><h2>Order items</h2>{items.map(x=><div className="mini-item" key={x.id}><img src={x.image} alt=""/><div><b>{x.name}</b><span>{x.vendor} · Qty {x.qty}</span></div><strong>{money(x.price*x.qty)}</strong></div>)}</div>
     </section><aside className="summary-card"><h2>Order summary</h2><div><span>Products</span><b>{money(subtotal)}</b></div><div><span>Shipping</span><b>{money(shipping)}</b></div><div><span>Platform fees</span><b>Included where applicable</b></div><hr/><div className="grand"><span>Grand total</span><strong>{money(total)}</strong></div>
       <button className="gradient-btn full" type="submit">Continue to payment</button><Link to="/cart" className="back-link">← Back to cart</Link>
-      <div className="verified-box"><b>✓ Clear payment flow</b><p>Your payment is processed by a payment partner. MVEC does not hold buyer funds in this MVP.</p></div>
+      <div className="verified-box"><b>✓ Clear payment flow</b><p>Your payment is processed through an appropriate payment partner. In the protected workflow, funds are recorded as HELD until delivery is confirmed.</p></div>
     </aside></div></form>
   </main></Storefront>
 }
