@@ -13,12 +13,24 @@ const normalizeCartItem = (item) => {
   const prod = item.product || {};
   if (typeof prod === 'object' && prod !== null) {
     const media = prod.media || {};
+    const vendor = prod.vendor || {};
+    const vendorName = typeof vendor === 'object' && vendor !== null
+      ? (vendor.companyName || vendor.fullName || vendor.businessName || vendor.name || 'MVEC Seller')
+      : (vendor || 'MVEC Seller');
     return {
       ...prod,
       id: prod._id || prod.id,
       qty: item.quantity || item.qty || 1,
       price: item.price != null ? item.price : (prod.discountPrice || prod.price),
       image: media.mainImage || (Array.isArray(prod.media) ? prod.media[0] : null) || prod.image || '',
+      vendor: vendorName,
+    };
+  }
+  if (item.vendor && typeof item.vendor === 'object') {
+    const vendor = item.vendor;
+    return {
+      ...item,
+      vendor: vendor.companyName || vendor.fullName || vendor.businessName || vendor.name || 'MVEC Seller',
     };
   }
   return item;
@@ -64,11 +76,16 @@ export function MarketplaceProvider({ children }) {
 
   const addToCart = useCallback(async (product, qty = 1) => {
     if (!user) {
+      const vendor = product.vendor || {};
+      const vendorName = typeof vendor === 'object' && vendor !== null
+        ? (vendor.companyName || vendor.fullName || vendor.businessName || vendor.name || 'MVEC Seller')
+        : (vendor || 'MVEC Seller');
+      const productToStore = { ...product, vendor: vendorName, quantity: qty };
       setCart((prev) => {
         const existing = prev.findIndex(x => String(x._id || x.id) === String(product._id || product.id));
         const next = existing >= 0
           ? prev.map((x, i) => i === existing ? { ...x, quantity: (x.quantity || 1) + qty } : x)
-          : [...prev, { ...product, quantity: qty }];
+          : [...prev, productToStore];
         localStorage.setItem('mvec_cart', JSON.stringify(next));
         return next;
       });
@@ -134,11 +151,16 @@ export function MarketplaceProvider({ children }) {
 
   const toggleWishlist = useCallback((product) => {
     const pid = product._id || product.id;
+    const vendor = product.vendor || {};
+    const vendorName = typeof vendor === 'object' && vendor !== null
+      ? (vendor.companyName || vendor.fullName || vendor.businessName || vendor.name || 'MVEC Seller')
+      : (vendor || 'MVEC Seller');
+    const productToStore = { ...product, vendor: vendorName };
     setWishlist((prev) => {
       const exists = prev.some(x => String(x._id || x.id) === String(pid));
       const next = exists
         ? prev.filter(x => String(x._id || x.id) !== String(pid))
-        : [...prev, product];
+        : [...prev, productToStore];
       localStorage.setItem('mvec_wishlist', JSON.stringify(next));
       return next;
     });

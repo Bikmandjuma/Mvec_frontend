@@ -32,6 +32,7 @@ import DashboardLayout from "./components/DashboardLayout";
 import NotificationPanel from "./components/NotificationPanel";
 import MobileBottomNav from "./components/MobileBottomNav";
 import FeaturePages from "./pages/FeaturePages";
+import AffiliateRedirect from "./components/AffiliateRedirect";
 import {
   CommissionRules,
   FinancialLedger,
@@ -352,6 +353,7 @@ export default function App() {
           </RequireAuth>
         }
       />
+      <Route path="/track/:code" element={<AffiliateRedirect />} />
       <Route
         path="/delivery/messages"
         element={

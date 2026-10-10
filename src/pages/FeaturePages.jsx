@@ -13,6 +13,7 @@ import {disputesApi} from '../API/disputes';
 import {adminApi} from '../API/admin';
 import {mapBackendProduct} from '../services/catalogApi';
 import {extractErrorMessage} from '../API/client';
+import ProductImage from '../components/ProductImage';
 
 const money=n=>new Intl.NumberFormat('en-RW').format(Number(n)||0)+' RWF';
 const dateDMY=d=>new Date(d).toLocaleDateString('en-GB');
@@ -64,11 +65,35 @@ const moduleConfig={
 
 function VendorCategories(){
  const [rows,setRows]=useState([]);const [loading,setLoading]=useState(true);const [error,setError]=useState('');
- useEffect(()=>{categoriesApi.getAll().then(res=>setRows(res.categories||[])).catch(err=>setError(extractErrorMessage(err))).finally(()=>setLoading(false));},[]);
+ useEffect(()=>{
+  let alive=true;
+  (async()=>{
+   try{
+    // Both calls hit the database: /api/categories (per-category counts) and
+    // /api/products/vendor/me (the signed-in vendor's own products).
+    const [catRes,prodRes]=await Promise.all([
+     categoriesApi.getAll(),
+     productsApi.getVendorProducts().catch(()=>null),
+    ]);
+    if(!alive) return;
+    const mine=new Map();
+    (prodRes?.products||[]).forEach(p=>{
+     const cid=String(p.category?._id||p.category||'');
+     if(cid) mine.set(cid,(mine.get(cid)||0)+1);
+    });
+    setRows((catRes.categories||[]).map(c=>{
+     const id=String(c._id||c.id||'');
+     return {...c,id,myProducts:mine.has(id)?mine.get(id):(Number(c.myProductCount)||0),productCount:Number(c.productCount)||0};
+    }));
+   }catch(err){ if(alive) setError(extractErrorMessage(err)); }
+   finally{ if(alive) setLoading(false); }
+  })();
+  return ()=>{alive=false};
+ },[]);
  return <><Header eyebrow="VENDOR · CATEGORIES" title="Category management" desc="Marketplace-wide categories your products can belong to."/>
   {error&&<div className="form-error">{error}</div>}
   <div className="data-card">{loading&&<div className="empty-state"><h3>Loading…</h3></div>}
-   {!loading&&<SmartTable columns={[{key:'name',label:'Category'},{key:'products',label:'Products',render:r=>r._count?.products??0},{key:'status',label:'Status',render:r=><em className={'status '+(r.active?'active':'warning')}>{r.active?'Active':'Inactive'}</em>}]} rows={rows} rowKey={r=>r.id} searchPlaceholder="Search categories…" empty="No categories yet."/>}
+   {!loading&&<SmartTable columns={[{key:'name',label:'Category'},{key:'myProducts',label:'My Products',render:r=>Number(r.myProducts)||0},{key:'productCount',label:'Marketplace',render:r=>Number(r.productCount)||0},{key:'status',label:'Status',render:r=><em className={'status '+(r.active?'active':'warning')}>{r.active?'Active':'Inactive'}</em>}]} rows={rows} rowKey={r=>r.id||r._id} searchPlaceholder="Search categories…" empty="No categories yet."/>}
   </div></>;
 }
 
@@ -203,7 +228,7 @@ function BuyerCompare(){
     {error && <div className="form-error">{error}</div>}
     {!loading && !error && products.length===0 && <div className="empty-state"><h3>No products to compare yet</h3></div>}
     <div className="dash-grid">
-      {products.map(p=><div className="data-card" key={p.id}><img className="module-product-image" src={p.image} alt=""/><h3>{p.name}</h3><p>{p.vendor}</p><strong>{money(p.price)}</strong><div className="comparison-list"><span>Rating <b>★ {p.rating}</b></span><span>Stock <b>{p.stock}</b></span><span>Seller <b>Verified ✓</b></span><span>Category <b>{p.category}</b></span></div></div>)}
+      {products.map(p=><div className="data-card" key={p.id}><ProductImage className="module-product-image" src={p.image} alt=""/><h3>{p.name}</h3><p>{p.vendor}</p><strong>{money(p.price)}</strong><div className="comparison-list"><span>Rating <b>★ {p.rating}</b></span><span>Stock <b>{p.stock}</b></span><span>Seller <b>Verified ✓</b></span><span>Category <b>{p.category}</b></span></div></div>)}
     </div>
   </>;
 }
@@ -225,7 +250,7 @@ function BuyerRecommendations(){
     {error && <div className="form-error">{error}</div>}
     {!loading && !error && products.length===0 && <div className="empty-state"><h3>No recommendations yet</h3><p>Browse the shop to see personalized picks appear here.</p></div>}
     <div className="product-grid">
-      {products.map(p=><div className="product-card" key={p.id}><Link to={`/product/${p.id}`} className="product-img"><img src={p.image} alt={p.name}/></Link><div className="product-info"><small>{personalized?'Recommended for you':'Trending'}</small><Link to={`/product/${p.id}`} className="product-name">{p.name}</Link><b>{money(p.price)}</b></div></div>)}
+      {products.map(p=><div className="product-card" key={p.id}><Link to={`/product/${p.id}`} className="product-img"><ProductImage src={p.image} alt={p.name}/></Link><div className="product-info"><small>{personalized?'Recommended for you':'Trending'}</small><Link to={`/product/${p.id}`} className="product-name">{p.name}</Link><b>{money(p.price)}</b></div></div>)}
     </div>
   </>;
 }

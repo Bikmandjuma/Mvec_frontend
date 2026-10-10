@@ -102,7 +102,14 @@ function GenericAdminTable({ title, subtitle, type }) {
       }));
     }
     if (type === "categories") {
-      return list.map((c) => ({ id: c.id, name: c.name, products: c._count?.products ?? 0, status: c.active ? "Active" : "Inactive" }));
+      return list.map((c) => ({
+        id: c.id,
+        name: c.name,
+        products: c.productCount ?? c._count?.products ?? 0,
+        status: c.active ? "Active" : "Inactive",
+        productCount: c.productCount ?? c._count?.products ?? 0,
+        hasSubcategories: false, // Will be checked on delete
+      }));
     }
     if (type === "orders") {
       return list.map((o) => ({
@@ -144,12 +151,70 @@ function GenericAdminTable({ title, subtitle, type }) {
     }
   };
 
-  return <DashboardLayout admin><div className="dash-page-head"><div><span className="eyebrow">SUPER ADMIN</span><h1>{title}</h1><p>{subtitle}</p></div></div><div className="verified-box"><b>Live marketplace data</b><p>This list is read directly from the MVEC database. User actions update the account record and take effect across the marketplace.</p></div><div className="data-card"><div className="data-card-head"><div><h3>{title}</h3><span>{meta.total} records</span></div>{type==='users'&&<label className="field"><span>Filter by role</span><select value={roleFilter} onChange={e=>{setRoleFilter(e.target.value);setPage(1);}}><option value="">All roles</option><option value="buyer">Buyers</option><option value="vendor">Vendors</option><option value="affiliate">Affiliates</option><option value="supplier">Suppliers</option><option value="super_admin">Administrators</option><option value="developer">Developers</option></select></label>}</div><span className="muted">Marketplace records from the database</span>{loading && <div className="empty-state"><h3>Loading…</h3></div>}{!loading && error && <div className="empty-state"><h3>Couldn't load {title.toLowerCase()}</h3><p>{error}</p></div>}{!loading && !error && <SmartTable columns={columns} rows={rows} rowKey={(r,i)=>r.id||r.email||r.name||i} searchPlaceholder={`Search ${title.toLowerCase()}…`} exportName={`admin-${type}`} actions={item=><>{type==='users'&&item.role!=='super_admin'&&<button className="table-action-btn" disabled={busyId===item.id} onClick={()=>toggleUserBlock(item)}>{item.status==='Active'?'Block':'Unblock'}</button>}<button className="table-action-btn" onClick={()=>setViewing(item)}><Icon name="eye"/> View</button></>}/>}{!loading && !error && meta.total > 20 && <Pagination page={page} setPage={setPage} total={meta.total} perPage={20}/>}</div>{viewing&&<AdminRecordView title={`${title.slice(0,-1)} record`} record={viewing} onClose={()=>setViewing(null)}/>}</DashboardLayout>;
+  function deleteCategory(category) {
+    if (category.products && category.products > 0) {
+      window.alert(`Cannot delete category "${category.name}": It has ${category.products} product(s). Please reassign or remove all products before deleting.`);
+      return;
+    }
+    if (window.confirm(`Delete category "${category.name}"? This will soft-delete the category (set it as inactive).`)) {
+      setBusyId(category.id);
+      categoriesApi.delete(category.id).then((res) => {
+        const message = res?.message || "Operation completed";
+        setList((current) => current.map((c) => (c.id === category.id ? { ...c, active: false, status: "Inactive" } : c)));
+        window.alert(message || "Category successfully disabled");
+        setBusyId(null);
+      }).catch((err) => {
+        window.alert(extractErrorMessage(err));
+        setBusyId(null);
+      });
+    }
+  };
+
+  return (
+    <DashboardLayout admin>
+      <div className="dash-page-head"><div><span className="eyebrow">SUPER ADMIN</span><h1>{title}</h1><p>{subtitle}</p></div></div>
+      <div className="verified-box"><b>Live marketplace data</b><p>This list is read directly from the MVEC database. User actions update the account record and take effect across the marketplace.</p></div>
+      <div className="data-card">
+        <div className="data-card-head">
+          <div><h3>{title}</h3><span>{meta.total} records</span></div>
+          {type === "users" && <label className="field"><span>Filter by role</span><select value={roleFilter} onChange={e => { setRoleFilter(e.target.value); setPage(1); }}><option value="">All roles</option><option value="buyer">Buyers</option><option value="vendor">Vendors</option><option value="affiliate">Affiliates</option><option value="supplier">Suppliers</option><option value="super_admin">Administrators</option><option value="developer">Developers</option></select></label>}
+        </div>
+        <span className="muted">Marketplace records from the database</span>
+        {loading && <div className="empty-state"><h3>Loading…</h3></div>}
+        {!loading && error && <div className="empty-state"><h3>Couldn't load {title.toLowerCase()}</h3><p>{error}</p></div>}
+        {!loading && !error && <SmartTable columns={columns} rows={rows} rowKey={(r, i) => r.id || r.email || r.name || i} searchPlaceholder={`Search ${title.toLowerCase()}…`} exportName={`admin-${type}`} actions={item => <>
+          {type === "users" && item.role !== "super_admin" && <button className="table-action-btn" disabled={busyId === item.id} onClick={() => toggleUserBlock(item)}>{item.status === "Active" ? "Block" : "Unblock"}</button>}
+          <button className="table-action-btn" onClick={() => setViewing(item)}><Icon name="eye" /> View</button>
+          {type === "categories" && <button className="table-action-btn" onClick={() => deleteCategory(item)}><Icon name="trash" /> Delete</button>}
+        </>} />}
+        {!loading && !error && meta.total > 20 && <Pagination page={page} setPage={setPage} total={meta.total} perPage={20} />}
+      </div>
+      {viewing && <AdminRecordView title={`${title.slice(0, -1)} record`} record={viewing} onClose={() => setViewing(null)} />}
+    </DashboardLayout>
+  );
 }
 function AdminRecordView({title,record,onClose}){return <div className="modal-backdrop" onMouseDown={onClose}><div className="modal" onMouseDown={e=>e.stopPropagation()}><button className="modal-close" onClick={onClose}>×</button><span className="eyebrow">ACCOUNT REVIEW</span><h2>{title}</h2><div className="vendor-detail-grid">{Object.entries(record).filter(([k])=>k!=='id').map(([k,v])=><div key={k}><span>{k.replace(/([A-Z])/g,' $1')}</span><b>{String(v)}</b></div>)}</div><button className="gradient-btn" onClick={onClose}>Done</button></div></div>}
 
 function VendorQuickView({vendor,onClose}){return <div className="modal-backdrop"><div className="modal vendor-view-modal"><button className="modal-close" onClick={onClose}>×</button><span className="eyebrow">VENDOR PROFILE</span><h2>{vendor.name}</h2><p>MVEC marketplace vendor overview.</p><div className="vendor-detail-grid"><div><span>Category</span><b>{vendor.category}</b></div><div><span>Products</span><b>{vendor.products}</b></div><div><span>Rating</span><b>★ {vendor.rating}</b></div><div><span>Status</span><b className="status active">Approved</b></div><div><span>Vendor ID</span><b>VND-{String(vendor.id).padStart(4,'0')}</b></div><div><span>Trust</span><b>Verified ✓</b></div></div><div className="verified-box"><b>🔒 Protected settlement</b><p>Eligible order funds are shown as held by MVEC until delivery confirmation and release according to the marketplace workflow.</p></div><button className="gradient-btn" onClick={onClose}>Done</button></div></div>}
 function DeleteVendorModal({vendor,onCancel,onDelete}){return <div className="modal-backdrop"><div className="modal confirm-modal"><button className="modal-close" onClick={onCancel}>×</button><div className="danger-icon">!</div><h2>Delete this vendor?</h2><p>You are about to delete <strong>{vendor.name}</strong>. This action removes the vendor from the marketplace records. Are you sure you want to continue?</p><div className="modal-actions"><button className="outline-btn" onClick={onCancel}>Cancel</button><button className="danger-btn" onClick={onDelete}>Yes, delete vendor</button></div></div></div>}
+
+function DeleteCategoryModal({category,onCancel,onDelete}) {
+  const productCount = category.products || 0;
+  return <div className="modal-backdrop">
+    <div className="modal confirm-modal">
+      <button className="modal-close" onClick={onCancel}>×</button>
+      <div className="danger-icon">!</div>
+      <h2>Delete this category?</h2>
+      <p>
+        This category has {productCount} product(s).{productCount > 0 ? ' Please reassign or remove all products before deleting.' : ' You may proceed with deletion.'}
+      </p>
+      <div className="modal-actions">
+        <button className="outline-btn" onClick={onCancel}>Cancel</button>
+        <button className="danger-btn" onClick={onDelete}>Yes, delete category</button>
+      </div>
+    </div>
+  </div>;
+}
 
 function AdminEditModal({value,isNew,onCancel,onSave}){
  const [row,setRow]=useState(value);
@@ -332,7 +397,7 @@ export default function AdminDashboard() {const [createOpen,setCreateOpen]=useSt
         <div className="data-card chart-card">
           <div className="data-card-head">
             <div>
-              <h3>MVEC revenue today</h3>
+              <h3>MVEC revenue</h3>
               <span>Platform commission earned across all vendors</span>
             </div>
           </div>

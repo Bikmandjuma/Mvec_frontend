@@ -6,6 +6,7 @@ import { reviewsApi } from '../API/reviews';
 import Icon from '../components/Icon';
 import { useAuth } from '../context/AuthContext';
 import { useMarketplace } from '../context/MarketplaceContext';
+import ProductImage from '../components/ProductImage';
 
 const money = n => new Intl.NumberFormat('en-RW').format(Number(n) || 0) + ' RWF';
 
@@ -21,13 +22,17 @@ export default function ProductDetails() {
   const [reviews, setReviews] = useState([]);
 
   useEffect(() => {
+    if (!id || id === 'undefined') {
+      setLoading(false);
+      return undefined;
+    }
     let mounted = true;
     loadCatalog().then(res => {
       if (!mounted) return;
       setCatalog(res.products || []);
     }).finally(() => mounted && setLoading(false));
     return () => { mounted = false; };
-  }, []);
+  }, [id]);
 
   const p = catalog.find(x => String(x.id) === id || String(x.publicId) === id);
 
@@ -54,7 +59,7 @@ export default function ProductDetails() {
   return <Storefront><main className="detail-page">
     <div className="breadcrumbs"><Link to="/">Home</Link> / <Link to="/shop">Shop</Link> / {p.name}</div>
     <section className="detail-card">
-      <div className="detail-gallery"><img src={p.image} alt={p.name} /></div>
+      <div className="detail-gallery"><ProductImage src={p.image} alt={p.name} /></div>
       <div className="detail-copy">
         <small>{p.category} · SKU {p.sku}</small>
         <h1>{p.name}</h1>

@@ -33,6 +33,10 @@ export default function DeliveryTracking({ role = "vendor" }) {
   const shown = filtered.slice((page - 1) * perPage, page * perPage);
 
   const verify = async (orderId) => {
+    if (!orderId || orderId === "undefined") {
+      setFeedback((f) => ({ ...f, [orderId || "unknown"]: "error:This delivery has no valid order ID." }));
+      return;
+    }
     const otp = (otpInputs[orderId] || "").trim();
     if (otp.length !== 6) return;
     setBusyId(orderId);
@@ -40,7 +44,7 @@ export default function DeliveryTracking({ role = "vendor" }) {
     try {
       await ordersApi.confirmDelivery(orderId, otp);
       setFeedback((f) => ({ ...f, [orderId]: "success:Delivery confirmed. Funds released." }));
-      setOrders((prev) => prev.filter((o) => o.id !== orderId));
+      setOrders((prev) => prev.filter((o) => String(o.id || o._id) !== String(orderId)));
     } catch (err) {
       setFeedback((f) => ({ ...f, [orderId]: `error:${extractErrorMessage(err)}` }));
     } finally {
@@ -63,12 +67,13 @@ export default function DeliveryTracking({ role = "vendor" }) {
       {shown.length === 0 && <div className="empty-state"><h3>No deliveries pending</h3><p>Paid orders awaiting delivery confirmation will appear here.</p></div>}
 
       {shown.map((o) => {
+        const orderId = o.id || o._id;
         const idx = Math.max(0, STEPS.indexOf(o.orderStatus));
         const vendorName = o.items?.[0]?.vendor?.companyName || o.items?.[0]?.vendor?.fullName || "Marketplace seller";
-        const msg = feedback[o.id] || "";
+        const msg = feedback[orderId] || "";
         const [msgType, msgText] = msg.includes(":") ? msg.split(/:(.*)/s) : ["", msg];
         return (
-          <div className="delivery-track-card" key={o.id}>
+          <div className="delivery-track-card" key={orderId}>
             <div className="delivery-track-head">
               <div><b>{o.orderNumber}</b><small>{o.items?.[0]?.name || "Order"}</small><small>{o.user?.fullName || "Buyer"} · {vendorName}</small></div>
               <div className="settlement-chip"><span className="held">Funds held by MVEC</span><strong>{money(o.totalAmount)}</strong></div>
@@ -84,13 +89,13 @@ export default function DeliveryTracking({ role = "vendor" }) {
               <input
                 inputMode="numeric"
                 maxLength="6"
-                value={otpInputs[o.id] || ""}
-                onChange={(e) => setOtpInputs((s) => ({ ...s, [o.id]: e.target.value.replace(/\D/g, "").slice(0, 6) }))}
+                value={otpInputs[orderId] || ""}
+                onChange={(e) => setOtpInputs((s) => ({ ...s, [orderId]: e.target.value.replace(/\D/g, "").slice(0, 6) }))}
                 placeholder="Enter buyer's 6-digit OTP"
                 className="inline-table-input"
               />
-              <button className="gradient-btn compact-btn" onClick={() => verify(o.id)} disabled={(otpInputs[o.id] || "").length !== 6 || busyId === o.id}>
-                {busyId === o.id ? "Verifying…" : "Confirm delivery"}
+              <button className="gradient-btn compact-btn" onClick={() => verify(orderId)} disabled={(otpInputs[orderId] || "").length !== 6 || busyId === orderId}>
+                {busyId === orderId ? "Verifying…" : "Confirm delivery"}
               </button>
             </div>
             {msgText && <small className={msgType === "success" ? "success-text" : "form-alert error"}>{msgText}</small>}

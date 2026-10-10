@@ -1,5 +1,7 @@
 import { client } from "./client";
 
+const withOrderId = (order) => ({ ...order, id: order?.id || order?._id });
+
 export const ordersApi = {
   checkout: (payload) => {
     const shippingAddress = payload.shippingAddress || {};
@@ -52,15 +54,22 @@ export const ordersApi = {
   getVendorOrders: () =>
     client.get("/orders/vendor/orders").then((r) => r.data),
   getDeliverable: () =>
-    client.get("/orders/deliverable").then((r) => r.data),
-  getById: (id) =>
-    client.get(`/orders/${id}`).then((r) => r.data),
+    client.get("/orders/deliverable").then((r) => ({
+      ...r.data,
+      orders: (r.data.orders || []).map(withOrderId),
+    })),
+  getById: (id) => {
+    if (!id || id === "undefined") return Promise.reject(new Error("A valid order ID is required."));
+    return client.get(`/orders/${id}`).then((r) => r.data);
+  },
   updateStatus: (id, status) =>
     client.patch(`/orders/${id}/status`, { status }).then((r) => r.data),
   updateVendorOrderStatus: (payload) =>
     client.patch("/orders/vendor/status", payload).then((r) => r.data),
-  confirmDelivery: (id, deliveryOtp) =>
-    client.patch(`/orders/${id}/deliver`, { deliveryOtp }).then((r) => r.data),
+  confirmDelivery: (id, deliveryOtp) => {
+    if (!id || id === "undefined") return Promise.reject(new Error("A valid order ID is required."));
+    return client.patch(`/orders/${id}/deliver`, { deliveryOtp }).then((r) => r.data);
+  },
   cancel: (id) =>
     client.post(`/orders/${id}/cancel`).then((r) => r.data),
 };

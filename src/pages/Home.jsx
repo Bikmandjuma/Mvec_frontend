@@ -6,6 +6,7 @@ import Storefront from "../components/Storefront";
 import Icon from "../components/Icon";
 import { useAuth } from "../context/AuthContext";
 import { useMarketplace } from "../context/MarketplaceContext";
+import ProductImage from "../components/ProductImage";
 const money = (n) => new Intl.NumberFormat("en-RW").format(n) + " RWF";
 function ProductCard({ p }) {
   const { user } = useAuth();
@@ -23,7 +24,7 @@ function ProductCard({ p }) {
   return (
     <div className="product-card">
       <Link to={`/product/${p.id}`} className="product-img">
-        <img src={p.image} alt={p.name} />
+        <ProductImage src={p.image} alt={p.name} />
         <button
           className={"quick-heart " + (wished ? "wish-active" : "")}
           onClick={save}
@@ -114,7 +115,7 @@ export default function Home() {
                 to={`/product/${p.id}`}
                 className={`hero-product-card hero-product-${i}`}
               >
-                <img src={p.image} alt={p.name} />
+                <ProductImage src={p.image} alt={p.name} />
                 <span>{p.name}</span>
                 <b>{money(p.price)}</b>
               </Link>
@@ -126,7 +127,7 @@ export default function Home() {
             <div className="moving-track">
               {[...products, ...products].map((p, i) => (
                 <Link to={`/product/${p.id}`} key={i} className="moving-product">
-                  <img src={p.image} alt="" />
+                  <ProductImage src={p.image} alt="" />
                   <span>{p.name}</span>
                   <b>{money(p.price)}</b>
                 </Link>
@@ -227,7 +228,7 @@ export default function Home() {
                 to={`/product/${p.id}`}
                 className={`banner-product banner-${i}`}
               >
-                <img src={p.image} alt={p.name} />
+                <ProductImage src={p.image} alt={p.name} />
               </Link>
             ))}
           </div>

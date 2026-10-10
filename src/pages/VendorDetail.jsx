@@ -5,6 +5,7 @@ import { vendorsApi } from '../API/vendors';
 import { productsApi } from '../API/products';
 import { mapBackendProduct } from '../services/catalogApi';
 import { extractErrorMessage } from '../API/client';
+import ProductImage from '../components/ProductImage';
 
 const money = n => new Intl.NumberFormat('en-RW').format(Number(n) || 0) + ' RWF';
 
@@ -60,7 +61,7 @@ export default function VendorDetail() {
         <div className="product-grid">
           {products.map(p => (
             <div className="product-card" key={p.id}>
-              <Link to={`/product/${p.id}`} className="product-img"><img src={p.image} alt="" /></Link>
+              <Link to={`/product/${p.id}`} className="product-img"><ProductImage src={p.image} alt="" /></Link>
               <div className="product-info">
                 <small>{p.category}</small>
                 <Link className="product-name" to={`/product/${p.id}`}>{p.name}</Link>

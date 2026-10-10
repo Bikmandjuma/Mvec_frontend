@@ -1,7 +1,14 @@
 import axios from "axios";
 
 const BASE_URL =
-  import.meta.env.VITE_API_URL || "http://192.168.1.71:4000/api";
+  import.meta.env.VITE_API_URL || "http://localhost:4000/api";
+
+export { BASE_URL };
+
+// Origin the REST API (and /uploads static files) are served from. Kept here
+// so the API client and every image URL resolve to the exact same host — two
+// different fallbacks used to make calls go to one host and images to another.
+export const API_ORIGIN = BASE_URL.replace(/\/api\/?$/, "").replace(/\/$/, "");
 
 export const client = axios.create({ baseURL: BASE_URL });
 

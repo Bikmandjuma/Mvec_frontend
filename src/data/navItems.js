@@ -103,10 +103,81 @@ export const deliveryNavGroups = [
   { label: 'Support', items: [['/delivery/messages','Messages','users'],['/delivery/settings','Settings','settings']] },
 ];
 
-export function navGroupsForRole(role, admin){
+// ─── PERMISSION-AWARE NAVIGATION ─────────────────────────────────────────────
+// Team/staff members must only see the sections they are allowed to use.
+// Backend is always the authority (checkStaffPermission / supplier team roles);
+// this only keeps the sidebar honest so members are not pointed at 403s.
+
+// Vendor staff permission required per section (Staff.permissions keys).
+const VENDOR_SECTION_PERMISSIONS = {
+  '/vendor/products': 'canManageProducts',
+  '/vendor/inventory': 'canManageProducts',
+  '/vendor/categories': 'canManageProducts',
+  '/vendor/promotions': 'canManageProducts',
+  '/vendor/orders': 'canManageOrders',
+  '/vendor/purchases': 'canManageOrders',
+  '/vendor/customers': 'canManageOrders',
+  '/vendor/refunds': 'canManageOrders',
+  '/vendor/delivery': 'canManageOrders',
+  '/vendor/payouts': 'canManagePayouts',
+  '/vendor/transactions': 'canManagePayouts',
+  '/vendor/analytics': 'canViewAnalytics',
+  '/vendor/reports': 'canViewAnalytics',
+  '/vendor/team': 'canManageStaff',
+  '/vendor/stores': 'canManageSettings',
+  '/vendor/shipping': 'canManageSettings',
+  '/vendor/settings': 'canManageSettings',
+  '/vendor/advertisements': 'canManageSettings',
+  '/vendor/subscription': 'canManageSettings',
+};
+
+// Supplier team role capabilities — mirrors the backend CAPABILITIES_BY_ROLE.
+const SUPPLIER_ROLE_CAPABILITIES = {
+  OPERATIONS: ['catalog', 'supply', 'analytics'],
+  WAREHOUSE: ['supply'],
+  FULFILMENT: ['supply'],
+  FINANCE: ['finance', 'analytics'],
+  VIEWER: [],
+};
+
+const SUPPLIER_SECTION_CAPABILITIES = {
+  '/supplier/products': 'catalog',
+  '/supplier/inventory': 'catalog',
+  '/supplier/orders': 'supply',
+  '/supplier/supply-requests': 'supply',
+  '/supplier/payments': 'finance',
+  '/supplier/team': 'team',
+  '/supplier/settings': 'profile',
+};
+
+function visibleGroups(groups, isVisible) {
+  return groups
+    .map((group) => ({ ...group, items: group.items.filter(isVisible) }))
+    .filter((group) => group.items.length > 0);
+}
+
+function filterGroupsForUser(groups, role, user) {
+  if (!user) return groups;
+  if (role === 'vendor' && user.isVendorStaff && user.permissionsMap) {
+    return visibleGroups(groups, ([href]) => {
+      const needed = VENDOR_SECTION_PERMISSIONS[href];
+      return !needed || user.permissionsMap[needed] === true;
+    });
+  }
+  if (role === 'supplier' && user.supplierTeamRole) {
+    const capabilities = SUPPLIER_ROLE_CAPABILITIES[user.supplierTeamRole] || [];
+    return visibleGroups(groups, ([href]) => {
+      const needed = SUPPLIER_SECTION_CAPABILITIES[href];
+      return !needed || capabilities.includes(needed);
+    });
+  }
+  return groups;
+}
+
+export function navGroupsForRole(role, admin, user){
   if (admin) return adminNavGroups;
-  if (role==='supplier') return supplierNavGroups;
+  if (role==='supplier') return filterGroupsForUser(supplierNavGroups, role, user);
   if (role==='affiliate') return affiliateNavGroups;
   if (role==='delivery') return deliveryNavGroups;
-  return sellerNavGroups;
+  return filterGroupsForUser(sellerNavGroups, role, user);
 }

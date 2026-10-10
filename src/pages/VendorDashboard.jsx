@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react';
-import { createPortal } from 'react-dom';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import DashboardLayout from '../components/DashboardLayout';
 import Icon from '../components/Icon';
@@ -7,19 +6,26 @@ import Pagination from '../components/Pagination';
 import DeliveryTracking from '../components/DeliveryTracking';
 import NotificationPanel from '../components/NotificationPanel';
 import { productsApi } from '../API/products';
-import { categoriesApi } from '../API/categories';
-import { uploadsApi } from '../API/uploads';
 import { ordersApi } from '../API/orders';
 import { payoutsApi } from '../API/payouts';
+import { storesApi } from '../API/stores';
+import { promotionsApi } from '../API/promotions';
+import { shippingApi } from '../API/shipping';
+import { reviewsApi } from '../API/reviews';
+import { suppliersApi } from '../API/suppliers';
+import { wholesaleApi } from '../API/wholesale';
 import { extractErrorMessage } from '../API/client';
 import { clearCatalogCache } from '../services/catalogApi';
 import RestrictedOverview from '../components/dashboard/RestrictedOverview';
 import { staffApi } from '../API/staff';
 import AddTeamMemberModal from '../components/team/AddTeamMemberModal';
+import ProductImage from '../components/ProductImage';
+import ProductFormModal from '../components/vendor/ProductFormModal';
 
 const money = n => new Intl.NumberFormat('en-RW').format(Number(n) || 0) + ' RWF';
 const readJSON = (key, fallback) => { try { const v = JSON.parse(localStorage.getItem(key)); return v ?? fallback; } catch { return fallback; } };
 
+/* Legacy demo module data removed from the rendered dashboard. Live modules below load from the API.
 const modules = {
   stores:[['Kigali Tech Store','Electronics','148','4.9','Active'],['Kigali Tech Outlet','Computers','64','4.7','Pending']],
   customers:[['Aline Uwase','12','2,450,000 RWF','26 Aug 2026'],['Jean Paul','7','1,180,000 RWF','26 Aug 2026'],['Mugisha Eric','5','780,000 RWF','27 Aug 2026'],['Claudine Mukamana','3','425,000 RWF','27 Aug 2026'],['Patrick N.','2','214,000 RWF','27 Aug 2026'],['Diane U.','9','1,920,000 RWF','25 Aug 2026'],['Kevin M.','4','530,000 RWF','24 Aug 2026']],
@@ -29,7 +35,7 @@ const modules = {
   team:[['Eric M.','Owner','All permissions','Active'],['Sarah K.','Store Manager','Products, Orders, Analytics','Active'],['David N.','Inventory Manager','Inventory, Products','Active'],['Alice R.','Sales Staff','Orders, Customers','Active']],
   reports:[['Sales report','01 Aug - 27 Aug','Live in Analytics','View'],['Product performance','01 Aug - 27 Aug','Live in Products','View'],['Inventory report','Today','Live in Inventory','View']],
   settings:[['Store information','Manage in Store Settings','Active','N/A'],['Business information','Rwanda · Kigali','Complete','N/A'],['Payment & payouts','Configured via Payouts','Configured','N/A'],['Shipping','Kigali / Outside Kigali','Configured','N/A'],['Notifications','Orders · Stock · Payouts','Enabled','N/A'],['Security','Password + sessions','Protected','N/A']],
-};
+}; */
 
 const cfg={
  stores:{title:'My Stores',desc:'Manage your store identity, status and policies.',headers:['Store','Category','Products','Rating','Status'],icon:'shop'},
@@ -81,114 +87,6 @@ function SellerOverview(){
   </>;
 }
 
-const emptyProduct={name:'',sku:'',categoryId:'',brand:'',shortDescription:'',description:'',price:'',discountPrice:'',costPrice:'',stockQuantity:'',lowStockThreshold:5,status:'DRAFT',mainImage:'',gallery:[],color:'',size:'',material:'',weight:'',capacity:'',model:''};
-const withCategoryId = category => ({ ...category, id: category.id || category._id || '' });
-
-function ProductForm({product,onSave,onCancel,saving}){
-  const [form,setForm]=useState(()=>{
-    if(!product) return {...emptyProduct};
-    return {
-      ...emptyProduct,...product,
-      categoryId: product.category?.id || product.category?._id || product.categoryId || '',
-      mainImage: product.media?.mainImage || product.mainImage || '',
-      gallery: Array.isArray(product.media?.gallery) ? product.media.gallery : Array.isArray(product.gallery) ? product.gallery : [],
-      color: product.attributes?.color ?? product.color ?? '',
-      size: product.attributes?.size ?? product.size ?? '',
-      material: product.attributes?.material ?? product.material ?? '',
-      weight: product.attributes?.weight ?? product.weight ?? '',
-      capacity: product.attributes?.capacity ?? product.capacity ?? '',
-      model: product.attributes?.model ?? product.model ?? '',
-    };
-  });
-  const [categories,setCategories]=useState([]);
-  const [newCategory,setNewCategory]=useState('');
-  const [error,setError]=useState('');
-  const [notice,setNotice]=useState('');
-
-  useEffect(()=>{ categoriesApi.getAll().then(res=>setCategories((res.categories||[]).map(withCategoryId))).catch(()=>{}); },[]);
-
-  const update=e=>setForm(f=>({...f,[e.target.name]:e.target.value}));
-  const addCategory=async()=>{
-    const name=newCategory.trim();
-    if(!name) return;
-    setNotice('');
-    try{
-      const res=await categoriesApi.create({name});
-      const category=withCategoryId(res.category);
-      if(!category.id) throw new Error('The category response did not include its ID. Refresh categories and try again.');
-      if(res.alreadyExisted){
-        setNotice(res.message);
-        setCategories(c=>c.some(x=>x.id===category.id)?c:[...c,category]);
-      }else{
-        setCategories(c=>[...c,category]);
-      }
-      setForm(f=>({...f,categoryId:category.id}));
-      setNewCategory('');
-    }catch(err){ setError(extractErrorMessage(err)); }
-  };
-  const [uploading,setUploading]=useState(false);
-  const addImages=async(e)=>{
-    const files=[...e.target.files||[]];
-    e.target.value='';
-    if(!files.length) return;
-    setUploading(true);
-    setError('');
-    try{
-      const res=await uploadsApi.uploadImages(files);
-      const urls=res.urls||[];
-      setForm(f=>({...f,mainImage:f.mainImage||urls[0]||'',gallery:[...f.gallery,...urls]}));
-    }catch(err){ setError(extractErrorMessage(err)); }
-    finally{ setUploading(false); }
-  };
-  const removeImage=i=>setForm(f=>{
-    const nextGallery=f.gallery.filter((_,x)=>x!==i);
-    return {...f,gallery:nextGallery,mainImage:nextGallery[0]||''};
-  });
-
-  const submit=e=>{
-    e.preventDefault();
-    setError('');
-    if(!form.name||!form.categoryId||form.price===''||form.stockQuantity===''||!form.mainImage){
-      setError('Please complete the required fields and add at least one image.');
-      return;
-    }
-    onSave({
-      ...form,
-      price:Number(form.price),
-      discountPrice:form.discountPrice===''?null:Number(form.discountPrice),
-      costPrice:form.costPrice===''?null:Number(form.costPrice),
-      stockQuantity:Number(form.stockQuantity),
-      lowStockThreshold:Number(form.lowStockThreshold||5),
-    });
-  };
-
-  return <div className="product-editor"><div className="editor-head"><div><span className="eyebrow">PRODUCT CATALOG</span><h2>{product?'Edit product':'Add product'}</h2><p>Complete product information before publishing it to the MVEC marketplace.</p></div><button className="outline-btn" type="button" onClick={onCancel}>Cancel</button></div>
-    {error&&<div className="form-error">{error}</div>}
-    {notice&&<div className="form-alert success">{notice}</div>}
-    <form onSubmit={submit} className="product-form">
-      <section className="editor-section"><h3>Basic information</h3>
-        <div className="two-col"><label className="field"><span>Product name *</span><input name="name" value={form.name} onChange={update} required placeholder="e.g. Samsung Galaxy S25"/></label><label className="field"><span>SKU</span><input name="sku" value={form.sku||''} onChange={update} placeholder="Auto-generated if left blank"/></label></div>
-        <div className="two-col"><label className="field"><span>Category *</span><select name="categoryId" value={form.categoryId} onChange={update} required><option value="">Select category</option>{categories.filter(c=>c.id).map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label><label className="field"><span>Brand</span><input name="brand" value={form.brand||''} onChange={update} placeholder="Brand name"/></label></div>
-        <div className="inline-add-category"><input value={newCategory} onChange={e=>setNewCategory(e.target.value)} placeholder="New category name"/><button type="button" className="outline-btn" onClick={addCategory}>+ Add category</button></div>
-        <label className="field"><span>Short description</span><input name="shortDescription" value={form.shortDescription||''} onChange={update} maxLength="180" placeholder="A short summary shown on product cards"/></label>
-        <label className="field"><span>Description *</span><textarea name="description" value={form.description||''} onChange={update} rows="5" required placeholder="Describe the product, benefits and important information"/></label>
-      </section>
-      <section className="editor-section"><h3>Pricing & inventory</h3>
-        <div className="three-col"><label className="field"><span>Selling price (RWF) *</span><input type="number" min="0" name="price" value={form.price} onChange={update} required/></label><label className="field"><span>Discount price</span><input type="number" min="0" name="discountPrice" value={form.discountPrice||''} onChange={update}/></label><label className="field"><span>Cost price</span><input type="number" min="0" name="costPrice" value={form.costPrice||''} onChange={update}/></label></div>
-        <div className="three-col"><label className="field"><span>Stock quantity *</span><input type="number" min="0" name="stockQuantity" value={form.stockQuantity} onChange={update} required/></label><label className="field"><span>Low stock threshold</span><input type="number" min="0" name="lowStockThreshold" value={form.lowStockThreshold} onChange={update}/></label><label className="field"><span>Status</span><select name="status" value={form.status} onChange={update}><option value="DRAFT">Draft</option><option value="ACTIVE">Active</option><option value="INACTIVE">Inactive</option></select></label></div>
-      </section>
-      <section className="editor-section"><h3>Product attributes</h3>
-        <div className="three-col">{[['color','Color'],['size','Size'],['material','Material'],['weight','Weight'],['capacity','Capacity'],['model','Model']].map(([name,label])=><label className="field" key={name}><span>{label}</span><input name={name} value={form[name]||''} onChange={update} placeholder={label}/></label>)}</div>
-      </section>
-      <section className="editor-section"><h3>Media</h3><p className="editor-help">Upload product images. The first image becomes the main product image.</p>
-        <label className="upload-zone"><Icon name="box"/><b>{uploading?'Uploading…':'Upload product images'}</b><small>PNG, JPG or WEBP, multiple files supported (max 8MB each)</small><input type="file" accept="image/*" multiple onChange={addImages} disabled={uploading}/></label>
-        {form.gallery.length>0&&<div className="media-grid">{form.gallery.map((src,i)=><div className="media-thumb" key={i}><img src={src} alt={`Product ${i+1}`}/><button type="button" onClick={()=>removeImage(i)}>×</button>{i===0&&<span>Main image</span>}</div>)}</div>}
-      </section>
-      <div className="editor-actions"><button type="button" className="outline-btn" onClick={onCancel}>Cancel</button><button className="gradient-btn" type="submit" disabled={saving||uploading}>{saving?'Saving...':product?'Save changes':'Create product'}</button></div>
-    </form>
-  </div>;
-}
-
 function ProductModule(){
   const location=useLocation();
   const navigate=useNavigate();
@@ -216,13 +114,6 @@ function ProductModule(){
     if(params.get('add')==='1'){ setEditing({mode:'create'}); navigate('/vendor/products',{replace:true}); }
   },[location.search,navigate]);
 
-  useEffect(()=>{
-    if(!editing) return;
-    const onKeyDown=e=>{if(e.key==='Escape') setEditing(null);};
-    document.addEventListener('keydown',onKeyDown);
-    return()=>document.removeEventListener('keydown',onKeyDown);
-  },[editing]);
-
   const filtered=useMemo(()=>rows.filter(p=>JSON.stringify(p).toLowerCase().includes(q.toLowerCase())&&(!statusFilter||p.status===statusFilter)),[rows,q,statusFilter]);
   const totalPages=Math.max(1,Math.ceil(filtered.length/per));
   const current=Math.min(page,totalPages);
@@ -238,25 +129,39 @@ function ProductModule(){
     setError('');
     try{
       if(editing?.mode==='create') await productsApi.create(payload);
-      else await productsApi.update(editing.product.id,payload);
+      else {
+        const productId = editing?.product?.id || editing?.product?._id;
+        if (!productId || productId === 'undefined') throw new Error('Product no longer exists.');
+        await productsApi.update(productId,payload);
+      }
       clearCatalogCache(); // bust marketplace cache so the product appears in /shop immediately
       setEditing(null);
       load();
       navigate('/vendor/products',{replace:true});
-    }catch(err){ setError(extractErrorMessage(err)); }
+    }catch(err){
+      setError(extractErrorMessage(err));
+      throw err; // surface the failure inside the modal
+    }
     finally{ setSaving(false); }
   };
 
   const toggleArchive=async(p)=>{
     try{
-      await productsApi.update(p.id,{status:p.status==='INACTIVE'?'ACTIVE':'INACTIVE'});
+      const productId = p?.id || p?._id;
+      if (!productId || productId === 'undefined') throw new Error('Product no longer exists.');
+      await productsApi.update(productId,{status:p.status==='INACTIVE'?'ACTIVE':'INACTIVE'});
       load();
     }catch(err){ setError(extractErrorMessage(err)); }
   };
 
   const removeProduct=async(p)=>{
     if(!window.confirm(`Delete ${p.name}?`)) return;
-    try{ await productsApi.delete(p.id); load(); }
+    try{
+      const productId = p?.id || p?._id;
+      if (!productId || productId === 'undefined') throw new Error('Product no longer exists.');
+      await productsApi.delete(productId);
+      load();
+    }
     catch(err){ setError(extractErrorMessage(err)); }
   };
 
@@ -276,7 +181,7 @@ function ProductModule(){
       {!loading && shown.length===0 && <div className="empty-state"><h3>No products yet</h3><p>Add your first product to start selling.</p></div>}
       {!loading && <div className="product-admin-list">
         {shown.map(p=><div className="product-admin-row" key={p.id}>
-          <div className="admin-product-main">{(p.media?.mainImage||p.mainImage)?<img src={p.media?.mainImage||p.mainImage} alt=""/>:<div className="product-placeholder"><Icon name="box"/></div>}<div><b>{p.name}</b><small>{p.sku} · {p.brand||'No brand'} · {p.category?.name||''}</small></div></div>
+          <div className="admin-product-main">{(p.media?.mainImage||p.mainImage)?<ProductImage src={p.media?.mainImage||p.mainImage} alt=""/>:<div className="product-placeholder"><Icon name="box"/></div>}<div><b>{p.name}</b><small>{p.sku} · {p.brand||'No brand'} · {p.category?.name||''}</small></div></div>
           <div><b>{money(p.price)}</b><small>Stock: {p.stockQuantity}</small></div>
           <em className={'status '+(p.status==='ACTIVE'?'active':'warning')}>{p.status}</em>
           <div className="row-actions"><button type="button" title="Edit product" onClick={()=>setEditing({mode:'edit',product:p})}><Icon name="edit"/></button><button type="button" title={p.status==='INACTIVE'?'Restore product':'Archive product'} onClick={()=>toggleArchive(p)}><Icon name={p.status==='INACTIVE'?'check':'box'}/></button><button type="button" title="Delete product" onClick={()=>removeProduct(p)}><Icon name="trash"/></button></div>
@@ -284,14 +189,12 @@ function ProductModule(){
       </div>}
       <Pagination page={current} setPage={setPage} total={filtered.length} perPage={per}/>
     </div>
-    {editing&&typeof document!=='undefined'&&createPortal(
-      <div className="product-editor-backdrop" role="dialog" aria-modal="true" aria-label={editing.mode==='create'?'Add product':'Edit product'} onMouseDown={e=>{if(e.target===e.currentTarget) closeEditor();}}>
-        <div className="product-editor-modal" onMouseDown={e=>e.stopPropagation()}>
-          <ProductForm product={editing.mode==='edit'?editing.product:null} onCancel={closeEditor} onSave={saveProduct} saving={saving}/>
-        </div>
-      </div>,
-      document.body
-    )}
+    {editing&&<ProductFormModal
+      product={editing.mode==='edit'?editing.product:null}
+      onClose={closeEditor}
+      onSave={saveProduct}
+      saving={saving}
+    />}
   </>;
 }
 
@@ -452,6 +355,33 @@ function Analytics(){
   </>;
 }
 
+function WholesalePurchases(){
+  const navigate=useNavigate();
+  const [orders,setOrders]=useState([]); const [suppliers,setSuppliers]=useState([]); const [loading,setLoading]=useState(true); const [error,setError]=useState('');
+  useEffect(()=>{let alive=true;(async()=>{try{
+    const [orderRes,supplierRes]=await Promise.all([wholesaleApi.getMine(),suppliersApi.getAll({pageSize:100})]);
+    const available=(supplierRes.data||[]).slice(0,12);
+    const catalog=await Promise.all(available.map(async s=>{try{return {...s,products:(await suppliersApi.getProducts(s._id||s.id)).products||[]};}catch{return {...s,products:[]};}}));
+    if(alive){setOrders(orderRes.orders||[]);setSuppliers(catalog);}
+  }catch(err){if(alive)setError(extractErrorMessage(err));}finally{if(alive)setLoading(false);}})();return()=>{alive=false};},[]);
+  return <><div className="dash-page-head"><div><span className="eyebrow">WHOLESALE SOURCING</span><h1>Purchases</h1><p>Review supply orders or browse verified suppliers when you need wholesale stock.</p></div><button className="outline-btn" onClick={()=>navigate('/vendor/suppliers')}>Find suppliers</button></div>{error&&<div className="form-error">{error}</div>}{loading?<div className="empty-state"><h3>Loading supplier catalog…</h3></div>:<>{orders.length>0&&<div className="data-card"><div className="data-card-head"><div><h3>Your wholesale orders</h3><span>{orders.length} database order{orders.length===1?'':'s'}</span></div></div><SmartTable columns={[{key:'orderNumber',label:'Order'},{key:'supplier',label:'Supplier',render:r=>r.supplier?.businessName||r.supplier?.companyName||r.supplier?.Fullname||'Supplier'},{key:'totalAmount',label:'Total',render:r=>money(r.totalAmount)},{key:'status',label:'Status'}]} rows={orders} rowKey={r=>r._id}/></div>}{!orders.length&&<div className="verified-box"><b>No wholesale purchases yet</b><p>You can optionally choose a supplier below to browse wholesale products. Nothing is added until you place a supply order.</p></div>}<div className="section-heading"><div><span className="eyebrow">AVAILABLE SUPPLIERS</span><h2>Browse wholesale catalogs</h2></div><span>{suppliers.length} verified suppliers</span></div>{!suppliers.length?<div className="empty-state"><h3>No verified suppliers available yet</h3><p>Check back after suppliers are approved.</p></div>:<div className="dash-grid supplier-search-grid">{suppliers.map(s=><div className="data-card" key={s._id||s.id}><div className="data-card-head"><div><h3>{s.businessName}</h3><span>{s.category||'Wholesale supplier'} · {s.products.length} products</span></div><em className="status active">Verified</em></div>{s.products.slice(0,3).map(p=><div className="activity-row" key={p._id}><div><b>{p.name}</b><small>{p.stockQuantity} in stock · MOQ {p.moq||1}</small></div><strong>{money(p.wholesalePrice)}</strong></div>)}{!s.products.length&&<p className="tiny">No active products listed yet.</p>}<button className="gradient-btn" onClick={()=>navigate('/vendor/suppliers')}>View supplier</button></div>)}</div>}</>}</>;
+}
+
+function VendorDataModule({type}){
+  const c=cfg[type]; const [rows,setRows]=useState([]); const [loading,setLoading]=useState(true); const [error,setError]=useState('');
+  useEffect(()=>{let alive=true;(async()=>{try{let next=[];
+    if(type==='stores'){const [a,b]=await Promise.all([storesApi.getMyStore(),productsApi.getVendorProducts()]);const s=a.store;next=[[s.storeName,s.businessCategory,b.products?.length||0,'—',s.status]];}
+    else if(type==='customers'){const os=(await ordersApi.getVendorOrders()).orders||[],m=new Map();os.forEach(o=>{const k=String(o.user?._id||o.user?.id||o.orderNumber),x=m.get(k)||{n:o.user?.fullName||o.user?.Fullname||'Buyer',c:0,t:0,d:o.createdAt};x.c++;x.t+=Number(o.vendorSubtotal||0);x.d=new Date(o.createdAt)>new Date(x.d)?o.createdAt:x.d;m.set(k,x);});next=[...m.values()].map(x=>[x.n,x.c,money(x.t),new Date(x.d).toLocaleDateString('en-GB')]);}
+    else if(type==='promotions'){const ps=(await promotionsApi.getMine()).data||[];next=ps.map(p=>[p.name,p.code,p.discount,p.status,p.endsAt?new Date(p.endsAt).toLocaleDateString('en-GB'):'—']);}
+    else if(type==='reviews'){const rs=(await reviewsApi.getVendorReviews()).data||[];next=rs.map(r=>[r.product?.name||r.productName||'Product',r.user?.fullName||r.author||'Buyer',`${r.rating} stars`,r.reviewText||r.comment||'—',r.createdAt?new Date(r.createdAt).toLocaleDateString('en-GB'):'—']);}
+    else if(type==='shipping'){const zs=(await shippingApi.getMine()).data||[];next=zs.map(z=>[z.name,money(z.fee),z.eta,z.method||'—',z.status]);}
+    else if(type==='reports'){const [a,b]=await Promise.all([productsApi.getVendorProducts(),ordersApi.getVendorOrders()]);const ps=a.products||[],os=b.orders||[];next=[['Sales',`${os.length} orders`,money(os.reduce((s,o)=>s+Number(o.vendorSubtotal||0),0)),'Database'],['Product performance',`${ps.length} products`,`${ps.filter(p=>p.status==='ACTIVE').length} active`,'Database'],['Inventory',`${ps.reduce((s,p)=>s+Number(p.stockQuantity||0),0)} units`,`${ps.filter(p=>Number(p.stockQuantity)<=Number(p.lowStockThreshold||5)).length} low stock`,'Database']];}
+    else if(type==='settings'){const [a,b]=await Promise.allSettled([storesApi.getMyStore(),payoutsApi.getBalance()]);const s=a.status==='fulfilled'?a.value.store:null,x=b.status==='fulfilled'?b.value.balance:null;next=[['Store information',s?.storeName||'Not configured',s?.status||'—'],['Business information',s?.businessCategory||'—',s?.contactEmail||'—'],['Payment & payouts',money(x?.availableBalance),money(x?.pendingBalance)],['Shipping',s?.shippingRules?.length?`${s.shippingRules.length} rules`:'No rules configured',s?.marketplaceLive?'Live':'Paused']];}
+    if(alive)setRows(next);
+  }catch(e){if(alive)setError(extractErrorMessage(e));}finally{if(alive)setLoading(false);}})();return()=>{alive=false};},[type]);
+  return <><div className="dash-page-head"><div><span className="eyebrow">SELLER PLATFORM</span><h1>{c.title}</h1><p>{c.desc}</p></div></div>{error&&<div className="form-error">{error}</div>}<div className="data-card">{loading?<div className="empty-state"><h3>Loading live data…</h3></div>:!rows.length?<div className="empty-state"><h3>No {c.title.toLowerCase()} found</h3><p>Database records for this vendor will appear here.</p></div>:<div className="data-table"><div className="data-row module-row">{c.headers.map(h=><span className="table-label" key={h}>{h}</span>)}</div>{rows.map((r,i)=><div className="data-row module-row" key={`${r[0]}-${i}`}>{r.map((v,j)=><span key={j}>{j===0?<b>{v}</b>:v}</span>)}</div>)}</div>}</div></>;
+}
+
 export default function VendorDashboard(){
   const path=useLocation().pathname;
   if(path.includes('/delivery'))return <DashboardLayout><DeliveryTracking role="vendor"/></DashboardLayout>;
@@ -459,10 +389,12 @@ export default function VendorDashboard(){
   if(path==='/vendor')return <DashboardLayout><RestrictedOverview><SellerOverview/></RestrictedOverview></DashboardLayout>;
   if(path.includes('/products'))return <DashboardLayout><ProductModule/></DashboardLayout>;
   if(path.includes('/inventory'))return <DashboardLayout><InventoryModule/></DashboardLayout>;
+  if(path.includes('/purchases'))return <DashboardLayout><WholesalePurchases/></DashboardLayout>;
   if(path.includes('/orders'))return <DashboardLayout><VendorOrders/></DashboardLayout>;
   if(path.includes('/analytics'))return <DashboardLayout><Analytics/></DashboardLayout>;
   if(path.includes('/payouts')||path.includes('/transactions'))return <DashboardLayout><VendorPayouts/></DashboardLayout>;
   if(path.includes('/team'))return <DashboardLayout><VendorTeam/></DashboardLayout>;
   const type=Object.keys(cfg).find(k=>path.includes('/'+k))||'products';
+  if(['stores','customers','promotions','reviews','shipping','reports','settings'].includes(type)) return <DashboardLayout><VendorDataModule type={type}/></DashboardLayout>;
   return <DashboardLayout><ModulePage type={type}/></DashboardLayout>;
 }

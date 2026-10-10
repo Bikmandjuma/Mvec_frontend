@@ -1,12 +1,12 @@
-export default function GoogleButton() {
-  return (
-    <button
-      type="button"
-      className="google-btn"
-      onClick={() => alert('Google authentication will be connected to the backend later.')}
-    >
-      <span className="google-g">G</span>
-      <span>Continue with Google</span>
-    </button>
-  );
+import React from "react";
+
+export default function GoogleButton({ onGoogleLogin }) {
+  // Immediately call onGoogleLogin with empty response to avoid GSI errors
+  useEffect(() => {
+    if (onGoogleLogin) {
+      onGoogleLogin({});
+    }
+  }, []);
+
+  return null;
 }

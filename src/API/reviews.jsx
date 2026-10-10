@@ -1,6 +1,8 @@
 import { client } from "./client";
 
 export const reviewsApi = {
+  getVendorReviews: () =>
+    client.get("/reviews/vendor/mine").then((r) => r.data),
   create: (payload) =>
     client.post("/reviews", payload).then((r) => r.data),
   getForProduct: (productId, params) =>

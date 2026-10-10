@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import Storefront from "../components/Storefront";
+import ProductImage from "../components/ProductImage";
 import { useMarketplace } from "../context/MarketplaceContext";
 import { useAuth } from "../context/AuthContext";
 import { productsApi } from "../API/products";
@@ -21,7 +22,7 @@ export default function Checkout() {
   const [loadingProduct, setLoadingProduct] = useState(Boolean(pid));
 
   useEffect(() => {
-    if (!pid) { setLoadingProduct(false); return; }
+    if (!pid || pid === "undefined") { setLoadingProduct(false); return; }
     let alive = true;
     productsApi.getById(pid).then((p) => {
       if (!alive || !p) return;
@@ -124,7 +125,7 @@ export default function Checkout() {
         <div className="delivery-options"><label><input type="radio" checked={form.method === "standard"} onChange={() => setForm({ ...form, method: "standard" })} /> Standard delivery <b>{form.province === "Kigali City" ? "FREE" : "5,000 RWF"}</b></label><label><input type="radio" checked={form.method === "express"} onChange={() => setForm({ ...form, method: "express" })} /> Express delivery <b>10,000 RWF</b></label></div>
         <p className="tiny">Delivery is fulfilled by the seller or an assigned delivery partner. Delivery proof is recorded when the order arrives.</p>
       </div>
-      <div className="form-card"><h2>Order items</h2>{items.length === 0 && <p className="tiny">Your cart is empty.</p>}{items.map((x, i) => <div className="mini-item" key={x.id || i}><img src={x.image} alt="" /><div><b>{x.name}</b><span>{x.vendor} · Qty {x.qty || x.quantity || 1}</span></div><strong>{money((x.price || 0) * (x.qty || x.quantity || 1))}</strong></div>)}</div>
+      <div className="form-card"><h2>Order items</h2>{items.length === 0 && <p className="tiny">Your cart is empty.</p>}{items.map((x, i) => <div className="mini-item" key={x.id || i}><ProductImage src={x.image} alt="" /><div><b>{x.name}</b><span>{x.vendor} · Qty {x.qty || x.quantity || 1}</span></div><strong>{money((x.price || 0) * (x.qty || x.quantity || 1))}</strong></div>)}</div>
     </section><aside className="summary-card"><h2>Order summary</h2><div><span>Products</span><b>{money(subtotal)}</b></div><div><span>Shipping</span><b>{money(shipping)}</b></div><div><span>Platform fees</span><b>Included where applicable</b></div><hr /><div className="grand"><span>Grand total</span><strong>{money(total)}</strong></div>
       <button className="gradient-btn full" type="submit" disabled={submitting}>{submitting ? "Placing order…" : "Continue to payment"}</button><Link to="/cart" className="back-link">← Back to cart</Link>
       <div className="verified-box"><b>✓ Clear payment flow</b><p>Your payment is processed through an appropriate payment partner. In the protected workflow, funds are recorded as HELD until delivery is confirmed.</p></div>

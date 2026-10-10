@@ -9,9 +9,10 @@ import { affiliatesApi } from "../API/affiliates";
 import { productsApi } from "../API/products";
 import { mapBackendProduct } from "../services/catalogApi";
 import { extractErrorMessage } from "../API/client";
+import ProductImage from "../components/ProductImage";
 
 const money = n => new Intl.NumberFormat("en-RW").format(Number(n) || 0) + " RWF";
-const affiliateUrl = code => `${window.location.origin}/shop?ref=${code}`;
+const affiliateUrl = code => `${window.location.origin}/track/${code}`;
 
 async function copyText(text) {
   if (navigator.clipboard?.writeText) return navigator.clipboard.writeText(text);
@@ -58,6 +59,7 @@ function Products() {
   const [q, setQ] = useState("");
   const [page, setPage] = useState(1);
   const [copied, setCopied] = useState("");
+  const [showConfirmModal, setShowConfirmModal] = useState(null);
   const [creating, setCreating] = useState("");
   const [terminating, setTerminating] = useState("");
   const [error, setError] = useState("");
@@ -106,7 +108,13 @@ function Products() {
 
   const terminateLink = async p => {
     const link = linkFor(p.id);
-    if (!link || !window.confirm(`Terminate the affiliate link for ${p.name}?`)) return;
+    if (!link) return;
+    setShowConfirmModal(p);
+  };
+
+  const confirmTermination = async p => {
+    const link = linkFor(p.id);
+    if (!link) return;
     setError("");
     setTerminating(p.id);
     try {
@@ -116,6 +124,7 @@ function Products() {
       setError(extractErrorMessage(err));
     } finally {
       setTerminating("");
+      setShowConfirmModal(null);
     }
   };
 
@@ -124,24 +133,75 @@ function Products() {
     {error && <div className="form-error">{error}</div>}
     <div className="dash-toolbar"><div className="dash-filter"><Icon name="search" /><input value={q} onChange={e => { setQ(e.target.value); setPage(1); }} placeholder="Search products, vendors or categories…" /></div><span className="table-count">{filtered.length} products</span></div>
     {loading && <div className="empty-state"><h3>Loading products…</h3></div>}
-    {!loading && (
-      <div className="dash-grid affiliate-product-grid">
-        {shown.map(p => {
-          const hasLink = linkFor(p.id);
-          return (
-            <div className="data-card" key={p.id}>
-              <div className="admin-product-main"><img src={p.image} alt="" /><div><b>{p.name}</b><small>{money(p.price)} · {p.vendor}</small></div></div>
-              <div className="affiliate-product-meta"><span>Available stock <b>{p.stock} units</b></span></div>
-              <div className="affiliate-link-actions">
-                {hasLink ? <button className="red-outline-btn" onClick={() => terminateLink(p)} disabled={terminating === p.id}>{terminating === p.id ? "Terminating…" : "Terminate the link"}</button> : <button className="gradient-btn" onClick={() => makeLink(p)} disabled={creating === p.id}>{creating === p.id ? "Creating…" : "Create affiliate link"}</button>}
-                {hasLink && <button className="outline-btn copy-link-btn" onClick={() => copyFor(p)}><Icon name="copy" size={15} />{copied === String(p.id) ? "Copied" : "Copy link"}</button>}
-              </div>
+     {!loading && (
+       <div className="dash-grid affiliate-product-grid">
+         {shown.map(p => {
+           const hasLink = linkFor(p.id);
+           return (
+             <div className="data-card" key={p.id}>
+               <div className="admin-product-main"><ProductImage src={p.image} alt="" /><div><b>{p.name}</b><small>{money(p.price)} · {p.vendor}</small></div></div>
+               <div className="affiliate-product-meta"><span>Available stock <b>{p.stock} units</b></span></div>
+<div className="affiliate-link-actions">
+{hasLink ? (
+    <>
+      {/* Red Outlined Terminate Button */}
+      <button
+        onClick={() => terminateLink(p)}
+        disabled={terminating === p.id}
+        className="px-4 py-2 text-sm font-medium text-red-600 border border-red-600 bg-transparent hover:bg-red-50 rounded transition-colors"
+      >
+        {terminating === p.id ? "Terminating…" : "Terminate Link"}
+      </button>
+
+      {/* Copy Link Button placed directly adjacent */}
+      <button
+        onClick={() => copyFor(p)}
+        className="px-4 py-2 text-sm font-medium border border-gray-300 text-gray-700 hover:bg-gray-100 rounded transition"
+      >
+        {copied === String(p.id) ? "Copied!" : "Copy Link"}
+      </button>
+    </>
+  ) : (
+   <button 
+     className="gradient-btn" 
+     onClick={() => makeLink(p)} 
+     disabled={creating === p.id}
+   >
+     {creating === p.id ? "Creating…" : "Create affiliate link"}
+   </button>
+ )}
+</div>
+             </div>
+           );
+         })}
+       </div>
+     )}
+{showConfirmModal && (
+        <div className="modal-backdrop">
+          <div className="modal">
+            <h3 className="modal-title">Terminate Link</h3>
+            <p className="modal-text">
+              Do you want to terminate the affiliate link for {showConfirmModal.name}? This will stop tracking commissions for this product.
+            </p>
+            <div className="modal-actions">
+              <button
+                onClick={() => setShowConfirmModal(null)}
+                className="outline-btn"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => confirmTermination(showConfirmModal)}
+                className="danger-btn"
+              >
+                Yes, Terminate
+              </button>
             </div>
-          );
-        })}
-      </div>
-    )}
-    {!loading && !shown.length && <div className="data-card table-empty">No products match your search.</div>}
+          </div>
+        </div>
+      )}
+     {!loading && !shown.length && <div className="data-card table-empty">No products match your search.</div>}
+
     <Pagination page={safePage} setPage={setPage} total={filtered.length} perPage={perPage} />
   </>;
 }
