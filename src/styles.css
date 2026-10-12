@@ -496,3 +496,28 @@ button:disabled,.gradient-btn:disabled,.outline-btn:disabled{opacity:.55;cursor:
   .market-search input{grid-column:auto;height:100%}
   .market-search button{min-height:0;height:100%;padding:0 14px}
 }
+
+/* ── Theme switch (one design for the whole site) ─────────────────────── */
+.theme-switch{position:relative;flex:0 0 auto;display:inline-flex;align-items:center;justify-content:space-between;width:60px;height:32px;padding:0 9px;border:1px solid var(--line);border-radius:999px;background:#eef6f9;color:#6b7c85;cursor:pointer;transition:background .25s,border-color .25s}
+.theme-switch:hover{border-color:var(--blue)}
+.theme-switch:focus-visible{outline:2px solid var(--blue-dark);outline-offset:2px}
+.theme-switch-icon{display:grid;place-items:center;opacity:.55}
+.theme-switch-icon svg,.theme-switch-knob svg{stroke:currentColor!important}
+.theme-switch-knob{position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;display:grid;place-items:center;background:#fff;color:#f5a524;box-shadow:0 2px 6px rgba(16,40,52,.18);transition:transform .25s ease,background .25s,color .25s}
+.theme-switch.is-dark{background:#1b2f38;border-color:#2c4651;color:#9fb6c0}
+.theme-switch.is-dark .theme-switch-knob{transform:translateX(28px);background:#0f1e25;color:#9ae2fb}
+@media (prefers-reduced-motion:reduce){.theme-switch,.theme-switch-knob{transition:none}}
+.dash-header-actions .theme-switch{display:inline-flex!important}
+.auth-theme-toggle.theme-switch{margin-left:auto;margin-right:10px}
+
+/* ── Home hero: paid placements only ──────────────────────────────────── */
+.sponsored-tag{position:absolute;top:10px;left:10px;z-index:2;background:rgba(255,255,255,.92);color:#41545d;font-size:10px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;padding:4px 8px;border-radius:999px}
+.hero-promo-panel{position:relative;z-index:1;max-width:420px;margin:auto;background:rgba(255,255,255,.94);border:1px solid rgba(255,255,255,.7);border-radius:20px;padding:30px;box-shadow:0 24px 60px rgba(17,87,112,.18);color:var(--ink)}
+.hero-promo-panel h3{font:800 28px/1.1 Manrope,sans-serif;margin:10px 0 10px}
+.hero-promo-panel p{color:var(--muted);margin:0 0 16px}
+.hero-promo-panel ul{list-style:none;padding:0;margin:0 0 22px;display:grid;gap:10px}
+.hero-promo-panel li{display:flex;align-items:center;gap:10px;font-size:14px;font-weight:600}
+.hero-promo-panel li svg{color:var(--blue-dark);flex:0 0 auto}
+[data-theme="dark"] .hero-promo-panel{background:rgba(15,30,37,.94);border-color:#2c4651;color:var(--text)}
+[data-theme="dark"] .sponsored-tag{background:rgba(15,30,37,.9);color:#c3d6dc}
+[data-theme="dark"] .login-link,[data-theme="dark"] .user-menu a{color:var(--text)}

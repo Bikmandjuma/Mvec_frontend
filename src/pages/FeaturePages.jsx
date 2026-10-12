@@ -14,6 +14,7 @@ import {adminApi} from '../API/admin';
 import {mapBackendProduct} from '../services/catalogApi';
 import {client,extractErrorMessage} from '../API/client';
 import ProductImage from '../components/ProductImage';
+import {VendorAdvertising,AdminAdvertising} from './Advertising';
 
 const money=n=>new Intl.NumberFormat('en-RW').format(Number(n)||0)+' RWF';
 const dateDMY=d=>new Date(d).toLocaleDateString('en-GB');
@@ -191,6 +192,8 @@ function GenericTableModule({role,type}){
  if(type==='purchases'&&role==='vendor') return <WholesaleList role="vendor"/>;
  if((type==='supply-requests'||type==='transactions'||type==='reviews')&&role==='supplier') return <SupplierLiveModule type={type}/>;
  if(type==='payments'&&role==='admin') return <AdminPayments/>;
+ if(type==='advertisements'&&role==='vendor') return <VendorAdvertising/>;
+ if(type==='advertising'&&role==='admin') return <AdminAdvertising/>;
  if(type==='refunds') return <DisputesList role={role}/>;
  return <><Header eyebrow={`${role.toUpperCase()} · ${cfg[0]}`} title={cfg[1]} desc={cfg[2]}/>{notice&&<div className="success-text">{notice}</div>}<div className="data-card"><SmartTable columns={columns} rows={data} rowKey={r=>r.id||r.name||r.plan||r.zone||r.control||r.signal||r.party} searchPlaceholder={`Search ${cfg[1].toLowerCase()}…`} exportName={`mvec-${role}-${type}`} actions={actionTypes.includes(type)?contextualAction:undefined}/></div>{details&&<div className="modal-backdrop" onMouseDown={()=>setDetails(null)}><div className="modal" onMouseDown={e=>e.stopPropagation()}><button className="modal-close" onClick={()=>setDetails(null)}>×</button><span className="eyebrow">DETAILS</span><h2>{type==='trust'?'Trust profile':'Security policy'}</h2><div className="vendor-detail-grid">{Object.entries(details).map(([k,v])=><div key={k}><span>{k.replace(/([A-Z])/g,' $1')}</span><b>{String(v)}</b></div>)}</div><button className="gradient-btn" onClick={()=>setDetails(null)}>Done</button></div></div>}</>;
 }
