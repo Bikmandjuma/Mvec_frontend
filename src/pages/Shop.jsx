@@ -5,7 +5,6 @@ import { loadCatalog } from '../services/catalogApi';
 import Icon from '../components/Icon';
 import Pagination from '../components/Pagination';
 import ProductCard from '../components/ProductCard';
-import { money } from '../utils/format';
 
 const PER_PAGE = 12;
 
@@ -18,7 +17,9 @@ export default function Shop() {
   const dealsOnly = params.get('deal') === 'true';
   const inStockOnly = params.get('stock') === '1';
   const sort = params.get('sort') || 'newest';
-  const maxParam = Number(params.get('max')) || 0;
+  // Optional price range from the URL. Empty means no limit in that direction.
+  const minPrice = Math.max(0, Number(params.get('min')) || 0);
+  const maxPrice = Math.max(0, Number(params.get('max')) || 0);
   const page = Math.max(1, Number(params.get('page')) || 1);
   const ref = params.get('ref');
 
@@ -28,7 +29,9 @@ export default function Shop() {
   const [loadError, setLoadError] = useState(false);
   const [searchText, setSearchText] = useState(q);
 
+  const [priceDraft, setPriceDraft] = useState({ min: params.get('min') || '', max: params.get('max') || '' });
   useEffect(() => { setSearchText(q); }, [q]);
+  useEffect(() => { setPriceDraft({ min: params.get('min') || '', max: params.get('max') || '' }); }, [params]);
 
   useEffect(() => {
     let mounted = true;
@@ -51,12 +54,14 @@ export default function Shop() {
     setParams(next, { replace: true });
   };
 
-  // Slider range follows the real catalogue, so no product is hidden by default.
-  const highestPrice = useMemo(() => {
-    const top = catalog.reduce((m, p) => Math.max(m, Number(p.price) || 0), 0);
-    return Math.max(10000, Math.ceil(top / 10000) * 10000);
-  }, [catalog]);
-  const max = maxParam > 0 ? Math.min(maxParam, highestPrice) : highestPrice;
+  const applyPrice = (e) => {
+    e?.preventDefault();
+    const clean = (v) => (Number(v) > 0 ? String(Math.floor(Number(v))) : '');
+    let min = clean(priceDraft.min);
+    let max = clean(priceDraft.max);
+    if (min && max && Number(min) > Number(max)) [min, max] = [max, min];
+    update({ min, max });
+  };
 
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
@@ -65,7 +70,8 @@ export default function Shop() {
       (!dealsOnly || p.oldPrice > p.price) &&
       (!inStockOnly || p.stock > 0) &&
       (!needle || `${p.name} ${p.brand} ${p.vendor} ${p.sku} ${p.category} ${p.description}`.toLowerCase().includes(needle)) &&
-      p.price <= max,
+      (!minPrice || p.price >= minPrice) &&
+      (!maxPrice || p.price <= maxPrice),
     );
     const sorters = {
       'price-low': (a, b) => a.price - b.price,
@@ -75,13 +81,13 @@ export default function Shop() {
     // "newest" keeps the API order (newest first); sold-out items go last.
     const sorted = sorters[sort] ? [...list].sort(sorters[sort]) : list;
     return [...sorted.filter((p) => p.stock > 0), ...sorted.filter((p) => !(p.stock > 0))];
-  }, [q, cat, dealsOnly, inStockOnly, sort, max, catalog]);
+  }, [q, cat, dealsOnly, inStockOnly, sort, minPrice, maxPrice, catalog]);
 
   const pages = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
   const currentPage = Math.min(page, pages);
   const shown = filtered.slice((currentPage - 1) * PER_PAGE, currentPage * PER_PAGE);
   const productLink = (id) => (ref ? `/product/${id}?ref=${encodeURIComponent(ref)}` : `/product/${id}`);
-  const hasFilters = Boolean(q || cat || dealsOnly || inStockOnly || maxParam);
+  const hasFilters = Boolean(q || cat || dealsOnly || inStockOnly || minPrice || maxPrice);
 
   return <Storefront><main className="catalog-page">
     <div className="catalog-head">
@@ -104,10 +110,15 @@ export default function Shop() {
             {categories.map((c) => <option key={c} value={c}>{c}</option>)}
           </select>
         </label>
-        <label>Maximum price
-          <input type="range" min="0" max={highestPrice} step={Math.max(1000, Math.round(highestPrice / 100 / 1000) * 1000)} value={max} onChange={(e) => update({ max: Number(e.target.value) >= highestPrice ? '' : e.target.value })} />
-          <b>{money(max)}</b>
-        </label>
+        <form className="price-range" onSubmit={applyPrice}>
+          <span>Price (RWF)</span>
+          <div>
+            <input type="number" min="0" inputMode="numeric" placeholder="Min" aria-label="Minimum price" value={priceDraft.min} onChange={(e) => setPriceDraft({ ...priceDraft, min: e.target.value })} />
+            <span aria-hidden="true">–</span>
+            <input type="number" min="0" inputMode="numeric" placeholder="No limit" aria-label="Maximum price" value={priceDraft.max} onChange={(e) => setPriceDraft({ ...priceDraft, max: e.target.value })} />
+          </div>
+          <button type="submit" className="outline-btn">Apply</button>
+        </form>
         <label className="filter-check"><input type="checkbox" checked={dealsOnly} onChange={(e) => update({ deal: e.target.checked ? 'true' : '' })} /> On sale only</label>
         <label className="filter-check"><input type="checkbox" checked={inStockOnly} onChange={(e) => update({ stock: e.target.checked ? '1' : '' })} /> In stock only</label>
         {hasFilters && <button type="button" className="outline-btn" onClick={() => setParams({}, { replace: true })}>Clear filters</button>}

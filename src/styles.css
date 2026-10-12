@@ -512,12 +512,22 @@ button:disabled,.gradient-btn:disabled,.outline-btn:disabled{opacity:.55;cursor:
 
 /* ── Home hero: paid placements only ──────────────────────────────────── */
 .sponsored-tag{position:absolute;top:10px;left:10px;z-index:2;background:rgba(255,255,255,.92);color:#41545d;font-size:10px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;padding:4px 8px;border-radius:999px}
-.hero-promo-panel{position:relative;z-index:1;max-width:420px;margin:auto;background:rgba(255,255,255,.94);border:1px solid rgba(255,255,255,.7);border-radius:20px;padding:30px;box-shadow:0 24px 60px rgba(17,87,112,.18);color:var(--ink)}
-.hero-promo-panel h3{font:800 28px/1.1 Manrope,sans-serif;margin:10px 0 10px}
-.hero-promo-panel p{color:var(--muted);margin:0 0 16px}
-.hero-promo-panel ul{list-style:none;padding:0;margin:0 0 22px;display:grid;gap:10px}
-.hero-promo-panel li{display:flex;align-items:center;gap:10px;font-size:14px;font-weight:600}
-.hero-promo-panel li svg{color:var(--blue-dark);flex:0 0 auto}
-[data-theme="dark"] .hero-promo-panel{background:rgba(15,30,37,.94);border-color:#2c4651;color:var(--text)}
+.ad-slot-card{cursor:pointer;opacity:.97}
+.ad-slot-card .ad-slot-art{display:block;width:100%;height:145px;border-radius:11px;overflow:hidden;outline:2px dashed rgba(37,173,219,.35);outline-offset:-2px}
+.ad-slot-card>span:last-child{color:var(--blue-deep)}
+.ad-slot-card:hover{opacity:1;box-shadow:0 24px 50px rgba(24,88,111,.26)}
+.ad-slot-cta{position:absolute;right:12%;bottom:16%;z-index:3;display:inline-flex;align-items:center;gap:8px;padding:11px 20px;border-radius:999px;background:#fff;color:var(--blue-deep);font-weight:800;font-size:14px;text-decoration:none;box-shadow:0 14px 30px rgba(17,87,112,.22);white-space:nowrap}
+.ad-slot-cta:hover{background:var(--soft)}
+@media (max-width:900px){.ad-slot-card .ad-slot-art{height:120px}}
+@media (max-width:600px){.ad-slot-card .ad-slot-art{height:95px}}
+[data-theme="dark"] .ad-slot-cta{background:#0f1e25;color:#9ae2fb}
 [data-theme="dark"] .sponsored-tag{background:rgba(15,30,37,.9);color:#c3d6dc}
 [data-theme="dark"] .login-link,[data-theme="dark"] .user-menu a{color:var(--text)}
+.price-range{display:grid;gap:8px;margin:14px 0}
+.price-range>span{font-size:13px;font-weight:700}
+.price-range div{display:flex;align-items:center;gap:6px}
+.price-range input{width:100%;min-width:0;height:40px;border:1px solid var(--line);border-radius:9px;padding:0 10px;background:var(--surface,#fff);color:var(--text)}
+.price-range .outline-btn{justify-self:start;padding:8px 16px}
+.price-range input{font-size:13px;padding:0 8px;-moz-appearance:textfield;appearance:textfield}
+.price-range input::-webkit-outer-spin-button,.price-range input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+@media (max-width:600px){.ad-slot-cta{right:6%;bottom:8%;padding:9px 14px;font-size:13px}}

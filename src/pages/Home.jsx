@@ -7,6 +7,7 @@ import Storefront from "../components/Storefront";
 import Icon from "../components/Icon";
 import ProductImage from "../components/ProductImage";
 import ProductCard from "../components/ProductCard";
+import { AD_SLOT_ART } from "../components/AdSlotArt";
 import { useAuth } from "../context/AuthContext";
 import { money, ratingLabel } from "../utils/format";
 
@@ -72,6 +73,9 @@ export default function Home() {
   const categoryNames = catalog.categories.map((c) => (typeof c === "string" ? c : c.name)).filter(Boolean);
   const populatedCategories = categoryNames.filter((c) => products.some((p) => p.category === c));
   const loading = status === "loading";
+  // Vendors go straight to campaigns; guests sign up as a vendor; anyone
+  // else signed in can ask MVEC support about advertising.
+  const advertiseLink = user?.role === "vendor" ? "/vendor/advertisements" : user ? "/buyer/support" : "/signup";
   const sellerHome = { vendor: "/vendor", supplier: "/supplier", affiliate: "/affiliate", super_admin: "/admin" }[user?.role];
 
   return (
@@ -113,19 +117,24 @@ export default function Home() {
               </Link>
             ))}
             {heroProducts.length === 0 && (
-              <div className="hero-promo-panel">
-                <span className="eyebrow">MVEC PROMOTIONS</span>
-                <h3>Feature your products here</h3>
-                <p>Approved vendor campaigns appear in this space for every shopper who visits MVEC.</p>
-                <ul>
-                  <li><Icon name="shield" size={16} /> Reviewed by MVEC before going live</li>
-                  <li><Icon name="chart" size={16} /> Clicks and impressions tracked</li>
-                  <li><Icon name="wallet" size={16} /> Set your own budget</li>
-                </ul>
-                <Link to={user?.role === "vendor" ? "/vendor/advertisements" : "/signup"} state={user ? undefined : { role: "vendor" }} className="gradient-btn">
-                  {user?.role === "vendor" ? "Create a campaign" : "Advertise on MVEC"}
+              <>
+                {AD_SLOT_ART.slice(0, 3).map((Art, i) => (
+                  <Link
+                    key={i}
+                    to={advertiseLink}
+                    state={user ? undefined : { role: "vendor" }}
+                    className={`hero-product-card hero-product-${i} ad-slot-card`}
+                    aria-label="Advertise your product here"
+                  >
+                    <span className="sponsored-tag">Ad space</span>
+                    <span className="ad-slot-art"><Art /></span>
+                    <span>Your product here</span>
+                  </Link>
+                ))}
+                <Link to={advertiseLink} state={user ? undefined : { role: "vendor" }} className="ad-slot-cta">
+                  Advertise here <Icon name="arrow" size={15} />
                 </Link>
-              </div>
+              </>
             )}
           </div>
         </section>
