@@ -1,3 +1,62 @@
-import {Link} from 'react-router-dom';import Storefront from '../components/Storefront';import ProductImage from '../components/ProductImage';import {useMarketplace} from '../context/MarketplaceContext';
-const money=n=>new Intl.NumberFormat('en-RW').format(n)+' RWF';
-export default function Wishlist(){const {wishlist,removeFromCart,addToCart,toggleWishlist}=useMarketplace();return <Storefront><main className="account-page"><div className="page-title"><span className="eyebrow">SAVED ITEMS</span><h1>Wishlist</h1><p>Save products and get notified when prices drop.</p></div><div className="wishlist-grid">{wishlist.map(p=><div className="wish-card" key={p.id}><Link to={`/product/${p.id}`}><ProductImage src={p.image} alt=""/></Link><div><small>{p.vendor}</small><Link to={`/product/${p.id}`}><h3>{p.name}</h3></Link><b>{money(p.price)}</b><span className="price-drop">↓ Price drop available</span><div className="wish-actions"><button className="gradient-btn" onClick={()=>{addToCart(p,1);toggleWishlist(p)}}>Move to cart</button><button className="icon-btn" onClick={()=>toggleWishlist(p)}>Remove</button></div></div></div>)}</div>{!wishlist.length&&<div className="empty-state"><h2>Your wishlist is empty</h2><p>Add products by clicking the heart icon.</p><Link className="gradient-btn" to="/shop">Discover products</Link></div>}</main></Storefront>}
+import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
+import Storefront from '../components/Storefront';
+import ProductImage from '../components/ProductImage';
+import { useMarketplace } from '../context/MarketplaceContext';
+import { loadCatalog } from '../services/catalogApi';
+import { money } from '../utils/format';
+
+export default function Wishlist() {
+  const { wishlist, addToCart, toggleWishlist } = useMarketplace();
+  const [live, setLive] = useState({});
+  const [loaded, setLoaded] = useState(false);
+  const [notice, setNotice] = useState(null);
+
+  // Compare saved items with today's catalogue for current price and stock.
+  useEffect(() => {
+    let alive = true;
+    loadCatalog().then((res) => {
+      if (!alive) return;
+      setLive(Object.fromEntries((res.products || []).map((p) => [String(p.id), p])));
+      setLoaded(!res.error);
+    });
+    return () => { alive = false; };
+  }, []);
+
+  const moveToCart = async (item, current) => {
+    const result = await addToCart(current || item, 1);
+    if (result.ok) toggleWishlist(item);
+    setNotice({ ok: result.ok, text: result.ok ? `${item.name} moved to your cart.` : result.message });
+  };
+
+  return <Storefront><main className="account-page">
+    <div className="page-title"><span className="eyebrow">SAVED ITEMS</span><h1>Wishlist</h1><p>Products you saved on this device. Prices update automatically.</p></div>
+    {notice && <div className={`form-alert ${notice.ok ? 'success' : 'error'}`} role="status">{notice.text}</div>}
+    <div className="wishlist-grid">
+      {wishlist.map((item) => {
+        const current = live[String(item.id)];
+        const unavailable = loaded && !current;
+        const soldOut = current && current.stock <= 0;
+        const price = current?.price ?? item.savedPrice ?? item.price;
+        const saved = Number(item.savedPrice ?? item.price) || 0;
+        const dropped = current && saved > 0 && current.price < saved;
+        return <div className="wish-card" key={item.id}>
+          <Link to={`/product/${item.id}`}><ProductImage src={current?.image || item.image} alt="" /></Link>
+          <div>
+            <small>{current?.vendor || item.vendor}</small>
+            <Link to={`/product/${item.id}`}><h3>{current?.name || item.name}</h3></Link>
+            <b>{money(price)}</b>
+            {dropped && <span className="price-drop">↓ {money(saved - current.price)} cheaper than when you saved it</span>}
+            {unavailable && <span className="danger-text tiny">No longer available</span>}
+            {soldOut && <span className="danger-text tiny">Out of stock</span>}
+            <div className="wish-actions">
+              <button type="button" className="gradient-btn" disabled={unavailable || soldOut} onClick={() => moveToCart(item, current)}>Move to cart</button>
+              <button type="button" className="icon-btn" onClick={() => toggleWishlist(item)}>Remove</button>
+            </div>
+          </div>
+        </div>;
+      })}
+    </div>
+    {!wishlist.length && <div className="empty-state"><h2>Your wishlist is empty</h2><p>Save products by tapping the heart icon.</p><Link className="gradient-btn" to="/shop">Discover products</Link></div>}
+  </main></Storefront>;
+}

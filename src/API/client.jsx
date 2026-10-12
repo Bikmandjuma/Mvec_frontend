@@ -21,10 +21,14 @@ client.interceptors.request.use((config) => {
 client.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    // An expired or revoked session: sign out and send the user to log in,
+    // remembering where they were. Requests made without a token (guests)
+    // simply fail and are handled by the page.
+    if (error.response?.status === 401 && localStorage.getItem("huska_token")) {
       localStorage.removeItem("huska_token");
       if (window.location.pathname !== "/login") {
-        window.location.href = "/login";
+        const next = `${window.location.pathname}${window.location.search}`;
+        window.location.href = `/login?next=${encodeURIComponent(next)}`;
       }
     }
     return Promise.reject(error);
@@ -46,8 +50,9 @@ export function mapUser(u) {
     fullName: u.Fullname || u.fullName || u.name || "",
     telephone: u.phone || u.telephone || "",
     email: u.email || "",
-    gender: u.gender || "other",
+    gender: u.gender || "",
     role: u.role || "buyer",
+    avatarUrl: u.avatarUrl || "",
     companyName: u.companyName || "",
     businessName: u.businessName || u.companyName || "",
     logoUrl: u.logoUrl || "",

@@ -26,6 +26,8 @@ export const authApi = {
   },
   me: () =>
     client.get("/auth/me").then((r) => mapUser(r.data.user)),
+  updateProfile: (payload) =>
+    client.patch("/auth/me", payload).then((r) => mapUser(r.data.user)),
   changePassword: (payload) =>
     client.post("/auth/change-password", payload).then((r) => r.data),
   forgotPassword: (payload) =>
