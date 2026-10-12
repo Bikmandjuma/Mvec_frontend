@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import DashboardLayout from "../components/DashboardLayout";
 import Icon from "../components/Icon";
@@ -24,31 +24,90 @@ async function copyText(text) {
   el.remove();
 }
 
+const dateFmt = d => (d ? new Date(d).toLocaleDateString("en-GB") : "—");
+const statusLabel = { PENDING: "Pending", APPROVED: "Approved", REVERSED: "Reversed" };
+
+function ErrorBanner({ message, onRetry }) {
+  if (!message) return null;
+  return <div className="form-error">{message} {onRetry && <button className="outline-btn" onClick={onRetry}>Retry</button>}</div>;
+}
+
+function ClicksChart({ stats }) {
+  const clicks = stats?.series?.clicks || [];
+  const max = Math.max(1, ...clicks);
+  if (!clicks.some(Boolean)) return <div className="table-empty">No clicks in the last {stats?.days || 30} days yet.</div>;
+  return (
+    <svg viewBox={`0 0 ${clicks.length * 10} 60`} role="img" aria-label="Clicks per day" style={{ width: "100%", height: 120 }} preserveAspectRatio="none">
+      {clicks.map((v, i) => <rect key={i} x={i * 10 + 1} y={60 - (v / max) * 58} width="8" height={(v / max) * 58} fill="currentColor" opacity="0.75"><title>{`${stats.labels[i]}: ${v} clicks`}</title></rect>)}
+    </svg>
+  );
+}
+
 function Overview() {
-  const [wallet, setWallet] = useState(null);
-  const [links, setLinks] = useState([]);
+  const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  useEffect(() => {
-    Promise.allSettled([affiliatesApi.getMyWallet(), affiliatesApi.getMyLinks()]).then(([w, l]) => {
-      if (w.status === "fulfilled") setWallet(w.value.data);
-      if (l.status === "fulfilled") setLinks(l.value.data || []);
-    }).finally(() => setLoading(false));
-  }, []);
+  const load = () => {
+    setLoading(true);
+    setError("");
+    affiliatesApi.getOverview()
+      .then(res => setData(res))
+      .catch(err => setError(extractErrorMessage(err)))
+      .finally(() => setLoading(false));
+  };
+  useEffect(load, []);
 
-  const totalClicks = links.reduce((s, l) => s + (l.clickCount || 0), 0);
-  const totalConversions = links.reduce((s, l) => s + (l.conversionCount || 0), 0);
-  const rate = totalClicks ? ((totalConversions / totalClicks) * 100).toFixed(2) : "0.00";
+  const v = (x, fmt = n => n) => (loading ? "..." : fmt(x ?? 0));
+  const c = data?.commission || {};
+  const recent = data?.recent || [];
+  const top = data?.stats?.topLinks || [];
 
   return <>
-    <div className="dash-page-head"><div><span className="eyebrow">AFFILIATE PLATFORM</span><h1>Affiliate dashboard</h1><p>Promote MVEC products and earn when qualifying orders are completed.</p></div></div>
+    <div className="dash-page-head"><div><span className="eyebrow">AFFILIATE PLATFORM</span><h1>Affiliate dashboard</h1><p>Live performance of your links, attributed orders and commissions.</p></div><button className="outline-btn" onClick={load} disabled={loading}>{loading ? "Refreshing…" : "Refresh"}</button></div>
+    {error && <div className="form-error">{error} <button className="outline-btn" onClick={load}>Retry</button></div>}
     <div className="metric-grid">
-      <div className="metric"><div className="metric-icon"><Icon name="chart" /></div><div><span>Clicks</span><strong>{loading ? "..." : totalClicks}</strong><small>Across all your links</small></div></div>
-      <div className="metric"><div className="metric-icon"><Icon name="cart" /></div><div><span>Completed orders</span><strong>{loading ? "..." : totalConversions}</strong><small>{rate}% conversion</small></div></div>
-      <div className="metric"><div className="metric-icon"><Icon name="wallet" /></div><div><span>Pending commission</span><strong>{loading ? "..." : money(wallet?.pendingBalance)}</strong><small>Awaiting completion</small></div></div>
-      <div className="metric"><div className="metric-icon"><Icon name="wallet" /></div><div><span>Available wallet</span><strong>{loading ? "..." : money(wallet?.availableBalance)}</strong><small>Minimum withdrawal RWF 10,000</small></div></div>
+      <div className="metric"><div className="metric-icon"><Icon name="tag" /></div><div><span>Links</span><strong>{v(data?.links?.total)}</strong><small>{v(data?.links?.active)} active · {v(data?.links?.terminated)} terminated</small></div></div>
+      <div className="metric"><div className="metric-icon"><Icon name="chart" /></div><div><span>Clicks</span><strong>{v(data?.clicks)}</strong><small>{v(data?.uniqueVisitors)} unique visitors</small></div></div>
+      <div className="metric"><div className="metric-icon"><Icon name="cart" /></div><div><span>Attributed orders</span><strong>{v(data?.attributedOrders)}</strong><small>{v(data?.conversionRate)}% of clicks · {v(data?.conversions)} items</small></div></div>
+      <div className="metric"><div className="metric-icon"><Icon name="wallet" /></div><div><span>Net commission</span><strong>{v(c.net, money)}</strong><small>{v(c.reversed, money)} reversed by refunds</small></div></div>
+      <div className="metric"><div className="metric-icon"><Icon name="wallet" /></div><div><span>Pending</span><strong>{v(c.pending, money)}</strong><small>Held until delivery is confirmed</small></div></div>
+      <div className="metric"><div className="metric-icon"><Icon name="wallet" /></div><div><span>Approved / available</span><strong>{v(data?.wallet?.availableBalance, money)}</strong><small>Minimum withdrawal RWF 10,000</small></div></div>
+      <div className="metric"><div className="metric-icon"><Icon name="wallet" /></div><div><span>Withdrawn</span><strong>{v(c.paid, money)}</strong><small>Paid out to you</small></div></div>
     </div>
-    <div className="verified-box"><b>✓ Protected commission workflow</b><p>Commission follows purchase, payment, delivery, refund window, then confirmation. Once available, it moves into your wallet. You can request a withdrawal from RWF 10,000 upward.</p></div>
+
+    <div className="data-card"><h3>Recent attributed orders</h3>
+      {!loading && !recent.length && <div className="empty-state"><h3>No attributed orders yet</h3><p>Orders placed after a visitor clicks your link will appear here once paid.</p></div>}
+      {!!recent.length && <SmartTable
+        columns={[
+          { key: "orderNumber", label: "Order" },
+          { key: "product", label: "Product" },
+          { key: "orderTotal", label: "Item total", render: r => money(r.orderTotal) },
+          { key: "amount", label: "Commission", render: r => money(r.amount) },
+          { key: "status", label: "Status" },
+          { key: "createdAt", label: "Date", render: r => new Date(r.createdAt).toLocaleDateString("en-GB") },
+        ]}
+        rows={recent}
+        rowKey={r => r.id}
+        exportName="affiliate-recent-orders"
+      />}
+    </div>
+
+    <div className="data-card"><h3>Top links (last 30 days)</h3>
+      {!loading && !top.length && <div className="empty-state"><h3>No links yet</h3><p>Create one from the Promote Products tab.</p></div>}
+      {!!top.length && <SmartTable
+        columns={[
+          { key: "product", label: "Product", render: r => r.targetProduct?.name || "—" },
+          { key: "clickCount", label: "Clicks" },
+          { key: "conversionCount", label: "Orders" },
+          { key: "commissionEarned", label: "Commission", render: r => money(r.commissionEarned) },
+          { key: "status", label: "Status" },
+        ]}
+        rows={top}
+        rowKey={r => r.id}
+        exportName="affiliate-top-links"
+      />}
+    </div>
   </>;
 }
 
@@ -68,6 +127,7 @@ function Products() {
   useEffect(() => {
     Promise.allSettled([productsApi.getAll(), affiliatesApi.getMyLinks()]).then(([p, l]) => {
       if (p.status === "fulfilled") setCatalog((p.value.products || []).map(mapBackendProduct));
+      else setError(extractErrorMessage(p.reason));
       if (l.status === "fulfilled") setLinks(l.value.data || []);
     }).finally(() => setLoading(false));
   }, []);
@@ -79,14 +139,14 @@ function Products() {
   const safePage = Math.min(page, Math.max(1, Math.ceil(filtered.length / perPage)));
   const shown = filtered.slice((safePage - 1) * perPage, safePage * perPage);
 
-  const linkFor = productId => links.find(l => String(l.targetProductId) === String(productId));
+  const linkFor = productId => links.find(l => l.status !== "TERMINATED" && String(l.targetProductId) === String(productId));
 
   const makeLink = async p => {
     setError("");
     setCreating(p.id);
     try {
       const res = await affiliatesApi.generateLink({ productId: p.id });
-      setLinks(prev => [res.data, ...prev]);
+      setLinks(prev => [res.link || res.data, ...prev]);
     } catch (err) {
       setError(extractErrorMessage(err));
     } finally {
@@ -98,7 +158,7 @@ function Products() {
     let link = linkFor(p.id);
     if (!link) {
       const res = await affiliatesApi.generateLink({ productId: p.id }).catch(() => null);
-      if (res) { link = res.data; setLinks(prev => [res.data, ...prev]); }
+      if (res) { link = res.link || res.data; setLinks(prev => [link, ...prev]); }
     }
     if (!link) return;
     await copyText(affiliateUrl(link.affiliateCode));
@@ -118,8 +178,8 @@ function Products() {
     setError("");
     setTerminating(p.id);
     try {
-      await affiliatesApi.deleteLink(link.id || link._id);
-      setLinks(prev => prev.filter(item => String(item.id || item._id) !== String(link.id || link._id)));
+      await affiliatesApi.terminateLink(link.id || link._id);
+      setLinks(prev => prev.map(item => String(item.id || item._id) === String(link.id || link._id) ? { ...item, status: "TERMINATED", isActive: false } : item));
     } catch (err) {
       setError(extractErrorMessage(err));
     } finally {
@@ -140,7 +200,7 @@ function Products() {
            return (
              <div className="data-card" key={p.id}>
                <div className="admin-product-main"><ProductImage src={p.image} alt="" /><div><b>{p.name}</b><small>{money(p.price)} · {p.vendor}</small></div></div>
-               <div className="affiliate-product-meta"><span>Available stock <b>{p.stock} units</b></span></div>
+               <div className="affiliate-product-meta"><span>Available stock <b>{p.stock} units</b></span>{hasLink && <small style={{ display: "block", wordBreak: "break-all" }}>{affiliateUrl(hasLink.affiliateCode)}</small>}</div>
 <div className="affiliate-link-actions">
 {hasLink ? (
     <>
@@ -181,7 +241,7 @@ function Products() {
           <div className="modal">
             <h3 className="modal-title">Terminate Link</h3>
             <p className="modal-text">
-              Do you want to terminate the affiliate link for {showConfirmModal.name}? This will stop tracking commissions for this product.
+              Terminate the affiliate link for {showConfirmModal.name}? New visitors will no longer be tracked through it. Your past clicks, orders and commissions are kept.
             </p>
             <div className="modal-actions">
               <button
@@ -209,35 +269,114 @@ function Products() {
 function Links() {
   const [links, setLinks] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [status, setStatus] = useState("ALL");
+  const [copied, setCopied] = useState("");
+  const [busy, setBusy] = useState("");
 
-  useEffect(() => {
-    affiliatesApi.getMyLinks().then(res => setLinks(res.data || [])).finally(() => setLoading(false));
-  }, []);
+  const load = () => {
+    setLoading(true);
+    setError("");
+    affiliatesApi.getMyLinks({ status: status === "ALL" ? undefined : status })
+      .then(res => setLinks(res.data || []))
+      .catch(err => setError(extractErrorMessage(err)))
+      .finally(() => setLoading(false));
+  };
+  useEffect(load, [status]);
+
+  const copy = async l => {
+    await copyText(affiliateUrl(l.affiliateCode));
+    setCopied(String(l.id));
+    setTimeout(() => setCopied(""), 1600);
+  };
+  const terminate = async l => {
+    if (!window.confirm(`Terminate this link for ${l.targetProduct?.name || "this product"}? History is kept, but new clicks stop being tracked.`)) return;
+    setBusy(String(l.id));
+    try {
+      await affiliatesApi.terminateLink(l.id);
+      load();
+    } catch (err) {
+      setError(extractErrorMessage(err));
+    } finally {
+      setBusy("");
+    }
+  };
 
   const rows = links.map(l => ({
     id: l.id,
-    product: l.targetProduct?.name || "General link",
+    product: l.targetProduct?.name || "—",
     code: l.affiliateCode,
+    status: l.status,
     clicks: l.clickCount || 0,
+    visitors: l.uniqueVisitors || 0,
     orders: l.conversionCount || 0,
+    commission: l.commissionEarned || 0,
+    raw: l,
   }));
 
   return <>
-    <div className="dash-page-head"><div><span className="eyebrow">MY LINKS</span><h1>Affiliate links</h1><p>Track links and conversions generated from your marketing.</p></div></div>
+    <div className="dash-page-head"><div><span className="eyebrow">MY LINKS</span><h1>Affiliate links</h1><p>Performance of every link you created, including terminated ones.</p></div>
+      <select value={status} onChange={e => setStatus(e.target.value)}><option value="ALL">All links</option><option value="ACTIVE">Active</option><option value="TERMINATED">Terminated</option></select></div>
+    {error && <div className="form-error">{error}</div>}
     <div className="data-card">
       {loading && <div className="empty-state"><h3>Loading…</h3></div>}
       {!loading && <SmartTable
         columns={[
           { key: "product", label: "Product" },
           { key: "link", label: "Link", render: r => <small>{affiliateUrl(r.code)}</small> },
+          { key: "status", label: "Status" },
           { key: "clicks", label: "Clicks" },
+          { key: "visitors", label: "Visitors" },
           { key: "orders", label: "Orders" },
+          { key: "commission", label: "Commission", render: r => money(r.commission) },
+          { key: "actions", label: "", render: r => r.status === "ACTIVE" ? <>
+            <button className="outline-btn" onClick={() => copy(r.raw)}>{copied === String(r.id) ? "Copied!" : "Copy"}</button>{" "}
+            <button className="danger-btn" disabled={busy === String(r.id)} onClick={() => terminate(r.raw)}>{busy === String(r.id) ? "…" : "Terminate"}</button>
+          </> : <small>Terminated</small> },
         ]}
         rows={rows}
         rowKey={r => r.id}
         searchPlaceholder="Search affiliate links…"
-        empty="No links yet. Create one from the Products tab."
+        empty="No links yet. Create one from the Promote Products tab."
         exportName="affiliate-links"
+      />}
+    </div>
+  </>;
+}
+
+function Commissions() {
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    affiliatesApi.getCommissions()
+      .then(res => setRows(res.data || []))
+      .catch(err => setError(extractErrorMessage(err)))
+      .finally(() => setLoading(false));
+  }, []);
+
+  return <>
+    <div className="dash-page-head"><div><span className="eyebrow">COMMISSIONS</span><h1>Commission activity</h1><p>One line per attributed order item. Refunds show as reversed amounts.</p></div></div>
+    {error && <div className="form-error">{error}</div>}
+    <div className="data-card">
+      {loading && <div className="empty-state"><h3>Loading…</h3></div>}
+      {!loading && <SmartTable
+        columns={[
+          { key: "orderNumber", label: "Order" },
+          { key: "product", label: "Product" },
+          { key: "orderTotal", label: "Item total", render: r => money(r.orderTotal) },
+          { key: "commissionAmount", label: "Earned", render: r => money(r.commissionAmount) },
+          { key: "reversedAmount", label: "Reversed", render: r => money(r.reversedAmount) },
+          { key: "amount", label: "Net", render: r => money(r.amount) },
+          { key: "status", label: "Status" },
+          { key: "createdAt", label: "Date", render: r => new Date(r.createdAt).toLocaleDateString("en-GB") },
+        ]}
+        rows={rows}
+        rowKey={r => r.id}
+        searchPlaceholder="Search commissions…"
+        empty="No commissions yet."
+        exportName="affiliate-commissions"
       />}
     </div>
   </>;
@@ -248,7 +387,7 @@ function Wallet() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    affiliatesApi.getMyWallet().then(res => setWallet(res.data)).finally(() => setLoading(false));
+    affiliatesApi.getMyWallet().then(setWallet).finally(() => setLoading(false));
   }, []);
 
   return <>
@@ -274,7 +413,7 @@ function Withdrawals() {
 
   const load = () => {
     Promise.allSettled([affiliatesApi.getMyWallet(), affiliatesApi.getMyPayouts()]).then(([w, h]) => {
-      if (w.status === "fulfilled") setWallet(w.value.data);
+      if (w.status === "fulfilled") setWallet(w.value);
       if (h.status === "fulfilled") setHistory(h.value.data || []);
     }).finally(() => setLoading(false));
   };
@@ -354,6 +493,8 @@ function AffiliateDashboard() {
   const path = useLocation().pathname;
   let page = path.includes("/products") ? <Products />
     : path.includes("/links") ? <Links />
+    : path.includes("/commissions") ? <Commissions />
+    : path.includes("/commissions") ? <Commissions />
     : path.includes("/withdrawals") ? <Withdrawals />
     : path.includes("/wallet") ? <Wallet />
     : path.includes("/profile") ? <Profile />

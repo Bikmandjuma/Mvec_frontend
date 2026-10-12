@@ -1,4 +1,5 @@
 import { client } from "./client";
+import { getVisitorId } from "./affiliates";
 
 const withOrderId = (order) => ({ ...order, id: order?.id || order?._id });
 
@@ -22,6 +23,7 @@ export const ordersApi = {
         postalCode: shippingAddress.postalCode || "",
       },
       paymentMethod: paymentMap[requested] || "MOMO",
+      visitorId: getVisitorId() || undefined,
     };
     return client.post("/orders/checkout", body).then((r) => r.data);
   },
@@ -46,6 +48,7 @@ export const ordersApi = {
         postalCode: shippingAddress.postalCode || "",
       },
       paymentMethod: paymentMap[requested] || "MOMO",
+      visitorId: getVisitorId() || undefined,
     };
     return client.post("/orders/direct-checkout", body).then((r) => r.data);
   },
