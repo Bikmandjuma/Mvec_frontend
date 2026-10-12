@@ -71,7 +71,14 @@ export default function App() {
         }
       />
       <Route path="/checkout" element={<Checkout />} />
-      <Route path="/payment/:id" element={<Payment />} />
+      <Route
+        path="/payment/:id"
+        element={
+          <RequireAuth>
+            <Payment />
+          </RequireAuth>
+        }
+      />
       <Route
         path="/profile"
         element={
@@ -88,13 +95,27 @@ export default function App() {
           </RequireAuth>
         }
       />
-      <Route path="/orders/:id" element={<OrderDetails />} />
+      <Route
+        path="/orders/:id"
+        element={
+          <RequireAuth>
+            <OrderDetails />
+          </RequireAuth>
+        }
+      />
       <Route path="/buyer/compare" element={<FeaturePages role="buyer" />} />
       <Route
         path="/buyer/recommendations"
         element={<FeaturePages role="buyer" />}
       />
-      <Route path="/buyer/refunds" element={<FeaturePages role="buyer" />} />
+      <Route
+        path="/buyer/refunds"
+        element={
+          <RequireAuth>
+            <FeaturePages role="buyer" />
+          </RequireAuth>
+        }
+      />
       <Route path="/buyer/support" element={<FeaturePages role="buyer" />} />
       <Route
         path="/buyer/messages"
@@ -114,7 +135,11 @@ export default function App() {
       />
       <Route
         path="/buyer/subscription"
-        element={<FeaturePages role="buyer" />}
+        element={
+          <RequireAuth roles={["buyer"]}>
+            <FeaturePages role="buyer" />
+          </RequireAuth>
+        }
       />
       <Route
         path="/vendor/support"
