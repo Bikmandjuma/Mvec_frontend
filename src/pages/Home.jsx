@@ -7,7 +7,6 @@ import Storefront from "../components/Storefront";
 import Icon from "../components/Icon";
 import ProductImage from "../components/ProductImage";
 import ProductCard from "../components/ProductCard";
-import { AD_SLOT_ART } from "../components/AdSlotArt";
 import { useAuth } from "../context/AuthContext";
 import { money, ratingLabel } from "../utils/format";
 
@@ -67,6 +66,18 @@ export default function Home() {
   const shownProducts = popular.slice((productPage - 1) * PRODUCTS_PER_PAGE, productPage * PRODUCTS_PER_PAGE);
   const shownVendors = vendors.slice((vendorPage - 1) * VENDORS_PER_PAGE, vendorPage * VENDORS_PER_PAGE);
   const heroProducts = heroAds.slice(0, 6);
+  // No live ad: show the marketplace's categories as photos instead. A
+  // category's own image is used when an admin set one, otherwise a photo of
+  // one of its products. These tiles link to categories, not to products.
+  const heroCategories = (catalog.categories || [])
+    .map((c) => (typeof c === "string" ? { name: c } : c))
+    .map((c) => {
+      const inCategory = products.filter((p) => p.category === c.name);
+      return { name: c.name, count: inCategory.length, image: c.imageUrl || inCategory.find((p) => p.image)?.image || "" };
+    })
+    .filter((c) => c.count > 0 && c.image)
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 4);
   const deals = products.filter((p) => p.oldPrice > p.price && p.stock > 0);
   const bannerProducts = (deals.length ? deals : products).slice(0, 4);
   // Only categories that actually have products get a home-page section.
@@ -116,21 +127,19 @@ export default function Home() {
                 <b>{money(p.price)}</b>
               </Link>
             ))}
-            {heroProducts.length === 0 && (
+            {heroProducts.length === 0 && heroCategories.length > 0 && (
               <>
-                {AD_SLOT_ART.slice(0, 3).map((Art, i) => (
-                  <Link
-                    key={i}
-                    to={advertiseLink}
-                    state={user ? undefined : { role: "vendor" }}
-                    className={`hero-product-card hero-product-${i} ad-slot-card`}
-                    aria-label="Advertise your product here"
-                  >
-                    <span className="sponsored-tag">Ad space</span>
-                    <span className="ad-slot-art"><Art /></span>
-                    <span>Your product here</span>
-                  </Link>
-                ))}
+                <div className="hero-category-grid">
+                  {heroCategories.map((c) => (
+                    <Link key={c.name} to={`/shop?category=${encodeURIComponent(c.name)}`} className="hero-category-tile">
+                      <ProductImage src={c.image} alt="" />
+                      <span className="hero-category-label">
+                        <b>{c.name}</b>
+                        <small>{c.count} product{c.count === 1 ? "" : "s"}</small>
+                      </span>
+                    </Link>
+                  ))}
+                </div>
                 <Link to={advertiseLink} state={user ? undefined : { role: "vendor" }} className="ad-slot-cta">
                   Advertise here <Icon name="arrow" size={15} />
                 </Link>

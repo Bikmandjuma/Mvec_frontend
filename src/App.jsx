@@ -33,6 +33,7 @@ import NotificationPanel from "./components/NotificationPanel";
 import MobileBottomNav from "./components/MobileBottomNav";
 import FeaturePages from "./pages/FeaturePages";
 import AffiliateRedirect from "./components/AffiliateRedirect";
+import AdminTransfers from "./pages/AdminTransfers";
 import {
   CommissionRules,
   FinancialLedger,
@@ -488,6 +489,14 @@ export default function App() {
         element={
           <RequireAuth roles={["super_admin"]}>
             <FeaturePages role="admin" />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/admin/transfers"
+        element={
+          <RequireAuth roles={["super_admin"]}>
+            <AdminTransfers />
           </RequireAuth>
         }
       />
