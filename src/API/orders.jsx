@@ -3,24 +3,6 @@ import { client } from "./client";
 // Every order handed to the UI has `id`, whatever the backend version sends.
 const withOrderId = (order) => (order ? { ...order, id: order.id || order._id } : order);
 
-// Checkout payload: the server prices everything; the client only says what,
-// where and to whom. `recipient` is who receives the parcel.
-const checkoutBody = ({ shippingAddress = {}, recipient = {}, deliveryMethod = "standard", paymentMethod = "MOMO" }) => ({
-  shippingAddress: {
-    street: shippingAddress.street || "",
-    district: shippingAddress.district || "",
-    sector: shippingAddress.sector || "",
-    province: shippingAddress.province || "",
-    country: "Rwanda",
-  },
-  recipient: {
-    name: recipient.name || "",
-    phone: recipient.phone || "",
-    email: recipient.email || "",
-  },
-  deliveryMethod,
-  paymentMethod,
-});
 
 export const ordersApi = {
   checkout: (payload) =>

@@ -49,7 +49,7 @@ export const adminNavGroups = [
 
 export const supplierNav = [['/supplier','Dashboard','grid'],['/supplier/products','Wholesale Products','box'],['/supplier/inventory','Inventory','grid'],['/supplier/orders','Vendor Orders','cart'],['/supplier/supply-requests','Supply Requests','cart'],['/supplier/analytics','Analytics','chart'],['/supplier/payments','Payments','wallet'],['/supplier/transactions','Transactions','wallet'],['/supplier/reports','Reports','chart'],['/supplier/reviews','Reviews','heart'],['/supplier/messages','Messages','users'],['/supplier/team','Team / Staff','users'],['/supplier/delivery','Delivery & Settlement','box'],['/supplier/notifications','Notifications','bell'],['/supplier/settings','Settings','settings'],['/supplier/support','MVEC Support','bell']];
 
-export const affiliateNav = [['/affiliate','Dashboard','grid'],['/affiliate/messages','Messages','users'],['/affiliate/products','Promote Products','box'],['/affiliate/links','My Links','tag'],['/affiliate/wallet','Wallet','wallet'],['/affiliate/withdrawals','Withdrawals','wallet'],['/affiliate/notifications','Notifications','bell'],['/affiliate/profile','Profile','user'],['/affiliate/support','MVEC Support','bell']];
+export const affiliateNav = [['/affiliate','Dashboard','grid'],['/affiliate/messages','Messages','users'],['/affiliate/products','Promote Products','box'],['/affiliate/links','My Links','tag'],['/affiliate/commissions','Commissions','chart'],['/affiliate/wallet','Wallet','wallet'],['/affiliate/withdrawals','Withdrawals','wallet'],['/affiliate/notifications','Notifications','bell'],['/affiliate/profile','Profile','user'],['/affiliate/support','MVEC Support','bell']];
 
 export const deliveryNav = [['/delivery','Dashboard','grid'],['/delivery/deliveries','My Deliveries','box'],['/delivery/earnings','Earnings','wallet'],['/delivery/history','History','chart'],['/delivery/messages','Messages','users'],['/delivery/settings','Settings','settings']];
 
@@ -92,7 +92,7 @@ export const supplierNavGroups = [
 export const affiliateNavGroups = [
   { label: 'Overview', items: [['/affiliate','Dashboard','grid']] },
   { label: 'Promotion', items: [['/affiliate/products','Promote Products','box'],['/affiliate/links','My Links','tag']] },
-  { label: 'Earnings', items: [['/affiliate/wallet','Wallet','wallet'],['/affiliate/withdrawals','Withdrawals','wallet']] },
+  { label: 'Earnings', items: [['/affiliate/commissions','Commissions','chart'],['/affiliate/wallet','Wallet','wallet'],['/affiliate/withdrawals','Withdrawals','wallet']] },
   { label: 'Account', items: [['/affiliate/profile','Profile','user']] },
   { label: 'Support', items: [['/affiliate/messages','Messages','users'],['/affiliate/notifications','Notifications','bell'],['/affiliate/support','MVEC Support','bell']] },
 ];

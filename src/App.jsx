@@ -355,14 +355,6 @@ export default function App() {
         }
       />
       <Route
-        path="/affiliate/fraud"
-        element={
-          <RequireAuth roles={["affiliate"]}>
-            <FeaturePages role="affiliate" />
-          </RequireAuth>
-        }
-      />
-      <Route
         path="/affiliate/messages"
         element={
           <RequireAuth roles={["affiliate"]}>

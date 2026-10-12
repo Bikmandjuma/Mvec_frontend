@@ -1,12 +1,11 @@
 import { useEffect } from 'react';
-import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { affiliatesApi } from '../API/affiliates';
 import Storefront from './Storefront';
 
 export default function AffiliateRedirect() {
   const { code } = useParams();
   const navigate = useNavigate();
-  const location = useLocation();
 
   useEffect(() => {
     let mounted = true;
@@ -16,30 +15,30 @@ export default function AffiliateRedirect() {
         const result = await affiliatesApi.trackClick(code);
         if (!mounted) return;
 
-        if (result.FraudGuardFlagged) {
-          navigate('/shop', { replace: true, state: { affiliateMessage: result.reason } });
+        if (result.data?.FraudGuardFlagged) {
+          const target = result.data.targetProduct?.id;
+          navigate(target ? `/product/${target}` : '/shop', { replace: true });
           return;
         }
 
-        const targetProduct = result.targetProduct;
+        // Destination comes from the backend's link record, never from the URL,
+        // and is always an internal storefront route.
+        const targetProduct = result.data?.targetProduct;
         if (targetProduct?.id) {
           navigate(`/product/${targetProduct.id}`, { replace: true });
         } else {
-          const searchParams = new URLSearchParams(location.search);
-          searchParams.set('ref', code);
-          navigate(`/shop?${searchParams.toString()}`, { replace: true });
+          navigate('/shop', { replace: true });
         }
       } catch {
-        const searchParams = new URLSearchParams(location.search);
-        searchParams.set('ref', code);
-        navigate(`/shop?${searchParams.toString()}`, { replace: true });
+        // Unknown or terminated link: land on the shop without crediting anyone.
+        if (mounted) navigate('/shop', { replace: true, state: { affiliateMessage: 'This referral link is no longer active.' } });
       }
     };
 
     handleTracking();
 
     return () => { mounted = false; };
-  }, [code, navigate, location.search]);
+  }, [code, navigate]);
 
   return (
     <Storefront>
