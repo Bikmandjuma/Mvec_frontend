@@ -4,6 +4,10 @@ import AuthLayout from "../components/AuthLayout";
 import FormField from "../components/FormField";
 import { useAuth } from "../context/AuthContext";
 import { extractErrorMessage } from "../API/client";
+import { isRwandanPhone } from "../utils/delivery";
+import { homeForRole, safeRedirect } from "../utils/redirect";
+
+const ROLES = ["buyer", "vendor", "supplier", "affiliate"];
 
 export default function Signup() {
   const navigate = useNavigate(),
@@ -14,7 +18,7 @@ export default function Signup() {
     telephone: "",
     email: "",
     gender: "",
-    role: "buyer",
+    role: ROLES.includes(location.state?.role) ? location.state.role : "buyer",
     companyName: "",
     password: "",
     confirmPassword: "",
@@ -25,8 +29,24 @@ export default function Signup() {
   async function submit(e) {
     e.preventDefault();
     setError("");
-    if (!form.fullName || !form.telephone) {
-      setError("Please enter your name and phone number.");
+    if (form.fullName.trim().length < 2) {
+      setError("Please enter your full name.");
+      return;
+    }
+    if (!isRwandanPhone(form.telephone)) {
+      setError("Enter a Rwandan mobile number, for example 0788 123 456.");
+      return;
+    }
+    if (form.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
+      setError("Enter a valid email address or leave it empty.");
+      return;
+    }
+    if (["vendor", "supplier"].includes(form.role) && !form.companyName.trim()) {
+      setError("Please enter your business name.");
+      return;
+    }
+    if (form.password.length < 8) {
+      setError("Your password must be at least 8 characters.");
       return;
     }
     if (form.password !== form.confirmPassword) {
@@ -36,20 +56,9 @@ export default function Signup() {
     setLoading(true);
     try {
       const { confirmPassword: _, ...payload } = form;
-      const user = await register(payload);
-      navigate(
-        location.state?.checkoutReturn
-          ? location.state.from || "/checkout"
-          : user.role === "vendor"
-            ? "/vendor"
-            : user.role === "supplier"
-              ? "/supplier"
-              : user.role === "affiliate"
-                ? "/affiliate"
-                : user.role === "delivery"
-                  ? "/delivery"
-                  : "/",
-      );
+      const user = await register({ ...payload, fullName: form.fullName.trim(), email: form.email.trim() || undefined, gender: form.gender || undefined });
+      const returnTo = safeRedirect(location.state?.from);
+      navigate(returnTo && user.role === "buyer" ? returnTo : homeForRole(user.role), { replace: true });
     } catch (err) {
       setError(extractErrorMessage(err));
     } finally {
@@ -79,28 +88,25 @@ export default function Signup() {
       title="Create your account"
       subtitle="Join MVEC with your phone number. Email is optional."
     >
-      {/* <GoogleButton onGoogleLogin={() => {}} /> */}
-      <div className="or-divider">
-        <span>OR</span>
-      </div>
-      {error && <div className="form-alert error">{error}</div>}
-      <form onSubmit={submit} className="auth-form">
+      {error && <div className="form-alert error" role="alert">{error}</div>}
+      <form onSubmit={submit} className="auth-form" noValidate>
         <FormField
           label="Full name"
           name="fullName"
           placeholder="Enter your full name"
           value={form.fullName}
           onChange={update}
-          required
+          autoComplete="name"
+          maxLength={120}
         />
         <FormField
           label="Telephone"
           name="telephone"
           type="tel"
-          placeholder="+250 7xx xxx xxx"
+          placeholder="0788 123 456"
           value={form.telephone}
           onChange={update}
-          required
+          autoComplete="tel"
         />
         <FormField
           label="Email (optional)"
@@ -109,6 +115,8 @@ export default function Signup() {
           placeholder="you@example.com"
           value={form.email}
           onChange={update}
+          required={false}
+          autoComplete="email"
         />
         <div className="two-col">
           <label className="field">
@@ -149,10 +157,11 @@ export default function Signup() {
             label="Create password"
             name="password"
             type="password"
-            placeholder="Create a password"
+            placeholder="At least 8 characters"
             value={form.password}
             onChange={update}
-            required
+            autoComplete="new-password"
+            minLength={8}
           />
           <FormField
             label="Verify password"
@@ -161,7 +170,7 @@ export default function Signup() {
             placeholder="Confirm your password"
             value={form.confirmPassword}
             onChange={update}
-            required
+            autoComplete="new-password"
           />
         </div>
         <div className="role-info">

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import Storefront from "../components/Storefront";
 import ProductImage from "../components/ProductImage";
@@ -6,129 +6,256 @@ import { useMarketplace } from "../context/MarketplaceContext";
 import { useAuth } from "../context/AuthContext";
 import { productsApi } from "../API/products";
 import { ordersApi } from "../API/orders";
+import { addressesApi } from "../API/addresses";
 import { extractErrorMessage } from "../API/client";
+import { mapBackendProduct, clearCatalogCache } from "../services/catalogApi";
+import { money } from "../utils/format";
+import { PROVINCES, shippingFee, isRwandanPhone } from "../utils/delivery";
 
-const money = (n) => new Intl.NumberFormat("en-RW").format(Number(n) || 0) + " RWF";
+const FORM_KEY = "mvec_checkout_form";
+const EMPTY_FORM = { name: "", phone: "", email: "", province: "Kigali City", district: "", sector: "", street: "", method: "standard" };
+
+const readSavedForm = () => {
+  try { return JSON.parse(sessionStorage.getItem(FORM_KEY) || "null"); } catch { return null; }
+};
+
+const fromAddress = (a) => ({
+  province: PROVINCES.includes(a.provinceState) ? a.provinceState : "Kigali City",
+  district: a.cityDistrict || "",
+  sector: a.sector || "",
+  street: [a.street, a.building, a.apartment].filter(Boolean).join(", "),
+  phone: a.phone || "",
+});
+
+function validate(form) {
+  const errors = {};
+  if (form.name.trim().length < 2) errors.name = "Enter the name of the person receiving the order.";
+  if (!isRwandanPhone(form.phone)) errors.phone = "Enter a Rwandan mobile number, for example 0788 123 456.";
+  if (form.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) errors.email = "Enter a valid email or leave it empty.";
+  if (!form.district.trim()) errors.district = "Enter your district.";
+  if (form.street.trim().length < 3) errors.street = "Enter your street, house number or a nearby landmark.";
+  return errors;
+}
 
 export default function Checkout() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const { cart, clearCart } = useMarketplace();
-  const { user } = useAuth();
+  const { cart, cartLoading, refreshCart } = useMarketplace();
+  const { user, loading: authLoading } = useAuth();
 
   const pid = params.get("product");
+  const requestedQty = Math.max(1, Math.min(100, Math.floor(Number(params.get("qty")) || 1)));
   const [buyNowProduct, setBuyNowProduct] = useState(null);
   const [loadingProduct, setLoadingProduct] = useState(Boolean(pid));
+  const [productError, setProductError] = useState("");
 
+  const [form, setForm] = useState(() => ({ ...EMPTY_FORM, ...(readSavedForm() || {}) }));
+  const [addresses, setAddresses] = useState([]);
+  const [addressId, setAddressId] = useState("");
+  const [saveAddress, setSaveAddress] = useState(false);
+  const [errors, setErrors] = useState({});
+  const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const prefilled = useRef(false);
+  const errorRef = useRef(null);
+
+  // Buy now: load the one product being purchased.
   useEffect(() => {
-    if (!pid || pid === "undefined") { setLoadingProduct(false); return; }
+    if (!pid) { setLoadingProduct(false); return undefined; }
     let alive = true;
-    productsApi.getById(pid).then((p) => {
-      if (!alive || !p) return;
-      setBuyNowProduct({
-        id: p._id || p.id,
-        name: p.name,
-        image: p.mainImage || p.image || "",
-        vendor: p.vendor?.companyName || p.vendor?.fullName || "MVEC Seller",
-        price: p.discountPrice || p.price,
-      });
-    }).finally(() => alive && setLoadingProduct(false));
+    productsApi.getById(pid)
+      .then((raw) => alive && setBuyNowProduct(mapBackendProduct(raw)))
+      .catch(() => alive && setProductError("This product is no longer available."))
+      .finally(() => alive && setLoadingProduct(false));
     return () => { alive = false; };
   }, [pid]);
 
+  // Once the account is known, fill in the buyer's details and default
+  // address. Anything restored from a sign-in redirect wins.
+  useEffect(() => {
+    if (authLoading || !user || prefilled.current) return;
+    prefilled.current = true;
+    const restored = readSavedForm();
+    sessionStorage.removeItem(FORM_KEY);
+    setForm((f) => ({
+      ...f,
+      name: f.name || user.fullName || "",
+      phone: f.phone || user.telephone || "",
+      email: f.email || user.email || "",
+    }));
+    addressesApi.getAll().then((res) => {
+      const list = res.addresses || [];
+      setAddresses(list);
+      const preferred = list.find((a) => a.isDefaultShipping) || list[0];
+      if (preferred && !restored?.street) {
+        setAddressId(preferred._id);
+        setForm((f) => ({ ...f, ...fromAddress(preferred), phone: f.phone || preferred.phone || "" }));
+      }
+      if (!list.length) setSaveAddress(true);
+    }).catch(() => {});
+  }, [authLoading, user]);
+
   const items = useMemo(() => {
-    if (buyNowProduct) return [{ ...buyNowProduct, qty: Number(params.get("qty") || 1) }];
+    if (pid) {
+      if (!buyNowProduct) return [];
+      const qty = Math.min(requestedQty, Math.max(1, buyNowProduct.stock || 1));
+      return [{ ...buyNowProduct, qty }];
+    }
     return cart;
-  }, [buyNowProduct, cart, params]);
+  }, [pid, buyNowProduct, requestedQty, cart]);
 
-  const [form, setForm] = useState(() => {
-    let saved = {};
-    try { saved = JSON.parse(sessionStorage.getItem("mvec_checkout_form") || "{}"); } catch { /* ignore invalid saved form */ }
-    sessionStorage.removeItem("mvec_checkout_form");
-    return {
-      name: user?.fullName || "", phone: user?.telephone || "", email: user?.email || "",
-      province: "Kigali City", district: "Gasabo", sector: "Remera",
-      address: "KG 11 Ave, Kigali", method: "standard", ...saved,
-    };
-  });
-  const [error, setError] = useState("");
-  const [submitting, setSubmitting] = useState(false);
+  const unavailable = items.filter((x) => (x.status && x.status !== "ACTIVE") || (Number.isFinite(x.stock) && x.stock <= 0) || (Number(x.stock) > 0 && x.qty > x.stock));
+  const subtotal = items.reduce((s, x) => s + (Number(x.price) || 0) * (x.qty || 1), 0);
+  const delivery = shippingFee(form.province, form.method);
+  const total = subtotal + delivery;
 
-  const subtotal = items.reduce((s, x) => s + (x.price || 0) * (x.qty || x.quantity || 1), 0);
-  const shipping = form.province === "Kigali City" ? 0 : (form.method === "express" ? 10000 : 5000);
-  const total = subtotal + shipping;
+  const update = (e) => {
+    const { name, value } = e.target;
+    setForm((f) => ({ ...f, [name]: value }));
+    if (errors[name]) setErrors((x) => ({ ...x, [name]: undefined }));
+    if (["province", "district", "sector", "street"].includes(name)) setAddressId("");
+  };
 
-  function update(e) { setForm({ ...form, [e.target.name]: e.target.value }); }
+  const pickAddress = (id) => {
+    setAddressId(id);
+    const a = addresses.find((x) => x._id === id);
+    if (a) setForm((f) => ({ ...f, ...fromAddress(a) }));
+  };
 
-  async function continuePayment(e) {
+  const showError = (message) => {
+    setError(message);
+    requestAnimationFrame(() => errorRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }));
+  };
+
+  async function placeOrder(e) {
     e.preventDefault();
     setError("");
-    if (!form.name || !form.phone || !form.address) {
-      setError("Please complete your name, phone number and delivery address.");
-      return;
-    }
-    if (!items.length) { setError("Your cart is empty."); return; }
+    const found = validate(form);
+    setErrors(found);
+    if (Object.keys(found).length) { showError("Please check the highlighted fields."); return; }
+    if (!items.length) { showError("Your cart is empty."); return; }
+    if (unavailable.length) { showError("Some items are no longer available in the quantity selected. Update your cart first."); return; }
+
     if (!user) {
-      sessionStorage.setItem("mvec_checkout_form", JSON.stringify(form));
-      navigate("/signup", { state: { from: `${location.pathname}${location.search}`, checkoutReturn: true } });
+      // Keep what the buyer typed and come straight back after signing in.
+      sessionStorage.setItem(FORM_KEY, JSON.stringify(form));
+      navigate("/login", { state: { from: `${location.pathname}${location.search}`, checkoutReturn: true } });
       return;
     }
 
     setSubmitting(true);
     try {
-      const shippingAddress = {
-        street: form.address,
-        city: form.district,
-        province: form.province,
-        state: form.sector,
-        country: "Rwanda",
+      const payload = {
+        shippingAddress: { street: form.street.trim(), district: form.district.trim(), sector: form.sector.trim(), province: form.province },
+        recipient: { name: form.name.trim(), phone: form.phone.trim(), email: form.email.trim() },
+        deliveryMethod: form.method,
       };
+      const res = pid
+        ? await ordersApi.directCheckout({ ...payload, items: items.map((x) => ({ productId: x.id, quantity: x.qty })) })
+        : await ordersApi.checkout(payload);
 
-      let order;
-      if (buyNowProduct) {
-        const res = await ordersApi.directCheckout({
-          items: items.map((x) => ({ productId: x.id, qty: x.qty })),
-          shippingAddress,
-          paymentMethod: "momo",
-        });
-        order = res.order;
-      } else {
-        const res = await ordersApi.checkout({ shippingAddress, paymentMethod: "momo" });
-        order = res.order;
-        await clearCart();
+      if (saveAddress && !addressId) {
+        addressesApi.add({
+          type: "HOME", country: "Rwanda", provinceState: form.province, cityDistrict: form.district.trim(),
+          sector: form.sector.trim(), street: form.street.trim(), phone: form.phone.trim(),
+        }).catch(() => {});
       }
-      const orderId = order?._id || order?.id;
-      if (!orderId) throw new Error("The order was created, but its ID was missing from the response.");
-      navigate(`/payment/${orderId}`);
+
+      clearCatalogCache(); // stock changed
+      if (!pid) refreshCart(); // the server emptied the cart
+      const orderId = res.order?.id;
+      if (!orderId) throw new Error("Your order was placed. Open My orders to pay for it.");
+      navigate(`/payment/${orderId}`, { replace: true });
     } catch (err) {
-      setError(extractErrorMessage(err));
+      showError(extractErrorMessage(err));
+      if (!pid) refreshCart();
     } finally {
       setSubmitting(false);
     }
   }
 
-  if (loadingProduct) {
+  if (loadingProduct || (!pid && cartLoading && !cart.length)) {
     return <Storefront><main className="checkout-page"><div className="empty-state"><h3>Loading…</h3></div></main></Storefront>;
   }
+  if (productError || (!items.length && !submitting)) {
+    return <Storefront><main className="checkout-page"><div className="empty-state">
+      <h2>{productError || "Your cart is empty"}</h2>
+      <Link className="gradient-btn" to="/shop">Continue shopping</Link>
+    </div></main></Storefront>;
+  }
+
+  const field = (name, label, props = {}) => (
+    <label className={`field ${errors[name] ? "has-error" : ""}`}>
+      <span>{label}</span>
+      <input name={name} value={form[name]} onChange={update} aria-invalid={Boolean(errors[name])} {...props} />
+      {errors[name] && <small className="field-error">{errors[name]}</small>}
+    </label>
+  );
 
   return <Storefront><main className="checkout-page">
-    <div className="page-title"><span className="eyebrow">CHECKOUT</span><h1>Complete your order</h1><p>Simple phone-first checkout with protected MVEC settlement.</p></div>
-    <div className="checkout-steps"><span className="active">1 Customer & delivery</span><span>2 Payment</span><span>3 Confirmation</span></div>
-    {error && <div className="form-alert error">{error}</div>}
-    <form onSubmit={continuePayment}><div className="checkout-layout"><section className="checkout-main">
-      <div className="form-card"><h2>Customer information</h2><p className="tiny">Email is optional. Your phone number is used for order updates.</p>
-        <div className="two-col"><label className="field"><span>Name</span><input name="name" value={form.name} onChange={update} required /></label><label className="field"><span>Phone</span><input name="phone" value={form.phone} onChange={update} placeholder="+250 7xx xxx xxx" required /></label></div>
-        <label className="field"><span>Email (optional)</span><input name="email" type="email" value={form.email} onChange={update} placeholder="you@example.com" /></label>
+    <div className="page-title"><span className="eyebrow">CHECKOUT</span><h1>Complete your order</h1><p>Pay with mobile money. MVEC holds the payment until you confirm delivery.</p></div>
+    <ol className="checkout-steps"><li className="active">1 Delivery details</li><li>2 Payment</li><li>3 Confirmation</li></ol>
+    {error && <div className="form-alert error" role="alert" ref={errorRef}>{error}</div>}
+    <form onSubmit={placeOrder} noValidate><div className="checkout-layout"><section className="checkout-main">
+      <div className="form-card"><h2>Who receives the order?</h2><p className="tiny">The seller and courier use this phone number to reach you.</p>
+        <div className="two-col">
+          {field("name", "Full name", { autoComplete: "name", required: true })}
+          {field("phone", "Phone", { type: "tel", autoComplete: "tel", placeholder: "07xx xxx xxx", required: true })}
+        </div>
+        {field("email", "Email (optional)", { type: "email", autoComplete: "email", placeholder: "you@example.com" })}
       </div>
-      <div className="form-card"><h2>Delivery address</h2><div className="two-col"><label className="field"><span>Province / City</span><select name="province" value={form.province} onChange={update}><option>Kigali City</option><option>Northern Province</option><option>Southern Province</option><option>Eastern Province</option><option>Western Province</option></select></label><label className="field"><span>District</span><input name="district" value={form.district} onChange={update} placeholder="District" /></label></div><div className="two-col"><label className="field"><span>Sector</span><input name="sector" value={form.sector} onChange={update} placeholder="Sector" /></label><label className="field"><span>Street / landmark</span><input name="address" value={form.address} onChange={update} placeholder="Street, landmark" required /></label></div>
-        <div className="delivery-options"><label><input type="radio" checked={form.method === "standard"} onChange={() => setForm({ ...form, method: "standard" })} /> Standard delivery <b>{form.province === "Kigali City" ? "FREE" : "5,000 RWF"}</b></label><label><input type="radio" checked={form.method === "express"} onChange={() => setForm({ ...form, method: "express" })} /> Express delivery <b>10,000 RWF</b></label></div>
-        <p className="tiny">Delivery is fulfilled by the seller or an assigned delivery partner. Delivery proof is recorded when the order arrives.</p>
+
+      <div className="form-card"><h2>Delivery address</h2>
+        {addresses.length > 0 && (
+          <label className="field"><span>Saved addresses</span>
+            <select value={addressId} onChange={(e) => pickAddress(e.target.value)}>
+              <option value="">Enter a new address</option>
+              {addresses.map((a) => <option key={a._id} value={a._id}>{`${a.type || "Address"}: ${a.street}, ${a.cityDistrict}`}</option>)}
+            </select>
+          </label>
+        )}
+        <div className="two-col">
+          <label className="field"><span>Province / City</span><select name="province" value={form.province} onChange={update}>{PROVINCES.map((p) => <option key={p}>{p}</option>)}</select></label>
+          {field("district", "District", { placeholder: "e.g. Gasabo", autoComplete: "address-level2", required: true })}
+        </div>
+        <div className="two-col">
+          {field("sector", "Sector (optional)", { placeholder: "e.g. Remera" })}
+          {field("street", "Street / landmark", { placeholder: "e.g. KG 11 Ave, house 18", autoComplete: "street-address", required: true })}
+        </div>
+        {user && !addressId && <label className="filter-check"><input type="checkbox" checked={saveAddress} onChange={(e) => setSaveAddress(e.target.checked)} /> Save this address to my account</label>}
+        <fieldset className="delivery-options">
+          <legend className="tiny">Delivery speed</legend>
+          <label><input type="radio" name="method" checked={form.method === "standard"} onChange={() => setForm((f) => ({ ...f, method: "standard" }))} /> Standard delivery <b>{shippingFee(form.province, "standard") ? money(shippingFee(form.province, "standard")) : "FREE"}</b></label>
+          <label><input type="radio" name="method" checked={form.method === "express"} onChange={() => setForm((f) => ({ ...f, method: "express" }))} /> Express delivery <b>{money(shippingFee(form.province, "express"))}</b></label>
+        </fieldset>
+        <p className="tiny">The seller or an MVEC delivery partner brings your order. You give them your delivery code when it arrives.</p>
       </div>
-      <div className="form-card"><h2>Order items</h2>{items.length === 0 && <p className="tiny">Your cart is empty.</p>}{items.map((x, i) => <div className="mini-item" key={x.id || i}><ProductImage src={x.image} alt="" /><div><b>{x.name}</b><span>{x.vendor} · Qty {x.qty || x.quantity || 1}</span></div><strong>{money((x.price || 0) * (x.qty || x.quantity || 1))}</strong></div>)}</div>
-    </section><aside className="summary-card"><h2>Order summary</h2><div><span>Products</span><b>{money(subtotal)}</b></div><div><span>Shipping</span><b>{money(shipping)}</b></div><div><span>Platform fees</span><b>Included where applicable</b></div><hr /><div className="grand"><span>Grand total</span><strong>{money(total)}</strong></div>
-      <button className="gradient-btn full" type="submit" disabled={submitting}>{submitting ? "Placing order…" : "Continue to payment"}</button><Link to="/cart" className="back-link">← Back to cart</Link>
-      <div className="verified-box"><b>✓ Clear payment flow</b><p>Your payment is processed through an appropriate payment partner. In the protected workflow, funds are recorded as HELD until delivery is confirmed.</p></div>
+
+      <div className="form-card"><h2>Order items</h2>
+        {items.map((x) => {
+          const problem = (x.status && x.status !== "ACTIVE") || (Number.isFinite(x.stock) && x.stock <= 0)
+            ? "No longer available"
+            : Number(x.stock) > 0 && x.qty > x.stock ? `Only ${x.stock} left` : "";
+          return <div className="mini-item" key={x.id}>
+            <ProductImage src={x.image} alt="" />
+            <div><b>{x.name}</b><span>{x.vendor} · Qty {x.qty}</span>{problem && <small className="danger-text">{problem}</small>}</div>
+            <strong>{money((Number(x.price) || 0) * x.qty)}</strong>
+          </div>;
+        })}
+        {pid && requestedQty > (buyNowProduct?.stock || 0) && buyNowProduct?.stock > 0 && <p className="tiny">Quantity lowered to the {buyNowProduct.stock} available.</p>}
+      </div>
+    </section>
+    <aside className="summary-card"><h2>Order summary</h2>
+      <div><span>Products</span><b>{money(subtotal)}</b></div>
+      <div><span>Delivery</span><b>{delivery ? money(delivery) : "FREE"}</b></div>
+      <hr />
+      <div className="grand"><span>Total to pay</span><strong>{money(total)}</strong></div>
+      <button className="gradient-btn full" type="submit" disabled={submitting || authLoading || unavailable.length > 0}>
+        {submitting ? "Placing order…" : user ? "Continue to payment" : "Sign in to continue"}
+      </button>
+      {!pid && <Link to="/cart" className="back-link">← Back to cart</Link>}
+      <div className="verified-box"><b>✓ Protected payment</b><p>You pay by MTN MoMo or Airtel Money on the next step. MVEC holds the money and only releases it to the seller after you confirm delivery with your code.</p></div>
     </aside></div></form>
   </main></Storefront>;
 }

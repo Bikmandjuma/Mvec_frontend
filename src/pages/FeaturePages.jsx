@@ -12,7 +12,7 @@ import {supportApi} from '../API/support';
 import {disputesApi} from '../API/disputes';
 import {adminApi} from '../API/admin';
 import {mapBackendProduct} from '../services/catalogApi';
-import {extractErrorMessage} from '../API/client';
+import {client,extractErrorMessage} from '../API/client';
 import ProductImage from '../components/ProductImage';
 
 const money=n=>new Intl.NumberFormat('en-RW').format(Number(n)||0)+' RWF';
@@ -203,12 +203,12 @@ function SupportModule({role}){
 }
 function BuyerRefunds(){
  const [rows,setRows]=useState([]);const [loading,setLoading]=useState(true);const [error,setError]=useState('');
- useEffect(()=>{disputesApi.getAll({pageSize:50}).then(res=>setRows(res.data||[])).catch(err=>setError(extractErrorMessage(err))).finally(()=>setLoading(false));},[]);
+ useEffect(()=>{disputesApi.getMine().then(res=>setRows((res.data||[]).map(r=>({...r,id:r.id||r._id})))).catch(err=>setError(extractErrorMessage(err))).finally(()=>setLoading(false));},[]);
  return <><Header eyebrow="BUYER" title="Refunds" desc="Track refund requests you've reported from your orders."/>
   <SettingCard title="Report a problem with an order" desc="Open the order and choose Report a problem to start a refund request with evidence."><Link className="gradient-btn" to="/orders">View my orders</Link></SettingCard>
   {error&&<div className="form-error">{error}</div>}
   <div className="data-card">{loading&&<div className="empty-state"><h3>Loading…</h3></div>}
-   {!loading&&<SmartTable columns={[{key:'disputeNumber',label:'Case'},{key:'order',label:'Order',render:r=>r.order?.orderNumber||''},{key:'reason',label:'Reason'},{key:'disputedAmount',label:'Amount',render:r=>money(r.disputedAmount)},{key:'status',label:'Status'}]} rows={rows} rowKey={r=>r.id} searchPlaceholder="Search refunds…" empty="No refund requests yet." exportName="buyer-refunds"/>}
+   {!loading&&<SmartTable columns={[{key:'disputeNumber',label:'Case'},{key:'order',label:'Order',render:r=>r.order?.orderNumber||''},{key:'reason',label:'Reason',render:r=>String(r.reason||'').toLowerCase().replace(/_/g,' ')},{key:'disputedAmount',label:'Amount',render:r=>money(r.disputedAmount)},{key:'status',label:'Status',render:r=>String(r.status||'').toLowerCase().replace(/_/g,' ')}]} rows={rows} rowKey={r=>r.id} searchPlaceholder="Search refunds…" empty="No refund requests yet." exportName="buyer-refunds"/>}
   </div></>;
 }
 
@@ -228,7 +228,7 @@ function BuyerCompare(){
     {error && <div className="form-error">{error}</div>}
     {!loading && !error && products.length===0 && <div className="empty-state"><h3>No products to compare yet</h3></div>}
     <div className="dash-grid">
-      {products.map(p=><div className="data-card" key={p.id}><ProductImage className="module-product-image" src={p.image} alt=""/><h3>{p.name}</h3><p>{p.vendor}</p><strong>{money(p.price)}</strong><div className="comparison-list"><span>Rating <b>★ {p.rating}</b></span><span>Stock <b>{p.stock}</b></span><span>Seller <b>Verified ✓</b></span><span>Category <b>{p.category}</b></span></div></div>)}
+      {products.map(p=><div className="data-card" key={p.id}><ProductImage className="module-product-image" src={p.image} alt=""/><h3>{p.name}</h3><p>{p.vendor}</p><strong>{money(p.price)}</strong><div className="comparison-list"><span>Rating <b>★ {p.rating>0?Number(p.rating).toFixed(1):'New'}</b></span><span>Stock <b>{p.stock>0?p.stock:'Out of stock'}</b></span><span>Seller <b>{p.vendor}</b></span><span>Category <b>{p.category}</b></span></div></div>)}
     </div>
   </>;
 }
@@ -253,6 +253,19 @@ function BuyerRecommendations(){
       {products.map(p=><div className="product-card" key={p.id}><Link to={`/product/${p.id}`} className="product-img"><ProductImage src={p.image} alt={p.name}/></Link><div className="product-info"><small>{personalized?'Recommended for you':'Trending'}</small><Link to={`/product/${p.id}`} className="product-name">{p.name}</Link><b>{money(p.price)}</b></div></div>)}
     </div>
   </>;
+}
+
+function BuyerSubscription(){
+ const [data,setData]=useState(null);const [loading,setLoading]=useState(true);const [error,setError]=useState('');const [notice,setNotice]=useState('');const [busy,setBusy]=useState(false);
+ useEffect(()=>{client.get('/buyer/subscription').then(r=>setData(r.data)).catch(err=>setError(extractErrorMessage(err))).finally(()=>setLoading(false));},[]);
+ const current=data?.subscription?.planKey||'FREE';
+ const cancel=async()=>{if(!window.confirm('Cancel your premium plan?'))return;setBusy(true);setError('');try{const r=await client.post('/buyer/subscription',{plan:'FREE'});setData(r.data);setNotice(r.data.message);}catch(err){setError(extractErrorMessage(err));}finally{setBusy(false);}};
+ return <><Header eyebrow="BUYER" title="Subscription" desc="Optional ad-free shopping plan."/>
+  {error&&<div className="form-alert error">{error}</div>}{notice&&<div className="form-alert success">{notice}</div>}
+  {loading?<div className="empty-state"><h3>Loading…</h3></div>:<div className="dash-grid">{(data?.tiers||[]).map(t=><SettingCard key={t.planKey} title={t.plan} desc={t.price?`${money(t.price)} · ${t.billing}`:'Free forever'}>
+   {t.planKey===current?<span className="role-chip">Your plan</span>:t.planKey==='PREMIUM'?<p className="tiny">Premium sign-up with mobile money is coming soon.</p>:<button className="outline-btn" disabled={busy} onClick={cancel}>Switch to Free</button>}
+  </SettingCard>)}</div>}
+ </>;
 }
 
 function BuyerModule({type}){

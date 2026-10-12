@@ -7,7 +7,7 @@ import { io } from "socket.io-client";
 
 const SOCKET_URL =
   import.meta.env.VITE_SOCKET_URL ||
-  (import.meta.env.VITE_API_URL || "http://192.168.1.71:4000/api").replace(/\/api\/?$/, "");
+  (import.meta.env.VITE_API_URL || "http://localhost:4000/api").replace(/\/api\/?$/, "");
 
 let socket = null;
 
