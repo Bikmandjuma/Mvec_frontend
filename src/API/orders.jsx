@@ -1,22 +1,57 @@
 import { client } from "./client";
+import { getVisitorId } from "./affiliates";
 
 // Every order handed to the UI has `id`, whatever the backend version sends.
 const withOrderId = (order) => (order ? { ...order, id: order.id || order._id } : order);
 
-// Checkout payload: the server prices everything; the client only says what,
-// where and to whom. `recipient` is who receives the parcel.
-const checkoutBody = ({ shippingAddress = {}, recipient = {}, deliveryMethod = "standard", paymentMethod = "MOMO" }) => ({
-  shippingAddress: {
-    street: shippingAddress.street || "",
-    district: shippingAddress.district || "",
-    sector: shippingAddress.sector || "",
-    province: shippingAddress.province || "",
-    country: "Rwanda",
+export const ordersApi = {
+  checkout: (payload) => {
+    const shippingAddress = payload.shippingAddress || {};
+    const paymentMap = {
+      momo: "MOMO",
+      mtn: "MOMO",
+      airtel: "AIRTEL",
+      cash: "CASH_ON_DELIVERY",
+      cod: "CASH_ON_DELIVERY",
+    };
+    const requested = String(payload.paymentMethod || "momo").toLowerCase();
+    const body = {
+      shippingAddress: {
+        street: shippingAddress.street || shippingAddress.address || "",
+        city: shippingAddress.city || shippingAddress.district || "",
+        state: shippingAddress.state || shippingAddress.province || "",
+        country: shippingAddress.country || "Rwanda",
+        postalCode: shippingAddress.postalCode || "",
+      },
+      paymentMethod: paymentMap[requested] || "MOMO",
+      visitorId: getVisitorId() || undefined,
+    };
+    return client.post("/orders/checkout", body).then((r) => r.data);
   },
-  recipient: {
-    name: recipient.name || "",
-    phone: recipient.phone || "",
-    email: recipient.email || "",
+  directCheckout: (payload) => {
+    const shippingAddress = payload.shippingAddress || {};
+    const paymentMap = {
+      momo: "MOMO",
+      mtn: "MOMO",
+      airtel: "AIRTEL",
+      card: "CARD",
+      cash: "CASH_ON_DELIVERY",
+      cod: "CASH_ON_DELIVERY",
+    };
+    const requested = String(payload.paymentMethod || "momo").toLowerCase();
+    const body = {
+      items: payload.items || [],
+      shippingAddress: {
+        street: shippingAddress.street || shippingAddress.address || "",
+        city: shippingAddress.city || shippingAddress.district || "",
+        state: shippingAddress.state || shippingAddress.province || "",
+        country: shippingAddress.country || "Rwanda",
+        postalCode: shippingAddress.postalCode || "",
+      },
+      paymentMethod: paymentMap[requested] || "MOMO",
+      visitorId: getVisitorId() || undefined,
+    };
+    return client.post("/orders/direct-checkout", body).then((r) => r.data);
   },
   deliveryMethod,
   paymentMethod,
