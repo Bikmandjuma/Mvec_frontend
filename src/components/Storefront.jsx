@@ -125,7 +125,7 @@ export default function Storefront({ children }) {
     </header>
     <nav className="main-nav">
       <div className="category-menu category-menu-dropdown" ref={catRef}>
-        <button type="button" onClick={() => setCatOpen((v) => !v)} aria-expanded={catOpen}><Icon name="menu" /><span>{t('allCategories')}</span></button>
+        <button type="button" onClick={() => setCatOpen((v) => !v)} aria-expanded={catOpen} aria-label={t('allCategories')}><Icon name="menu" /><span>{t('allCategories')}</span></button>
         {catOpen && <div className="category-dropdown">
           {allCategories.length === 0 && <span className="tiny" style={{ padding: '10px 14px', display: 'block' }}>No categories yet</span>}
           {allCategories.map((c) => <Link onClick={() => setCatOpen(false)} key={c} to={`/shop?category=${encodeURIComponent(c)}`}>{c}</Link>)}

@@ -46,7 +46,8 @@ export default function Orders() {
 
   const cancel = async (order) => {
     const paid = order.paymentStatus === "PAID";
-    if (!window.confirm(paid ? "Cancel this order? Your payment is sent back to your mobile money." : "Cancel this order?")) return;
+    const backTo = order.paymentMethod === "CARD" ? "the card you paid with" : "your mobile money";
+    if (!window.confirm(paid ? `Cancel this order? Your payment is sent back to ${backTo}.` : "Cancel this order?")) return;
     setError("");
     setMessage("");
     setBusyId(order.id);

@@ -1,5 +1,5 @@
 import {useEffect,useMemo,useState} from 'react';
-import {Link,useLocation} from 'react-router-dom';
+import {Link,useLocation,useSearchParams} from 'react-router-dom';
 import Icon from '../components/Icon';
 import SmartTable from '../components/SmartTable';
 import DashboardLayout from '../components/DashboardLayout';import Storefront from '../components/Storefront';import NotificationPanel from '../components/NotificationPanel';
@@ -13,6 +13,9 @@ import {disputesApi} from '../API/disputes';
 import {adminApi} from '../API/admin';
 import {mapBackendProduct} from '../services/catalogApi';
 import {client,extractErrorMessage} from '../API/client';
+import {paymentsApi} from '../API/payments';
+import {getCompare,toggleCompare,removeFromCompare,clearCompare,COMPARE_MAX} from '../utils/compare';
+import {useMarketplace} from '../context/MarketplaceContext';
 import ProductImage from '../components/ProductImage';
 import {VendorAdvertising,AdminAdvertising} from './Advertising';
 
@@ -304,7 +307,7 @@ function GenericTableModule({role,type}){
    return editable?<button className="table-action-btn" onClick={()=>{const nextStatus=row.status==='Active'?'Paused':'Active';const key=Object.keys(row).find(k=>k==='status');if(key)save(data.map(x=>x===row?{...x,status:nextStatus}:x));notify(`Record ${nextStatus.toLowerCase()}.`)}}>{row.status==='Active'?'Pause':'Activate'}</button>:null;
  };
  if(type==='support') return <SupportModule role={role}/>;
- if(type==='notifications') return <><Header eyebrow={`${role.toUpperCase()} · ${cfg[0]}`} title={cfg[1]} desc={cfg[2]}/><NotificationPanel/></>;
+ if(type==='notifications') return <NotificationPanel/>; // the panel has its own heading
  if(type==='purchases'&&role==='vendor') return <WholesaleList role="vendor"/>;
  if((type==='supply-requests'||type==='transactions'||type==='reviews')&&role==='supplier') return <SupplierLiveModule type={type}/>;
  if(type==='payments'&&role==='admin') return <AdminPayments/>;
@@ -397,24 +400,52 @@ function BuyerRefunds(){
   </div></>;
 }
 
+// Side-by-side comparison of the products the buyer picked ("Compare" on a product page).
 function BuyerCompare(){
+  const {wishlist=[]}=useMarketplace();
+  const [ids,setIds]=useState(getCompare());
   const [products,setProducts]=useState([]);
   const [loading,setLoading]=useState(true);
   const [error,setError]=useState('');
+  const [notice,setNotice]=useState('');
+  useEffect(()=>{const sync=()=>setIds(getCompare());window.addEventListener('mvec-compare',sync);return()=>window.removeEventListener('mvec-compare',sync);},[]);
   useEffect(()=>{
-    productsApi.getRecommendations(3)
-      .then(res=>setProducts((res.products||[]).map(mapBackendProduct)))
-      .catch(err=>setError(extractErrorMessage(err)))
-      .finally(()=>setLoading(false));
-  },[]);
+    let alive=true;
+    setLoading(true);
+    Promise.allSettled(ids.map(id=>productsApi.getById(id)))
+      .then(results=>{
+        if(!alive)return;
+        const found=results.filter(r=>r.status==='fulfilled'&&r.value).map(r=>mapBackendProduct(r.value));
+        setProducts(found);
+        // Drop products that were deleted (404); keep them on temporary errors.
+        results.forEach((r,i)=>{if(r.status==='rejected'&&r.reason?.response?.status===404)removeFromCompare(ids[i]);});
+      })
+      .catch(err=>alive&&setError(extractErrorMessage(err)))
+      .finally(()=>alive&&setLoading(false));
+    return()=>{alive=false;};
+  },[ids]);
+  const add=(id)=>{const r=toggleCompare(id);setNotice(r.message);};
+  const candidates=wishlist.filter(w=>!ids.includes(String(w.id))).slice(0,6);
+  const best=products.length>1?Math.min(...products.map(p=>Number(p.price)||Infinity)):null;
+  const rows=[
+    ['Price',p=><b className={Number(p.price)===best?'success-text':''}>{money(p.price)}{Number(p.price)===best?' · lowest':''}</b>],
+    ['Rating',p=>p.rating>0?`★ ${Number(p.rating).toFixed(1)}`:'New'],
+    ['Stock',p=>p.stock>0?`${p.stock} available`:<span className="danger-text">Out of stock</span>],
+    ['Seller',p=>p.vendor],
+    ['Category',p=>p.category||'—'],
+  ];
   return <>
-    <Header eyebrow="BUYER" title="Compare products" desc="Compare price, rating, stock and seller trust before you buy."/>
-    {loading && <div className="empty-state"><h3>Loading…</h3></div>}
-    {error && <div className="form-error">{error}</div>}
-    {!loading && !error && products.length===0 && <div className="empty-state"><h3>No products to compare yet</h3></div>}
-    <div className="dash-grid">
-      {products.map(p=><div className="data-card" key={p.id}><ProductImage className="module-product-image" src={p.image} alt=""/><h3>{p.name}</h3><p>{p.vendor}</p><strong>{money(p.price)}</strong><div className="comparison-list"><span>Rating <b>★ {p.rating>0?Number(p.rating).toFixed(1):'New'}</b></span><span>Stock <b>{p.stock>0?p.stock:'Out of stock'}</b></span><span>Seller <b>{p.vendor}</b></span><span>Category <b>{p.category}</b></span></div></div>)}
-    </div>
+    <Header eyebrow="BUYER" title="Compare products" desc="Compare price, rating, stock and seller before you buy. Add products with the Compare button on any product page."/>
+    {error&&<div className="form-error">{error}</div>}{notice&&<div className="form-alert success" role="status">{notice}</div>}
+    {loading?<div className="empty-state"><h3>Loading…</h3></div>:products.length===0?<div className="empty-state">
+      <h3>Nothing to compare yet</h3><p>Open a product and press <b>⇄ Compare</b>, or pick from your wishlist below.</p>
+      <Link className="gradient-btn" to="/shop">Browse products</Link>
+    </div>:<div className="data-card compare-card"><div className="compare-table" style={{'--cols':products.length}}>
+      <div className="compare-head"><span/>{products.map(p=><div key={p.id}><Link to={`/product/${p.id}`}><ProductImage className="module-product-image" src={p.image} alt=""/><b>{p.name}</b></Link><button type="button" className="text-btn" onClick={()=>removeFromCompare(p.id)}>Remove</button></div>)}</div>
+      {rows.map(([label,render])=><div className="compare-row" key={label}><span>{label}</span>{products.map(p=><div key={p.id}>{render(p)}</div>)}</div>)}
+      <div className="compare-row"><span/>{products.map(p=><div key={p.id}><Link className="outline-btn compact-btn" to={`/product/${p.id}`}>View product</Link></div>)}</div>
+    </div>{products.length<2&&<p className="tiny">Add at least one more product to compare.</p>}{products.length>0&&<button type="button" className="text-btn" onClick={clearCompare}>Clear all</button>}</div>}
+    {candidates.length>0&&ids.length<COMPARE_MAX&&<div className="data-card"><h3>Add from your wishlist</h3><div className="compare-picks">{candidates.map(w=><button type="button" key={w.id} className="outline-btn compact-btn" onClick={()=>add(w.id)}>+ {w.name}</button>)}</div></div>}
   </>;
 }
 
@@ -440,25 +471,89 @@ function BuyerRecommendations(){
   </>;
 }
 
+// Premium (ad-free) is bought with mobile money or card; it switches on when the payment succeeds.
 function BuyerSubscription(){
+ const [params,setParams]=useSearchParams();
  const [data,setData]=useState(null);const [loading,setLoading]=useState(true);const [error,setError]=useState('');const [notice,setNotice]=useState('');const [busy,setBusy]=useState(false);
- useEffect(()=>{client.get('/buyer/subscription').then(r=>setData(r.data)).catch(err=>setError(extractErrorMessage(err))).finally(()=>setLoading(false));},[]);
+ const [method,setMethod]=useState('momo');const [phone,setPhone]=useState('');const [waiting,setWaiting]=useState(false);
+ const load=()=>client.get('/buyer/subscription').then(r=>setData(r.data)).catch(err=>setError(extractErrorMessage(err))).finally(()=>setLoading(false));
+ useEffect(()=>{load();},[]);
  const current=data?.subscription?.planKey||'FREE';
- const cancel=async()=>{if(!window.confirm('Cancel your premium plan?'))return;setBusy(true);setError('');try{const r=await client.post('/buyer/subscription',{plan:'FREE'});setData(r.data);setNotice(r.data.message);}catch(err){setError(extractErrorMessage(err));}finally{setBusy(false);}};
+ const premiumActive=current==='PREMIUM'&&data?.subscription?.status==='Active';
+
+ // Watch a payment until it succeeds or fails (3 minutes at most).
+ const watch=async(paymentId)=>{
+  setWaiting(true);
+  const until=Date.now()+3*60*1000;
+  while(Date.now()<until){
+   try{
+    const r=await paymentsApi.getStatus(paymentId);
+    if(r.payment?.status==='SUCCESS'){await load();setNotice('Premium is active. Enjoy shopping without ads!');setWaiting(false);return;}
+    if(['FAILED','CANCELLED'].includes(r.payment?.status)){setError('The payment was declined or cancelled. You have not been charged; you can try again.');setWaiting(false);return;}
+   }catch{/* temporary network problem: keep checking */}
+   await new Promise(res=>setTimeout(res,3000));
+  }
+  setWaiting(false);setNotice('We have not received the payment confirmation yet. If you approved it, Premium switches on as soon as it arrives.');
+ };
+ // Back from the card page.
+ useEffect(()=>{const id=params.get('paymentId');if(!id)return;setParams({},{replace:true});setMethod('card');setNotice('Checking your card payment…');watch(id);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+ },[]);
+
+ const subscribe=async(e)=>{
+  e.preventDefault();setError('');setNotice('');
+  if(method==='momo'&&!/^(\+?250|0)?7[2389]\d{7}$/.test(phone.replace(/\s/g,''))){setError('Enter an MTN (078/079) or Airtel (072/073) number.');return;}
+  setBusy(true);
+  try{
+   const r=await client.post('/buyer/subscription/checkout',method==='momo'?{method,phoneNumber:phone.trim()}:{method}).then(x=>x.data);
+   if(r.status==='SUCCESS'){await load();setNotice('Premium is active. Enjoy shopping without ads!');return;}
+   if(method==='card'){if(!r.checkoutUrl)throw new Error('The card page could not be opened. Please try again.');window.location.assign(r.checkoutUrl);return;}
+   setNotice(r.message||'Approve the prompt on your phone.');watch(r.paymentId);
+  }catch(err){setError(extractErrorMessage(err));}
+  finally{setBusy(false);}
+ };
+ const cancel=async()=>{if(!window.confirm('Switch back to Free? Ads will show again. Time you already paid for is not refunded.'))return;setBusy(true);setError('');try{const r=await client.post('/buyer/subscription',{plan:'FREE'});setData(r.data);setNotice(r.data.message);}catch(err){setError(extractErrorMessage(err));}finally{setBusy(false);}};
+ const premium=(data?.tiers||[]).find(t=>t.planKey==='PREMIUM');
+
  return <><Header eyebrow="BUYER" title="Subscription" desc="Optional ad-free shopping plan."/>
-  {error&&<div className="form-alert error">{error}</div>}{notice&&<div className="form-alert success">{notice}</div>}
-  {loading?<div className="empty-state"><h3>Loading…</h3></div>:<div className="dash-grid">{(data?.tiers||[]).map(t=><SettingCard key={t.planKey} title={t.plan} desc={t.price?`${money(t.price)} · ${t.billing}`:'Free forever'}>
-   {t.planKey===current?<span className="role-chip">Your plan</span>:t.planKey==='PREMIUM'?<p className="tiny">Premium sign-up with mobile money is coming soon.</p>:<button className="outline-btn" disabled={busy} onClick={cancel}>Switch to Free</button>}
-  </SettingCard>)}</div>}
+  {error&&<div className="form-alert error" role="alert">{error}</div>}{notice&&<div className="form-alert success" role="status">{notice}</div>}
+  {loading?<div className="empty-state"><h3>Loading…</h3></div>:<div className="dash-grid">
+   <SettingCard title="Free" desc="Free forever · ads are shown">
+    {current==='FREE'||!premiumActive?<span className="role-chip">Your plan</span>:<button className="outline-btn" disabled={busy} onClick={cancel}>Switch to Free</button>}
+   </SettingCard>
+   <SettingCard title={premium?.plan||'Buyer Ad Removal'} desc={`${money(premium?.price||5000)} · ${premium?.billing||'Monthly'} · no ads anywhere on MVEC`}>
+    {premiumActive?<>
+     <span className="role-chip">Your plan</span>
+     <p className="tiny">Active until {data.subscription.renewal}. Pay again any time to add 30 more days.</p>
+    </>:null}
+    <form onSubmit={subscribe} className="subscription-pay">
+     <div role="radiogroup" aria-label="Payment method">
+      <label className={`payment-option ${method==='momo'?'selected':''}`}><input type="radio" name="sub-method" checked={method==='momo'} onChange={()=>setMethod('momo')} disabled={busy||waiting}/><span className="payment-logo" aria-hidden="true">📱</span><span><b>Mobile money</b><small>MTN MoMo or Airtel Money</small></span></label>
+      <label className={`payment-option ${method==='card'?'selected':''}`}><input type="radio" name="sub-method" checked={method==='card'} onChange={()=>setMethod('card')} disabled={busy||waiting}/><span className="payment-logo" aria-hidden="true">💳</span><span><b>Card</b><small>Visa or Mastercard on Flutterwave's secure page</small></span></label>
+     </div>
+     {method==='momo'&&<label className="field"><span>Mobile money number</span><input type="tel" value={phone} onChange={e=>setPhone(e.target.value)} placeholder="07xx xxx xxx" autoComplete="tel" disabled={busy||waiting}/></label>}
+     <button className="gradient-btn full" type="submit" disabled={busy||waiting}>{waiting?'Waiting for payment…':busy?'Starting…':`${premiumActive?'Add 30 days':'Subscribe'} · ${money(premium?.price||5000)}`}</button>
+     {waiting&&method==='momo'&&<p className="tiny" role="status">Approve the prompt on your phone. This page updates automatically.</p>}
+    </form>
+   </SettingCard>
+  </div>}
  </>;
 }
+
+const FAQ=[
+ ['How do I track my order?','Open My orders and choose the order. You see each step (paid, preparing, shipped, on the way) and get a notification when it changes.'],
+ ['How are delivery fees calculated?','Each seller sets fees for your district. You see the exact fee for every parcel at checkout, before you pay.'],
+ ['How do refunds work?','You can cancel within 30 minutes of paying for a full refund. After that, use Report a problem on the order; MVEC holds the seller\'s payment while it reviews. Refunds go back to the mobile money number or card you paid with.'],
+ ['When does the seller get my money?','MVEC holds your payment until you give the courier your 6-digit delivery code. Only give the code when the items are in your hands.'],
+ ['How can I contact a seller?','Open Messages and search for the store, or use the Messages link on the order.'],
+];
 
 function BuyerModule({type}){
  if(type==='compare') return <BuyerCompare/>;
  if(type==='recommendations') return <BuyerRecommendations/>;
  if(type==='refunds') return <BuyerRefunds/>;
- if(type==='notifications') return <><Header eyebrow="BUYER" title="Notifications" desc="Order, payment, delivery and marketplace updates in one place."/><NotificationPanel role="buyer"/></>;
- if(type==='support') return <><Header eyebrow="BUYER" title="Help & Support" desc="Get help with orders, payments, delivery and refunds."/><div className="dash-grid"><SettingCard title="Order problem" desc="Something went wrong with an order? Open the order and choose Report a problem."><Link className="gradient-btn" to="/orders">View my orders</Link></SettingCard><SettingCard title="Common questions"><div className="timeline">{['How do I track my order?','How are delivery fees calculated?','How do refunds work?','How can I contact a seller?'].map((x,i)=><div className="timeline-item done" key={x}><i/><div><b>{i+1}. {x}</b><small>MVEC Help Center</small></div></div>)}</div></SettingCard></div></>;
+ if(type==='notifications') return <NotificationPanel role="buyer"/>; // the panel has its own heading
+ if(type==='support') return <><Header eyebrow="BUYER" title="Help & Support" desc="Get help with orders, payments, delivery and refunds."/><div className="dash-grid"><SettingCard title="Order problem" desc="Something went wrong with an order? Open the order and choose Report a problem."><Link className="gradient-btn" to="/orders">View my orders</Link></SettingCard><SettingCard title="Common questions"><div className="faq-list">{FAQ.map(([q,a])=><details key={q}><summary>{q}</summary><p>{a}</p></details>)}</div></SettingCard></div></>;
  if(type==='subscription') return <BuyerSubscription/>;
  return null;
 }

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import Storefront from "../components/Storefront";
 import { ordersApi } from "../API/orders";
 import { paymentsApi } from "../API/payments";
@@ -23,7 +23,9 @@ const providerOf = (phone) => {
 export default function Payment() {
   const navigate = useNavigate();
   const { id } = useParams();
+  const [searchParams] = useSearchParams();
   const { user } = useAuth();
+  const [method, setMethod] = useState("momo"); // momo | card
 
   const [order, setOrder] = useState(null);
   const [loadingOrder, setLoadingOrder] = useState(true);
@@ -96,7 +98,9 @@ export default function Payment() {
         if (res.payment?.status === "FAILED" || res.payment?.status === "CANCELLED") {
           stopPolling();
           setStage("choose");
-          setError("The payment was declined or cancelled on your phone. You can try again.");
+          setError(res.payment?.method === "CARD"
+            ? "The card payment was declined or cancelled. No money was taken; you can try again or use mobile money."
+            : "The payment was declined or cancelled on your phone. You can try again.");
           return undefined;
         }
       } else {
@@ -117,10 +121,39 @@ export default function Payment() {
     pollRef.current = setInterval(checkOnce, POLL_MS);
   }, [checkOnce, stopPolling]);
 
+  // Back from the card page (?paymentId=…): verify the result right away.
+  const returnedPaymentId = searchParams.get("paymentId");
+  useEffect(() => {
+    if (!returnedPaymentId || !order || order.paymentStatus === "PAID") return;
+    paymentIdRef.current = returnedPaymentId;
+    setMethod("card");
+    setStage("waiting");
+    setNotice("Checking your card payment…");
+    checkOnce();
+    startPolling();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [returnedPaymentId, order?.id]);
+
+  async function payByCard() {
+    setStage("waiting");
+    try {
+      const res = await paymentsApi.payCard({ orderId: id });
+      paymentIdRef.current = res.paymentId || null;
+      if (res.status === "SUCCESS") { confirmed(); return; }
+      if (!res.checkoutUrl) throw new Error("The card page could not be opened. Please try again.");
+      setNotice("Opening the secure card page…");
+      window.location.assign(res.checkoutUrl);
+    } catch (err) {
+      setError(extractErrorMessage(err));
+      setStage("choose");
+    }
+  }
+
   async function pay(e) {
     e?.preventDefault();
     setError("");
     setNotice("");
+    if (method === "card") { await payByCard(); return; }
     if (!isRwandanPhone(phone)) {
       setError("Enter an MTN (078/079) or Airtel (072/073) number.");
       return;
@@ -175,16 +208,33 @@ export default function Payment() {
         </>
       ) : (
         <form onSubmit={pay}>
-          <h2>Pay with mobile money</h2>
-          <p className="tiny">MTN MoMo and Airtel Money are supported. You will get a prompt on your phone to approve the payment with your PIN.</p>
-          <label className="field"><span>Mobile money number</span>
-            <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="07xx xxx xxx" autoComplete="tel" disabled={stage === "waiting"} />
-            {provider && <small className="tiny">{provider}</small>}
-          </label>
+          <h2>How would you like to pay?</h2>
+          <div role="radiogroup" aria-label="Payment method">
+            <label className={`payment-option ${method === "momo" ? "selected" : ""}`}>
+              <input type="radio" name="method" value="momo" checked={method === "momo"} onChange={() => setMethod("momo")} disabled={stage === "waiting"} />
+              <span className="payment-logo" aria-hidden="true">📱</span>
+              <span><b>Mobile money</b><small>MTN MoMo or Airtel Money: approve a prompt on your phone</small></span>
+            </label>
+            <label className={`payment-option ${method === "card" ? "selected" : ""}`}>
+              <input type="radio" name="method" value="card" checked={method === "card"} onChange={() => setMethod("card")} disabled={stage === "waiting"} />
+              <span className="payment-logo" aria-hidden="true">💳</span>
+              <span><b>Card</b><small>Visa or Mastercard on Flutterwave's secure page</small></span>
+            </label>
+          </div>
+          {method === "momo" ? (
+            <label className="field payment-fields"><span>Mobile money number</span>
+              <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="07xx xxx xxx" autoComplete="tel" disabled={stage === "waiting"} />
+              {provider && <small className="tiny">{provider}</small>}
+            </label>
+          ) : (
+            <p className="tiny payment-fields">You will enter your card on Flutterwave's secure page, then come back here automatically. MVEC never sees your card number.</p>
+          )}
           <button className="gradient-btn full" type="submit" disabled={stage === "waiting"}>
-            {stage === "waiting" ? "Waiting for your approval…" : `Pay ${money(order.totalAmount)}`}
+            {stage === "waiting"
+              ? (method === "card" ? "Confirming your card payment…" : "Waiting for your approval…")
+              : `Pay ${money(order.totalAmount)}${method === "card" ? " by card" : ""}`}
           </button>
-          {stage === "waiting" && <p className="tiny" role="status">Approve the prompt on your phone. This page updates automatically.</p>}
+          {stage === "waiting" && method === "momo" && <p className="tiny" role="status">Approve the prompt on your phone. This page updates automatically.</p>}
           {stage === "timeout" && (
             <div className="form-alert error" role="alert">
               We have not received a confirmation yet. If you approved the payment, it may still arrive.{" "}

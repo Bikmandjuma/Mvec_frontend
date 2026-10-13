@@ -246,7 +246,7 @@ export default function Checkout() {
   );
 
   return <Storefront><main className="checkout-page">
-    <div className="page-title"><span className="eyebrow">CHECKOUT</span><h1>Complete your order</h1><p>Pay with mobile money. MVEC holds the payment until you confirm delivery.</p></div>
+    <div className="page-title"><span className="eyebrow">CHECKOUT</span><h1>Complete your order</h1><p>Pay with mobile money or card. MVEC holds the payment until you confirm delivery.</p></div>
     <ol className="checkout-steps"><li className="active">1 Delivery details</li><li>2 Payment</li><li>3 Confirmation</li></ol>
     {error && <div className="form-alert error" role="alert" ref={errorRef}>{error}</div>}
     <form onSubmit={placeOrder} noValidate><div className="checkout-layout"><section className="checkout-main">
@@ -319,7 +319,7 @@ export default function Checkout() {
         {submitting ? "Placing order…" : user ? "Continue to payment" : "Sign in to continue"}
       </button>
       {!pid && <Link to="/cart" className="back-link">← Back to cart</Link>}
-      <div className="verified-box"><b>✓ Protected payment</b><p>You pay by MTN MoMo or Airtel Money on the next step. MVEC holds the money and only releases it to the seller after you confirm delivery with your code.</p></div>
+      <div className="verified-box"><b>✓ Protected payment</b><p>You pay by MTN MoMo, Airtel Money or card (Visa/Mastercard) on the next step. MVEC holds the money and only releases it to the seller after you confirm delivery with your code.</p></div>
     </aside></div></form>
   </main></Storefront>;
 }
