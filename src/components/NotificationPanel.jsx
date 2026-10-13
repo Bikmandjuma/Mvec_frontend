@@ -19,11 +19,21 @@ const ICON_BY_TYPE = {
   SYSTEM: "bell",
 };
 
+function timeAgo(date) {
+  const s = Math.max(0, (Date.now() - new Date(date).getTime()) / 1000);
+  if (s < 60) return "Just now";
+  if (s < 3600) return `${Math.floor(s / 60)} min ago`;
+  if (s < 86400) return `${Math.floor(s / 3600)} h ago`;
+  if (s < 7 * 86400) return `${Math.floor(s / 86400)} d ago`;
+  return new Date(date).toLocaleDateString("en-GB");
+}
+
 export default function NotificationPanel() {
   const [items, setItems] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [filter, setFilter] = useState("all");
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -61,6 +71,8 @@ export default function NotificationPanel() {
     }
   };
 
+  const shown = filter === "unread" ? items.filter((n) => !n.isRead) : items;
+
   return (
     <>
       <div className="dash-page-head">
@@ -83,6 +95,10 @@ export default function NotificationPanel() {
             <h3>Updates</h3>
             <span>{unreadCount} unread</span>
           </div>
+          <div className="dlv-tabs" role="tablist">
+            {[["all", "All", items.length], ["unread", "Unread", unreadCount]].map(([k, l, c]) =>
+              <button type="button" role="tab" aria-selected={filter === k} key={k} className={filter === k ? "on" : ""} onClick={() => setFilter(k)}>{l}<em>{c}</em></button>)}
+          </div>
         </div>
 
         {loading && <div className="empty-state"><h3>Loading…</h3></div>}
@@ -94,27 +110,24 @@ export default function NotificationPanel() {
           </div>
         )}
 
-        {!loading && !error && items.length === 0 && (
+        {!loading && !error && shown.length === 0 && (
           <div className="empty-state">
-            <h3>No notifications yet</h3>
-            <p>Payment and order updates will appear here.</p>
+            <h3>{filter === "unread" && items.length ? "You're all caught up" : "No notifications yet"}</h3>
+            <p>{filter === "unread" && items.length ? "No unread notifications." : "Payment and order updates will appear here."}</p>
           </div>
         )}
 
         {!loading &&
           !error &&
-          items.map((n) => (
+          shown.map((n) => (
             <div className={"notification-card " + (n.isRead ? "read" : "unread")} key={n.id}>
               <div className="notification-icon">
                 <Icon name={ICON_BY_TYPE[n.type] || "bell"} />
               </div>
               <div className="notification-copy">
                 <b>{n.title}</b>
-                <p>{n.body}</p>
-                <small>
-                  {new Date(n.createdAt).toLocaleDateString("en-GB")}{" "}
-                  {new Date(n.createdAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}
-                </small>
+                {n.message && <p>{n.message}</p>}
+                <small title={new Date(n.createdAt).toLocaleString("en-GB")}>{timeAgo(n.createdAt)}</small>
               </div>
               {!n.isRead && (
                 <button className="outline-btn" onClick={() => markRead(n.id)}>Mark read</button>

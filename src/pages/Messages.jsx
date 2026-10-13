@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Icon from "../components/Icon";
 import { useAuth } from "../context/AuthContext";
-import { conversationsApi } from "../API/conversations";
+import { conversationsApi, normalizeMessage } from "../API/conversations";
 import { extractErrorMessage } from "../API/client";
 import { getSocket } from "../services/socket";
 
@@ -61,7 +61,10 @@ export default function Messages() {
     const socket = getSocket();
     if (!socket) return undefined;
 
-    const onNewMessage = ({ conversationId, message }) => {
+    const onNewMessage = ({ conversationId, message: raw }) => {
+      const message = normalizeMessage(raw);
+      // Our own messages are already shown optimistically by send().
+      if (message.senderId === myId) return;
       setConversations((prev) => {
         const next = prev.map((c) =>
           c.id === conversationId
@@ -71,12 +74,13 @@ export default function Messages() {
         return next.sort((a, b) => new Date(b.lastMessageAt) - new Date(a.lastMessageAt));
       });
       if (conversationId === selectedIdRef.current) {
-        setMessages((prev) => [...prev, message]);
+        setMessages((prev) => (prev.some((m) => m.id === message.id) ? prev : [...prev, message]));
         conversationsApi.markRead(conversationId).catch(() => null);
       }
     };
 
-    const onMessagesRead = ({ conversationId }) => {
+    const onMessagesRead = ({ conversationId, readerId }) => {
+      if (readerId === myId) return;
       if (conversationId === selectedIdRef.current) {
         setMessages((prev) => prev.map((m) => ({ ...m, readByIds: Array.from(new Set([...(m.readByIds || []), "read"])) })));
       }
@@ -112,7 +116,7 @@ export default function Messages() {
       socket.off("typing", onTyping);
       socket.off("presence", onPresence);
     };
-  }, []);
+  }, [myId]);
 
   // Keep a ref in sync with selectedId so socket callbacks (closed over once)
   // always know which conversation is currently open.

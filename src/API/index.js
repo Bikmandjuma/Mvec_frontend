@@ -20,4 +20,7 @@ export { addressesApi } from "./addresses";
 export { affiliatesApi } from "./affiliates";
 export { notificationsApi } from "./notifications";
 export { reviewsApi } from "./reviews";
+export { promotionsApi } from "./promotions";
+export { shippingApi } from "./shipping";
+export { vendorServicesApi } from "./vendorServices";
 export { client, extractErrorMessage, mapUser, mapAuthResponse } from "./client";
