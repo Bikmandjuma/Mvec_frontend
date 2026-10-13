@@ -17,4 +17,11 @@ export const productsApi = {
     client.put(`/products/${id}`, payload).then((r) => r.data),
   delete: (id) =>
     client.delete(`/products/${id}`).then((r) => r.data),
+  // Inventory operations
+  adjustStock: (id, payload) =>
+    client.patch(`/products/${id}/stock`, payload).then((r) => r.data),
+  moveToStore: (productIds, storeId, note) =>
+    client.post("/products/vendor/move-store", { productIds, storeId, note }).then((r) => r.data),
+  getStockMovements: (params) =>
+    client.get("/products/vendor/stock-movements", { params }).then((r) => r.data),
 };

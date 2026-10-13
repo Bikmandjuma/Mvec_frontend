@@ -164,31 +164,7 @@ export default function App() {
         }
       />
       <Route
-        path="/vendor/categories"
-        element={
-          <RequireAuth roles={["vendor"]}>
-            <FeaturePages role="vendor" />
-          </RequireAuth>
-        }
-      />
-      <Route
         path="/vendor/purchases"
-        element={
-          <RequireAuth roles={["vendor"]}>
-            <FeaturePages role="vendor" />
-          </RequireAuth>
-        }
-      />
-      <Route
-        path="/vendor/advertisements"
-        element={
-          <RequireAuth roles={["vendor"]}>
-            <FeaturePages role="vendor" />
-          </RequireAuth>
-        }
-      />
-      <Route
-        path="/vendor/subscription"
         element={
           <RequireAuth roles={["vendor"]}>
             <FeaturePages role="vendor" />
@@ -204,26 +180,10 @@ export default function App() {
         }
       />
       <Route
-        path="/vendor/reviews"
-        element={
-          <RequireAuth roles={["vendor"]}>
-            <FeaturePages role="vendor" />
-          </RequireAuth>
-        }
-      />
-      <Route
         path="/vendor/messages"
         element={
           <RequireAuth roles={["vendor"]}>
             <CommunicationPage role="vendor" />
-          </RequireAuth>
-        }
-      />
-      <Route
-        path="/vendor/shipping"
-        element={
-          <RequireAuth roles={["vendor"]}>
-            <FeaturePages role="vendor" />
           </RequireAuth>
         }
       />

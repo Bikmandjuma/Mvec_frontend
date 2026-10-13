@@ -1,12 +1,17 @@
 import { client } from "./client";
 
+// Normalises the backend's { data, meta: { unreadCount } } into one shape.
+const mine = (params) =>
+  client.get("/notifications/mine", { params }).then((r) => ({
+    notifications: r.data.data || [],
+    unreadCount: r.data.meta?.unreadCount || 0,
+  }));
+
 export const notificationsApi = {
-  getAll: (params) =>
-    client.get("/notifications", { params }).then((r) => r.data),
+  getMine: mine,
+  getAll: mine,
   markAsRead: (id) =>
     client.patch(`/notifications/${id}/read`).then((r) => r.data),
   markAllAsRead: () =>
-    client.patch("/notifications/read-all").then((r) => r.data),
-  remove: (id) =>
-    client.delete(`/notifications/${id}`).then((r) => r.data),
+    client.post("/notifications/read-all").then((r) => r.data),
 };
