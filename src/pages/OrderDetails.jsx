@@ -70,7 +70,7 @@ export default function OrderDetails() {
 
   const items = order.items || [];
   const productIdOf = (it) => String(it.product?._id || it.product || "");
-  const cancelled = order.orderStatus === "CANCELLED";
+  const cancelled = ["CANCELLED", "REFUNDED"].includes(order.orderStatus);
   const delivered = ["DELIVERED", "COMPLETED"].includes(order.orderStatus);
   const awaitingPayment = isAwaitingPayment(order);
   const idx = stepIndex(order);
@@ -80,7 +80,7 @@ export default function OrderDetails() {
 
   const cancel = async () => {
     const paid = order.paymentStatus === "PAID";
-    if (!window.confirm(paid ? "Cancel this order? MVEC will record a full refund." : "Cancel this order?")) return;
+    if (!window.confirm(paid ? "Cancel this order? Your payment is sent back to your mobile money." : "Cancel this order?")) return;
     setNotice(null);
     setCancelling(true);
     try {
@@ -195,7 +195,7 @@ export default function OrderDetails() {
     {order.paymentStatus === "PAID" && order.deliveryOtp && !delivered && !cancelled && (
       <section className="verified-box otp-buyer-box">
         <b>🔐 Your delivery code</b>
-        <p>Give this code to the courier only when your order is in your hands. It releases your payment to the seller.</p>
+        <p>Give this code to the seller or courier only when your order is in your hands. It releases your payment to the seller. We also sent it to you by SMS.</p>
         <strong className="delivery-otp">{order.deliveryOtp}</strong>
       </section>
     )}
@@ -204,7 +204,7 @@ export default function OrderDetails() {
       <section className="verified-box refund-box">
         <b>{order.paymentStatus === "REFUNDED" ? "Order cancelled · full refund recorded" : "Order cancelled"}</b>
         <p>{order.paymentStatus === "REFUNDED"
-          ? "MVEC has recorded a full refund for this order and will return the money to the number you paid with."
+          ? "Your full refund was sent to the mobile money number you paid with. It usually arrives within minutes; you get an SMS when it does."
           : order.cancellationReason === "PAYMENT_TIMEOUT_EXPIRED_30_MIN"
             ? "This order was not paid within 30 minutes, so it was cancelled. You were not charged."
             : "This order was cancelled before payment. You were not charged."}</p>

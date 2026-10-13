@@ -20,7 +20,8 @@ export const countdown = (ms) => {
 
 // Plain-language status for buyers.
 export const buyerStatus = (o) => {
-  if (o?.orderStatus === 'CANCELLED') return o.paymentStatus === 'REFUNDED' ? 'Cancelled · refund recorded' : 'Cancelled';
+  if (o?.orderStatus === 'CANCELLED') return o.paymentStatus === 'REFUNDED' ? 'Cancelled · refunded' : 'Cancelled';
+  if (o?.orderStatus === 'REFUNDED') return 'Refunded';
   if (o?.paymentStatus === 'DISPUTED') return 'Problem reported · under review';
   if (isAwaitingPayment(o)) return 'Awaiting payment';
   const labels = {

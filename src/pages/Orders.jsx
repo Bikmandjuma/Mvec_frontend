@@ -46,7 +46,7 @@ export default function Orders() {
 
   const cancel = async (order) => {
     const paid = order.paymentStatus === "PAID";
-    if (!window.confirm(paid ? "Cancel this order? MVEC will record a full refund." : "Cancel this order?")) return;
+    if (!window.confirm(paid ? "Cancel this order? Your payment is sent back to your mobile money." : "Cancel this order?")) return;
     setError("");
     setMessage("");
     setBusyId(order.id);
