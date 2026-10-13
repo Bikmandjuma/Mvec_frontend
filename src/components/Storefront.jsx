@@ -2,7 +2,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
 import Icon from './Icon';
 import { useAuth } from '../context/AuthContext';
-import { useTheme } from '../context/ThemeContext';
+import ThemeToggle from './ThemeToggle';
 import { useMarketplace } from '../context/MarketplaceContext';
 import { loadCatalog } from '../services/catalogApi';
 import { useLanguage } from '../context/LanguageContext';
@@ -15,7 +15,6 @@ const NOTIFICATIONS_BY_ROLE = { vendor: '/vendor/notifications', supplier: '/sup
 
 export default function Storefront({ children }) {
   const { user, logout } = useAuth();
-  const { theme, toggleTheme } = useTheme();
   const { cartCount, wishlistCount, cartNotice, dismissCartNotice } = useMarketplace();
   const { t } = useLanguage();
   const navigate = useNavigate();
@@ -115,7 +114,7 @@ export default function Storefront({ children }) {
         </div>}
       </div>
       <div className="header-actions">
-        <button className="site-theme-toggle" onClick={toggleTheme} title="Toggle theme" aria-label="Toggle theme"><Icon name={theme === 'dark' ? 'sun' : 'moon'} size={18} /></button>
+        <ThemeToggle />
         <Link className="count-link" to="/wishlist" title="Wishlist" aria-label={`Wishlist, ${wishlistCount} items`}><Icon name="heart" /><span className="nav-count">{wishlistCount}</span></Link>
         {user && <Link className="count-link notification-link" to={notificationPath} title="Notifications" aria-label={unread ? `Notifications, ${unread} unread` : 'Notifications'}><Icon name="bell" />{unread > 0 && <span className="notification-dot" />}</Link>}
         <Link className="count-link" to="/cart" title="Cart" aria-label={`Cart, ${cartCount} items`}><Icon name="cart" /><span className="nav-count">{cartCount}</span></Link>

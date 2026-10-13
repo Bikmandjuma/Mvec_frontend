@@ -1,5 +1,6 @@
 import { createContext, useContext, useMemo, useState, useEffect, useCallback, useRef } from 'react';
 import { cartApi } from '../API/cart';
+import { wishlistApi } from '../API/wishlist';
 import { extractErrorMessage } from '../API/client';
 import { resolveImageUrl } from '../utils/imageUrl';
 import { useAuth } from './AuthContext';
@@ -109,23 +110,41 @@ export function MarketplaceProvider({ children }) {
     loadCart();
   }, [loadCart]);
 
-  // Wishlist is kept per account on this device, so a shared computer never
-  // shows one person's saved items to another.
+  // Wishlist lives on the account, so it follows the buyer to every device.
+  // Lists saved in this browser by older versions are merged in once.
+  const fromServerWish = (w) => {
+    const p = w.product || {};
+    return {
+      id: String(p._id || p.id),
+      name: p.name || 'Product',
+      image: resolveImageUrl(p.media?.mainImage || ''),
+      vendor: vendorNameOf(p.vendor),
+      price: effectivePrice(p),
+      stock: Number(p.stockQuantity) || 0,
+      status: p.status,
+      savedPrice: Number(w.savedPrice) || 0,
+      savedAt: w.savedAt,
+    };
+  };
   useEffect(() => {
     if (!userId) {
       setWishlist([]);
-      return;
+      return undefined;
     }
-    let saved = readJson(wishlistKey(userId));
-    const legacy = readJson(LEGACY_WISHLIST_KEY);
-    if (legacy.length) {
-      const known = new Set(saved.map((x) => String(x.id)));
-      saved = [...saved, ...legacy.filter((x) => !known.has(String(x.id || x._id)))];
-      writeJson(wishlistKey(userId), saved);
-      localStorage.removeItem(LEGACY_WISHLIST_KEY);
-    }
-    setWishlist(saved);
-  }, [userId]);
+    let alive = true;
+    const local = [...readJson(wishlistKey(userId)), ...readJson(LEGACY_WISHLIST_KEY)];
+    const localIds = [...new Set(local.map((x) => String(x.id || x._id)).filter(Boolean))];
+    const load = localIds.length ? wishlistApi.add(localIds) : wishlistApi.get();
+    load
+      .then((items) => {
+        if (!alive) return;
+        setWishlist(items.map(fromServerWish));
+        localStorage.removeItem(wishlistKey(userId));
+        localStorage.removeItem(LEGACY_WISHLIST_KEY);
+      })
+      .catch(() => alive && setWishlist(local.map((x) => ({ ...x, id: String(x.id || x._id) }))));
+    return () => { alive = false; };
+  }, [userId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const saveGuestCart = (next) => {
     writeJson(GUEST_CART_KEY, next);
@@ -225,30 +244,23 @@ export function MarketplaceProvider({ children }) {
   const toggleWishlist = useCallback((product) => {
     if (!userId) return false;
     const id = String(product.id || product._id);
-    setWishlist((prev) => {
-      const exists = prev.some((x) => String(x.id) === id);
-      const next = exists
-        ? prev.filter((x) => String(x.id) !== id)
-        : [...prev, {
-          id,
-          name: product.name,
-          image: product.image || '',
-          vendor: vendorNameOf(product.vendor),
-          savedPrice: Number(product.price) || 0,
-          savedAt: new Date().toISOString(),
-        }];
-      writeJson(wishlistKey(userId), next);
-      return next;
-    });
+    const exists = wishlist.some((x) => String(x.id) === id);
+    // Update the screen immediately, then sync with the account.
+    setWishlist((prev) => (exists
+      ? prev.filter((x) => String(x.id) !== id)
+      : [...prev, { id, name: product.name, image: product.image || '', vendor: vendorNameOf(product.vendor), price: Number(product.price) || 0, savedPrice: Number(product.price) || 0, savedAt: new Date().toISOString() }]));
+    (exists ? wishlistApi.remove(id) : wishlistApi.add([id]))
+      .then((items) => setWishlist(items.map(fromServerWish)))
+      .catch(() => setCartNotice('We could not update your wishlist. Please try again.'));
     return true;
-  }, [userId]);
+  }, [userId, wishlist]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const isWishlisted = useCallback((id) => wishlist.some((x) => String(x.id) === String(id)), [wishlist]);
 
   const clearWishlist = useCallback(() => {
-    if (userId) localStorage.removeItem(wishlistKey(userId));
+    wishlist.forEach((x) => wishlistApi.remove(x.id).catch(() => {}));
     setWishlist([]);
-  }, [userId]);
+  }, [wishlist]);
 
   const cartCount = useMemo(() => cart.reduce((n, x) => n + (Number(x.qty) || 1), 0), [cart]);
   const dismissCartNotice = useCallback(() => setCartNotice(''), []);

@@ -424,7 +424,9 @@ function Withdrawals() {
   const [amount, setAmount] = useState("");
   const [method, setMethod] = useState("MTN_MOMO");
   const [phoneNumber, setPhoneNumber] = useState("");
+  const [bank, setBank] = useState({ bankName: "", accountNumber: "", accountName: "" });
   const [msg, setMsg] = useState("");
+  const [msgOk, setMsgOk] = useState(false);
   const [busy, setBusy] = useState(false);
 
   const load = () => {
@@ -435,13 +437,38 @@ function Withdrawals() {
   };
   useEffect(load, []);
 
+  // Pick the network from the number so MTN / Airtel always match.
+  const onPhone = (value) => {
+    setPhoneNumber(value);
+    const digits = value.replace(/\D/g, "");
+    const local = digits.startsWith("250") ? `0${digits.slice(3)}` : digits;
+    if (/^07[89]/.test(local)) setMethod("MTN_MOMO");
+    if (/^07[23]/.test(local)) setMethod("AIRTEL_MONEY");
+  };
+
   const submit = async () => {
     setMsg("");
-    if (!amount || !phoneNumber) { setMsg("Please enter an amount and phone number."); return; }
+    setMsgOk(false);
+    const value = Number(amount);
+    if (!value || value < 10000) { setMsg("Enter at least RWF 10,000."); return; }
+    if (wallet && value > Number(wallet.availableBalance || 0)) { setMsg("That is more than your available balance."); return; }
+    const isBank = method === "BANK_TRANSFER";
+    if (!isBank && !phoneNumber.trim()) { setMsg("Enter the mobile money number to receive the money."); return; }
+    if (isBank && (!bank.bankName.trim() || !bank.accountNumber.trim() || !bank.accountName.trim())) { setMsg("Enter the bank name, account number and account name."); return; }
     setBusy(true);
     try {
-      const res = await affiliatesApi.requestPayout({ amount: Number(amount), paymentMethod: method, accountDetails: { phoneNumber } });
-      setMsg(`Withdrawal request for ${money(amount)} submitted successfully.`);
+      const res = await affiliatesApi.requestPayout({
+        amount: value,
+        paymentMethod: method,
+        accountDetails: isBank ? bank : { phoneNumber: phoneNumber.trim() },
+      });
+      const status = res?.data?.status || res?.payout?.status;
+      setMsgOk(true);
+      setMsg(status === "COMPLETED"
+        ? `${money(value)} was sent to your mobile money.`
+        : status === "PROCESSING"
+          ? `${money(value)} is being sent to your mobile money. You will get a notification when it arrives.`
+          : `Your ${money(value)} withdrawal is waiting for MVEC approval. You will get a notification when it is sent.`);
       setAmount("");
       load();
     } catch (err) {
@@ -458,11 +485,16 @@ function Withdrawals() {
         <p className="tiny">Available balance: <b>{loading ? "…" : money(wallet?.availableBalance)}</b>. Minimum withdrawal is RWF 10,000.</p>
         <label className="field"><span>Amount (RWF)</span><input type="number" min="10000" step="1000" value={amount} onChange={e => setAmount(e.target.value)} /></label>
         <label className="field"><span>Payment method</span><select value={method} onChange={e => setMethod(e.target.value)}><option value="MTN_MOMO">MTN MoMo</option><option value="AIRTEL_MONEY">Airtel Money</option><option value="BANK_TRANSFER">Bank account</option></select></label>
-        <label className="field"><span>Phone number</span><input value={phoneNumber} onChange={e => setPhoneNumber(e.target.value)} placeholder="+250 788 100 005" /></label>
-        <button className="gradient-btn" onClick={submit} disabled={busy || !wallet || wallet.availableBalance < 10000}>{busy ? "Submitting…" : "Submit withdrawal request"}</button>
-        {msg && <p className={msg.includes("successfully") ? "success-text" : "form-alert error"}>{msg}</p>}
+        {method === "BANK_TRANSFER" ? <>
+          <label className="field"><span>Bank name</span><input value={bank.bankName} onChange={e => setBank({ ...bank, bankName: e.target.value })} /></label>
+          <label className="field"><span>Account number</span><input value={bank.accountNumber} onChange={e => setBank({ ...bank, accountNumber: e.target.value })} /></label>
+          <label className="field"><span>Account name</span><input value={bank.accountName} onChange={e => setBank({ ...bank, accountName: e.target.value })} /></label>
+        </> : <label className="field"><span>Mobile money number</span><input type="tel" value={phoneNumber} onChange={e => onPhone(e.target.value)} placeholder="07xx xxx xxx" /></label>}
+        <button className="gradient-btn" onClick={submit} disabled={busy || !wallet || Number(wallet.availableBalance || 0) < 10000}>{busy ? "Submitting…" : "Withdraw"}</button>
+        {wallet && Number(wallet.availableBalance || 0) < 10000 && <p className="tiny">You can withdraw once your available balance reaches RWF 10,000. Commissions become available after the buyer confirms delivery.</p>}
+        {msg && <p className={msgOk ? "success-text" : "form-alert error"} role="status">{msg}</p>}
       </div>
-      <div className="data-card"><h3>Payout process</h3><div className="timeline">{["Submit a withdrawal request.", "MVEC validates the destination and available balance.", "The payout is processed through the selected payment channel.", "The request status changes to completed when the transfer is confirmed."].map((x, i) => <div className="timeline-item done" key={x}><i /><div><b>{i + 1}. {x}</b></div></div>)}</div></div>
+      <div className="data-card"><h3>Payout process</h3><div className="timeline">{["Request a withdrawal to MTN MoMo, Airtel Money or a bank account.", "Up to RWF 100,000 to mobile money is sent automatically within minutes.", "Larger amounts and bank transfers are sent after MVEC approval.", "You get a notification and SMS when the money is sent. A failed transfer returns to your balance."].map((x, i) => <div className="timeline-item done" key={x}><i /><div><b>{i + 1}. {x}</b></div></div>)}</div></div>
     </div>
     <div className="data-card"><h3>Withdrawal history</h3>
       {loading && <div className="empty-state"><h3>Loading…</h3></div>}
@@ -470,9 +502,9 @@ function Withdrawals() {
         columns={[
           { key: "payoutNumber", label: "Request" },
           { key: "amount", label: "Amount", render: r => money(r.amount) },
-          { key: "paymentMethod", label: "Method" },
+          { key: "paymentMethod", label: "Method", render: r => ({ MTN_MOMO: "MTN MoMo", AIRTEL_MONEY: "Airtel Money", BANK_TRANSFER: "Bank" }[r.paymentMethod] || r.paymentMethod) },
           { key: "createdAt", label: "Requested", render: r => new Date(r.createdAt).toLocaleDateString("en-GB") },
-          { key: "status", label: "Status" },
+          { key: "status", label: "Status", render: r => ({ PENDING: "Waiting for approval", APPROVED: "Approved", PROCESSING: "Sending", COMPLETED: "Sent", REJECTED: r.rejectionReason ? `Not sent · ${r.rejectionReason}` : "Not sent" }[r.status] || r.status) },
         ]}
         rows={history}
         rowKey={r => r.id}

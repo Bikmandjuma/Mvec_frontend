@@ -2,6 +2,9 @@ import { useMemo, useState } from "react";
 import Pagination from "./Pagination";
 
 const FILTER_KEYS = ["status","category","role","payment","settlement","type","state","stage","risk","method","range","period","date"];
+// Column header text: a column may be a plain string or { key, label }.
+// An empty label (e.g. an actions column) must render nothing, not the object.
+const headerOf = c => typeof c === "string" ? c : (c.label ?? "");
 const labelFor = key => key ? key.replace(/([A-Z])/g," $1").replace(/^./,s=>s.toUpperCase()) : "Filter";
 const csvCell = value => `"${String(value ?? "").replace(/"/g,'""')}"`;
 const plainValue = (row,col) => {
@@ -28,7 +31,7 @@ export default function SmartTable({ columns, rows=[], rowKey, pageSize=6, searc
   const shown=filtered.slice((current-1)*pageSize,current*pageSize);
   const changeSearch=e=>{setQ(e.target.value);setPage(1)};
   const exportCsv=()=>{
-    const header=columns.map(c=>csvCell(c.label||c.key||c)).join(",");
+    const header=columns.map(c=>csvCell(headerOf(c)||c.key||"")).join(",");
     const body=filtered.map(row=>columns.map(c=>csvCell(plainValue(row,c))).join(",")).join("\n");
     const blob=new Blob(["\uFEFF"+header+"\n"+body],{type:"text/csv;charset=utf-8;"});
     const url=URL.createObjectURL(blob); const a=document.createElement("a");
@@ -44,7 +47,7 @@ export default function SmartTable({ columns, rows=[], rowKey, pageSize=6, searc
     <div className="table-scroll">
       <table className="smart-table">
         <colgroup>{columns.map(c=><col key={c.key||c} />)}{actions&&<col />}</colgroup>
-        <thead><tr>{columns.map(c=><th key={c.key||c}>{c.label||c}</th>)}{actions&&<th>Actions</th>}</tr></thead>
+        <thead><tr>{columns.map(c=><th key={c.key||c}>{headerOf(c)}</th>)}{actions&&<th>Actions</th>}</tr></thead>
         <tbody>
           {shown.length ? shown.map((row,index)=><tr key={rowKey?rowKey(row,index):index}>{columns.map(c=><td key={c.key||c}>{c.render?c.render(row):row[c.key]}</td>)}{actions&&<td className="row-actions">{actions(row)}</td>}</tr>) : <tr><td className="table-empty" colSpan={columns.length+(actions?1:0)}>{empty}</td></tr>}
         </tbody>
