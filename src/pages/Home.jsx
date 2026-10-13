@@ -1,7 +1,8 @@
 import { Link } from "react-router-dom";
 import { useState, useEffect, useCallback } from "react";
 import Pagination from "../components/Pagination";
-import { loadCatalog } from "../services/catalogApi";
+import { loadCatalog, mapBackendProduct } from "../services/catalogApi";
+import { advertisementsApi } from "../API/advertisements";
 import Storefront from "../components/Storefront";
 import Icon from "../components/Icon";
 import ProductImage from "../components/ProductImage";
@@ -36,6 +37,19 @@ export default function Home() {
     });
   }, []);
 
+  // Paid placements: the hero and the scrolling strip only ever show
+  // products whose ad campaign an MVEC admin approved and that is live now.
+  // Newly added products appear in their category, Popular, Deals and Shop.
+  const [heroAds, setHeroAds] = useState([]);
+  const [featuredAds, setFeaturedAds] = useState([]);
+  useEffect(() => {
+    let mounted = true;
+    const toProducts = (ads) => ads.map((ad) => mapBackendProduct(ad.product)).filter((p) => p && p.id);
+    advertisementsApi.getLive("HOMEPAGE_HERO", 6).then((ads) => mounted && setHeroAds(toProducts(ads))).catch(() => {});
+    advertisementsApi.getLive("FEATURED", 12).then((ads) => mounted && setFeaturedAds(toProducts(ads))).catch(() => {});
+    return () => { mounted = false; };
+  }, []);
+
   useEffect(() => {
     let mounted = true;
     loadCatalog().then((cat) => {
@@ -47,18 +61,32 @@ export default function Home() {
   }, []);
 
   const { products, vendors } = catalog;
-  const inStock = products.filter((p) => p.stock > 0);
   // Popular = best rated with the most reviews; ties keep newest first.
   const popular = [...products].sort((a, b) => (b.rating * Math.log1p(b.reviews)) - (a.rating * Math.log1p(a.reviews)));
   const shownProducts = popular.slice((productPage - 1) * PRODUCTS_PER_PAGE, productPage * PRODUCTS_PER_PAGE);
   const shownVendors = vendors.slice((vendorPage - 1) * VENDORS_PER_PAGE, vendorPage * VENDORS_PER_PAGE);
-  const heroProducts = (inStock.length ? inStock : products).slice(0, 6);
+  const heroProducts = heroAds.slice(0, 6);
+  // No live ad: show the marketplace's categories as photos instead. A
+  // category's own image is used when an admin set one, otherwise a photo of
+  // one of its products. These tiles link to categories, not to products.
+  const heroCategories = (catalog.categories || [])
+    .map((c) => (typeof c === "string" ? { name: c } : c))
+    .map((c) => {
+      const inCategory = products.filter((p) => p.category === c.name);
+      return { name: c.name, count: inCategory.length, image: c.imageUrl || inCategory.find((p) => p.image)?.image || "" };
+    })
+    .filter((c) => c.count > 0 && c.image)
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 4);
   const deals = products.filter((p) => p.oldPrice > p.price && p.stock > 0);
   const bannerProducts = (deals.length ? deals : products).slice(0, 4);
   // Only categories that actually have products get a home-page section.
   const categoryNames = catalog.categories.map((c) => (typeof c === "string" ? c : c.name)).filter(Boolean);
   const populatedCategories = categoryNames.filter((c) => products.some((p) => p.category === c));
   const loading = status === "loading";
+  // Vendors go straight to campaigns; guests sign up as a vendor; anyone
+  // else signed in can ask MVEC support about advertising.
+  const advertiseLink = user?.role === "vendor" ? "/vendor/advertisements" : user ? "/buyer/support" : "/signup";
   const sellerHome = { vendor: "/vendor", supplier: "/supplier", affiliate: "/affiliate", super_admin: "/admin" }[user?.role];
 
   return (
@@ -91,14 +119,32 @@ export default function Home() {
           </div>
           <div className="hero-visual dynamic-product-stage hero-enter-right">
             <div className="visual-glow" />
-            {loading && <div className="hero-product-card hero-product-0 skeleton-card" aria-hidden="true" />}
             {heroProducts.map((p, i) => (
               <Link key={p.id} to={`/product/${p.id}`} className={`hero-product-card hero-product-${i}`}>
+                <span className="sponsored-tag">Sponsored</span>
                 <ProductImage src={p.image} alt={p.name} />
                 <span>{p.name}</span>
                 <b>{money(p.price)}</b>
               </Link>
             ))}
+            {heroProducts.length === 0 && heroCategories.length > 0 && (
+              <>
+                <div className="hero-category-grid">
+                  {heroCategories.map((c) => (
+                    <Link key={c.name} to={`/shop?category=${encodeURIComponent(c.name)}`} className="hero-category-tile">
+                      <ProductImage src={c.image} alt="" />
+                      <span className="hero-category-label">
+                        <b>{c.name}</b>
+                        <small>{c.count} product{c.count === 1 ? "" : "s"}</small>
+                      </span>
+                    </Link>
+                  ))}
+                </div>
+                <Link to={advertiseLink} state={user ? undefined : { role: "vendor" }} className="ad-slot-cta">
+                  Advertise here <Icon name="arrow" size={15} />
+                </Link>
+              </>
+            )}
           </div>
         </section>
 
@@ -109,17 +155,17 @@ export default function Home() {
           </div>
         )}
 
-        {products.length > 0 && (
+        {featuredAds.length > 0 && (
           <section className="moving-products" aria-label="Featured products">
             <div className="moving-track">
-              {[...products.slice(0, 12), ...products.slice(0, 12)].map((p, i) => (
+              {[...featuredAds, ...featuredAds].map((p, i) => (
                 <Link
                   to={`/product/${p.id}`}
                   key={`${p.id}-${i}`}
                   className="moving-product"
                   // The second copy only exists for the seamless scroll effect.
-                  aria-hidden={i >= Math.min(products.length, 12) ? "true" : undefined}
-                  tabIndex={i >= Math.min(products.length, 12) ? -1 : undefined}
+                  aria-hidden={i >= featuredAds.length ? "true" : undefined}
+                  tabIndex={i >= featuredAds.length ? -1 : undefined}
                 >
                   <ProductImage src={p.image} alt="" />
                   <span>{p.name}</span>

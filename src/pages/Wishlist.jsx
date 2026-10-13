@@ -30,13 +30,15 @@ export default function Wishlist() {
   };
 
   return <Storefront><main className="account-page">
-    <div className="page-title"><span className="eyebrow">SAVED ITEMS</span><h1>Wishlist</h1><p>Products you saved on this device. Prices update automatically.</p></div>
+    <div className="page-title"><span className="eyebrow">SAVED ITEMS</span><h1>Wishlist</h1><p>Products you saved. Your list follows you on every device and prices update automatically.</p></div>
     {notice && <div className={`form-alert ${notice.ok ? 'success' : 'error'}`} role="status">{notice.text}</div>}
     <div className="wishlist-grid">
       {wishlist.map((item) => {
-        const current = live[String(item.id)];
-        const unavailable = loaded && !current;
-        const soldOut = current && current.stock <= 0;
+        // Prefer today's catalogue entry; the account wishlist also carries
+        // the product's current price, stock and status.
+        const current = live[String(item.id)] || (item.status ? item : null);
+        const unavailable = item.status ? !['ACTIVE', 'OUT_OF_STOCK'].includes(item.status) : loaded && !current;
+        const soldOut = !unavailable && (item.status === 'OUT_OF_STOCK' || (current && Number(current.stock) <= 0));
         const price = current?.price ?? item.savedPrice ?? item.price;
         const saved = Number(item.savedPrice ?? item.price) || 0;
         const dropped = current && saved > 0 && current.price < saved;

@@ -115,6 +115,10 @@ function ChangePassword() {
     setNotice(null);
     try {
       const res = await authApi.changePassword({ currentPassword: form.currentPassword, newPassword: form.newPassword });
+      // Other devices are signed out; keep this one signed in with the new token.
+      if (res.token) {
+        try { localStorage.setItem('huska_token', res.token); } catch { /* storage unavailable */ }
+      }
       setForm({ currentPassword: '', newPassword: '', confirm: '' });
       setNotice({ ok: true, text: res.message || 'Password updated.' });
     } catch (err) {
