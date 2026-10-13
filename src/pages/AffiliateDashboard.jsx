@@ -316,7 +316,7 @@ function Links() {
     {error && <div className="form-error">{error}</div>}
     <div className="dash-toolbar">
       <div className="dash-filter"><Icon name="search" /><input value={q} onChange={e => setQ(e.target.value)} placeholder="Search by product, label or code…" /></div>
-      <select value={status} onChange={e => setStatus(e.target.value)}><option value="ALL">All links</option><option value="ACTIVE">Active</option><option value="TERMINATED">Terminated</option></select>
+      <select className="table-filter-select" aria-label="Filter links" value={status} onChange={e => setStatus(e.target.value)}><option value="ALL">All links</option><option value="ACTIVE">Active</option><option value="TERMINATED">Terminated</option></select>
       <span className="table-count">{links.length} links</span>
     </div>
     {loading && !links.length && <div className="empty-state"><h3>Loading…</h3></div>}

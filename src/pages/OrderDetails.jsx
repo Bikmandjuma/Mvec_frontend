@@ -80,7 +80,8 @@ export default function OrderDetails() {
 
   const cancel = async () => {
     const paid = order.paymentStatus === "PAID";
-    if (!window.confirm(paid ? "Cancel this order? Your payment is sent back to your mobile money." : "Cancel this order?")) return;
+    const backTo = order.paymentMethod === "CARD" ? "the card you paid with" : "your mobile money";
+    if (!window.confirm(paid ? `Cancel this order? Your payment is sent back to ${backTo}.` : "Cancel this order?")) return;
     setNotice(null);
     setCancelling(true);
     try {
@@ -134,7 +135,7 @@ export default function OrderDetails() {
   };
 
   return <Storefront><main className="account-page">
-    <div className="page-title"><span className="eyebrow">ORDER DETAILS</span><h1>{order.orderNumber}</h1><p>Placed {formatDate(order.createdAt)} · {buyerStatus(order)}</p></div>
+    <div className="page-title"><span className="eyebrow">ORDER DETAILS</span><h1 className="order-number-title">{order.orderNumber}</h1><p>Placed {formatDate(order.createdAt)} · {buyerStatus(order)}</p></div>
     {notice && <div className={`form-alert ${notice.ok ? "success" : "error"}`} role={notice.ok ? "status" : "alert"}>{notice.text}</div>}
 
     {awaitingPayment && (
@@ -205,7 +206,9 @@ export default function OrderDetails() {
       <section className="verified-box refund-box">
         <b>{order.paymentStatus === "REFUNDED" ? "Order cancelled · full refund recorded" : "Order cancelled"}</b>
         <p>{order.paymentStatus === "REFUNDED"
-          ? "Your full refund was sent to the mobile money number you paid with. It usually arrives within minutes; you get an SMS when it does."
+          ? (order.paymentMethod === "CARD"
+            ? "Your full refund was sent back to the card you paid with. Banks usually show it within 5–10 working days."
+            : "Your full refund was sent to the mobile money number you paid with. It usually arrives within minutes; you get an SMS when it does.")
           : order.cancellationReason === "PAYMENT_TIMEOUT_EXPIRED_30_MIN"
             ? "This order was not paid within 30 minutes, so it was cancelled. You were not charged."
             : "This order was cancelled before payment. You were not charged."}</p>
@@ -251,11 +254,17 @@ export default function OrderDetails() {
         <h3>Report a problem</h3>
         <p className="tiny">Use this if something is wrong with your order. The seller&apos;s payment stays on hold while MVEC reviews it.</p>
         <form onSubmit={report}>
-          <select className="field" value={reason} onChange={(e) => setReason(e.target.value)} aria-label="What went wrong">
-            <option value="">Choose a problem</option>
-            {REASONS.map(([label, value]) => <option key={value} value={value}>{label}</option>)}
-          </select>
-          <textarea className="field" value={description} onChange={(e) => setDescription(e.target.value)} maxLength={2000} placeholder="Describe what went wrong…" />
+          <div className="two-col">
+            <label className="field"><span>What went wrong?</span>
+              <select value={reason} onChange={(e) => setReason(e.target.value)} required>
+                <option value="">Choose a problem</option>
+                {REASONS.map(([label, value]) => <option key={value} value={value}>{label}</option>)}
+              </select>
+            </label>
+          </div>
+          <label className="field"><span>Details</span>
+            <textarea rows={4} value={description} onChange={(e) => setDescription(e.target.value)} maxLength={2000} minLength={10} required placeholder="What did you receive, and what did you expect? (at least 10 characters)" />
+          </label>
           <button type="submit" className="outline-btn" disabled={reportBusy}>{reportBusy ? "Submitting…" : "Report a problem"}</button>
         </form>
       </section>

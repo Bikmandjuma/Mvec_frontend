@@ -9,7 +9,7 @@ import { addressesApi } from '../API/addresses';
 import { uploadsApi } from '../API/uploads';
 import { extractErrorMessage } from '../API/client';
 import { isRwandanPhone } from '../utils/delivery';
-import { PROVINCES } from '../data/rwandaLocations';
+import { PROVINCES, RWANDA_LOCATIONS } from '../data/rwandaLocations';
 
 const ROLE_LABEL = { buyer: 'Buyer', vendor: 'Vendor', supplier: 'Supplier', affiliate: 'Affiliate', super_admin: 'Super Admin', delivery: 'Delivery' };
 const ADDRESS_TYPES = [['HOME', 'Home'], ['OFFICE', 'Office'], ['PARENTS', 'Family'], ['OTHER', 'Other']];
@@ -74,7 +74,7 @@ function AccountDetails() {
       <Notice notice={notice} />
       {editing ? (
         <form onSubmit={save}>
-          <label className="field"><span>Full name</span><input value={form.fullName} onChange={(e) => setForm({ ...form, fullName: e.target.value })} maxLength={120} autoComplete="name" /></label>
+          <label className="field"><span>Full name</span><input name="fullName" value={form.fullName} onChange={(e) => setForm({ ...form, fullName: e.target.value })} maxLength={120} autoComplete="name" /></label>
           <label className="field"><span>Email (optional)</span><input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} autoComplete="email" /></label>
           <label className="field"><span>Gender (optional)</span>
             <select value={form.gender} onChange={(e) => setForm({ ...form, gender: e.target.value })}>
@@ -146,13 +146,29 @@ function ChangePassword() {
   );
 }
 
+// Older addresses may hold a province name we no longer list; find it from the district.
+const normalizeAddress = (a) => {
+  if (PROVINCES.includes(a.provinceState)) return a;
+  const province = PROVINCES.find((p) => RWANDA_LOCATIONS[p].some((d) => d.toLowerCase() === String(a.cityDistrict || '').toLowerCase()));
+  const district = province && RWANDA_LOCATIONS[province].find((d) => d.toLowerCase() === String(a.cityDistrict).toLowerCase());
+  return { ...a, provinceState: province || 'Kigali City', cityDistrict: district || '' };
+};
+
 function AddressForm({ initial, onSave, onCancel, busy }) {
-  const [form, setForm] = useState(initial);
+  const [form, setForm] = useState(() => normalizeAddress(initial));
   const [error, setError] = useState('');
-  const set = (key) => (e) => setForm({ ...form, [key]: e.target.type === 'checkbox' ? e.target.checked : e.target.value });
+  // Changing the province clears a district that is not in it.
+  const set = (key) => (e) => {
+    const value = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
+    setForm((f) => (key === 'provinceState' && !(RWANDA_LOCATIONS[value] || []).includes(f.cityDistrict)
+      ? { ...f, provinceState: value, cityDistrict: '' }
+      : { ...f, [key]: value }));
+  };
+  const districts = RWANDA_LOCATIONS[form.provinceState] || [];
   const submit = (e) => {
     e.preventDefault();
-    if (!form.cityDistrict.trim() || form.street.trim().length < 3) { setError('Enter at least the district and street or landmark.'); return; }
+    if (!districts.includes(form.cityDistrict)) { setError('Choose your district.'); return; }
+    if (form.street.trim().length < 3) { setError('Enter the street, house number or a nearby landmark.'); return; }
     if (!isRwandanPhone(form.phone)) { setError('Enter a Rwandan mobile number for delivery, for example 0788 123 456.'); return; }
     setError('');
     onSave({ ...form, country: 'Rwanda', cityDistrict: form.cityDistrict.trim(), street: form.street.trim() });
@@ -161,19 +177,24 @@ function AddressForm({ initial, onSave, onCancel, busy }) {
     <form className="address-card" onSubmit={submit}>
       {error && <div className="form-alert error" role="alert">{error}</div>}
       <div className="two-col">
-        <label className="field"><span>Label</span><select value={form.type} onChange={set('type')}>{ADDRESS_TYPES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></label>
-        <label className="field"><span>Province / City</span><select value={form.provinceState} onChange={set('provinceState')}>{PROVINCES.map((p) => <option key={p}>{p}</option>)}</select></label>
+        <label className="field"><span>Label</span><select name="type" value={form.type} onChange={set('type')}>{ADDRESS_TYPES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></label>
+        <label className="field"><span>Province / City</span><select name="provinceState" value={form.provinceState} onChange={set('provinceState')}>{PROVINCES.map((p) => <option key={p}>{p}</option>)}</select></label>
       </div>
       <div className="two-col">
-        <label className="field"><span>District</span><input value={form.cityDistrict} onChange={set('cityDistrict')} placeholder="e.g. Gasabo" /></label>
-        <label className="field"><span>Sector (optional)</span><input value={form.sector || ''} onChange={set('sector')} placeholder="e.g. Remera" /></label>
+        <label className="field"><span>District</span>
+          <select name="cityDistrict" value={form.cityDistrict} onChange={set('cityDistrict')} required>
+            <option value="">Choose a district</option>
+            {districts.map((d) => <option key={d}>{d}</option>)}
+          </select>
+        </label>
+        <label className="field"><span>Sector (optional)</span><input name="sector" value={form.sector || ''} onChange={set('sector')} placeholder="e.g. Remera" /></label>
       </div>
       <div className="two-col">
-        <label className="field"><span>Street / landmark</span><input value={form.street} onChange={set('street')} placeholder="e.g. KG 11 Ave" /></label>
+        <label className="field"><span>Street / landmark</span><input name="street" value={form.street} onChange={set('street')} placeholder="e.g. KG 11 Ave" autoComplete="street-address" /></label>
         <label className="field"><span>House / building (optional)</span><input value={form.building || ''} onChange={set('building')} /></label>
       </div>
       <div className="two-col">
-        <label className="field"><span>Phone for delivery</span><input type="tel" value={form.phone} onChange={set('phone')} placeholder="07xx xxx xxx" /></label>
+        <label className="field"><span>Phone for delivery</span><input name="phone" type="tel" value={form.phone} onChange={set('phone')} placeholder="07xx xxx xxx" autoComplete="tel" /></label>
         <label className="field"><span>Delivery instructions (optional)</span><input value={form.deliveryInstructions || ''} onChange={set('deliveryInstructions')} maxLength={200} /></label>
       </div>
       <label className="filter-check"><input type="checkbox" checked={Boolean(form.isDefaultShipping)} onChange={set('isDefaultShipping')} /> Use as my default delivery address</label>

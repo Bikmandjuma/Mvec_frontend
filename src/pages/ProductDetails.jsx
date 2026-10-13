@@ -9,6 +9,7 @@ import { useAuth } from '../context/AuthContext';
 import { useMarketplace } from '../context/MarketplaceContext';
 import ProductImage from '../components/ProductImage';
 import { money, ratingLabel, formatDate } from '../utils/format';
+import { getCompare, toggleCompare } from '../utils/compare';
 
 const Stars = ({ value }) => {
   const full = Math.round(Number(value) || 0);
@@ -29,6 +30,8 @@ export default function ProductDetails() {
   const [reviews, setReviews] = useState([]);
   const [feedback, setFeedback] = useState(null); // { ok, message }
   const [adding, setAdding] = useState(false);
+  const [comparing, setComparing] = useState(false);
+  useEffect(() => { setComparing(getCompare().includes(String(id))); }, [id]);
 
   useEffect(() => {
     let alive = true;
@@ -109,7 +112,7 @@ export default function ProductDetails() {
         <div className="vendor-line"><div className="vendor-avatar" aria-hidden="true">{(p.vendor || 'M')[0]}</div><div><small>Sold by</small><span>{p.vendor}</span></div></div>
         <div className="attributes">{Object.entries(p.attributes || {}).filter(([, v]) => v).map(([k, v]) => <div key={k}><small>{k}</small><b>{v}</b></div>)}</div>
         {!user && <div className="guest-shopping-note">✓ You can browse and add to cart without an account. You&apos;ll sign in at checkout.</div>}
-        {feedback && <div className={`form-alert ${feedback.ok ? 'success' : 'error'}`} role="status">{feedback.message}{feedback.ok && <> <Link to="/cart">View cart</Link></>}</div>}
+        {feedback && <div className={`form-alert ${feedback.ok ? 'success' : 'error'}`} role="status">{feedback.message}{feedback.ok && (feedback.compare ? <> <Link to="/buyer/compare">Open compare</Link></> : <> <Link to="/cart">View cart</Link></>)}</div>}
         <div className="purchase-row">
           <div className="qty" aria-label="Quantity">
             <button type="button" onClick={() => changeQty(qty - 1)} disabled={soldOut || qty <= 1} aria-label="Decrease quantity">−</button>
@@ -119,8 +122,12 @@ export default function ProductDetails() {
           <button type="button" className={'outline-btn ' + (wished ? 'wishlist-saved' : '')} onClick={wish} aria-pressed={wished}><Icon name="heart" /> {wished ? 'Saved' : 'Wishlist'}</button>
           <button type="button" className="gradient-btn" onClick={addToCartClick} disabled={soldOut || adding}><Icon name="cart" /> {adding ? 'Adding…' : 'Add to cart'}</button>
           <button type="button" className="buy-btn" onClick={buy} disabled={soldOut}>Buy now</button>
+          <button type="button" className={'outline-btn compare-btn ' + (comparing ? 'wishlist-saved' : '')} aria-pressed={comparing}
+            onClick={() => { const r = toggleCompare(p.id); setComparing(r.ids.includes(String(p.id))); setFeedback({ ok: r.ok, message: r.message, compare: true }); }}>
+            ⇄ {comparing ? 'Comparing' : 'Compare'}
+          </button>
         </div>
-        <div className="product-trust"><span>✓ Mobile money payment</span><span>✓ Payment held until delivery</span><span>✓ Delivery code at your door</span></div>
+        <div className="product-trust"><span>✓ Mobile money or card</span><span>✓ Payment held until delivery</span><span>✓ Delivery code at your door</span></div>
       </div>
     </section>
     <section className="reviews-section">

@@ -1182,3 +1182,65 @@ button.seller-cat-name:disabled svg{visibility:hidden}
 .case-quote p{margin:0;font-size:13px;color:var(--text);white-space:pre-wrap}
 @media(max-width:900px){.support-grid{grid-template-columns:1fr}}
 .payout-amount{display:flex;gap:8px;align-items:center}.payout-amount input{flex:1;min-width:0}
+
+/* ── Payment method choice (order payment, Premium) ─────────────────────── */
+.payment-option{cursor:pointer;transition:border-color .15s,background .15s}
+.payment-option:hover{border-color:var(--blue)}
+.payment-option:has(input:focus-visible){outline:2px solid var(--blue);outline-offset:2px}
+.payment-option:has(input:disabled){cursor:default;opacity:.7}
+.subscription-pay{margin-top:10px;text-align:left}
+[data-theme="dark"] .payment-option{border-color:var(--border);background:var(--surface)}
+[data-theme="dark"] .payment-option.selected{border-color:var(--blue);background:color-mix(in srgb,var(--blue) 12%,var(--surface))}
+[data-theme="dark"] .payment-logo{background:color-mix(in srgb,var(--blue) 15%,var(--surface))}
+[data-theme="dark"] .payment-option small{color:var(--muted-text,#9fb0b8)}
+
+/* ── Compare products ───────────────────────────────────────────────────── */
+.compare-card{overflow-x:auto}
+.compare-table{display:grid;min-width:calc(140px + var(--cols) * 190px)}
+.compare-head,.compare-row{display:grid;grid-template-columns:140px repeat(var(--cols),minmax(180px,1fr));gap:14px;align-items:center;padding:12px 4px;border-bottom:1px solid var(--border,#e3edf1)}
+.compare-head{align-items:start}
+.compare-head a{display:grid;gap:8px;color:inherit;text-decoration:none}
+.compare-head .module-product-image{width:100%;height:130px;object-fit:cover;border-radius:10px}
+.compare-row>span{font-size:12px;font-weight:800;color:var(--muted-text,#687880);text-transform:uppercase;letter-spacing:.4px}
+.compare-row:last-child{border-bottom:0}
+.compare-picks{display:flex;flex-wrap:wrap;gap:8px}
+.compare-btn{white-space:nowrap}
+
+/* ── Help: questions with answers ───────────────────────────────────────── */
+.faq-list{display:grid;gap:8px}
+.faq-list details{border:1px solid var(--border,#e3edf1);border-radius:10px;padding:10px 12px;background:var(--surface,#fff)}
+.faq-list summary{cursor:pointer;font-weight:800;font-size:13px;list-style:none;display:flex;justify-content:space-between;gap:10px}
+.faq-list summary::after{content:"+";color:var(--blue-deep,#127ca3);font-weight:900}
+.faq-list details[open] summary::after{content:"−"}
+.faq-list summary::-webkit-details-marker{display:none}
+.faq-list p{margin:8px 0 0;font-size:13px;line-height:1.6;color:var(--muted-text,#60717a)}
+
+/* Help text inside cards reads left-aligned with the content around it. */
+.data-card>p.tiny,.form-card>p.tiny,.data-card form p.tiny{text-align:left}
+
+/* ── Dark mode: boxes that kept a light background ──────────────────────── */
+[data-theme="dark"] .qty,[data-theme="dark"] .qty button{background:var(--surface-2);color:var(--text);border-color:var(--border)}
+[data-theme="dark"] .qty button:disabled{opacity:.45}
+[data-theme="dark"] .dash-filter,[data-theme="dark"] .dash-filter input{background:var(--input,var(--surface));color:var(--text);border-color:var(--border)}
+[data-theme="dark"] .empty-state{background:var(--surface);border-color:var(--border);color:var(--text)}
+[data-theme="dark"] .empty-state p,[data-theme="dark"] .empty-state small{color:var(--muted-text)}
+[data-theme="dark"] .metric-icon,[data-theme="dark"] .notification-icon,[data-theme="dark"] .cat-icon,[data-theme="dark"] .secure-icon{background:color-mix(in srgb,var(--blue,#25addb) 16%,var(--surface));color:#8fdcf7}
+[data-theme="dark"] .notification-card.unread{background:color-mix(in srgb,var(--blue,#25addb) 10%,var(--surface));border-color:var(--border)}
+[data-theme="dark"] .review-score{background:var(--surface-2);color:var(--text);border-color:var(--border)}
+[data-theme="dark"] .delivery-options label{background:var(--surface-2);color:var(--text)}
+[data-theme="dark"] .verified-box,[data-theme="dark"] .otp-buyer-box{background:color-mix(in srgb,var(--blue,#25addb) 10%,var(--surface));border-color:var(--border);color:var(--text)}
+[data-theme="dark"] .verified-box p{color:var(--muted-text)}
+[data-theme="dark"] .delivery-otp{color:#8fdcf7}
+[data-theme="dark"] .affiliate-product-meta span,[data-theme="dark"] .affiliate-link-box{background:var(--surface-2);color:var(--text);border-color:var(--border)}
+[data-theme="dark"] .price-line span{background:color-mix(in srgb,#16a36a 20%,var(--surface));color:#7fe0b4}
+[data-theme="dark"] .status-flow span{background:var(--surface-2);color:var(--text)}
+[data-theme="dark"] .role-chip{background:color-mix(in srgb,var(--blue,#25addb) 18%,var(--surface));color:#8fdcf7}
+[data-theme="dark"] .status{background:var(--surface-2);color:var(--muted-text)}
+[data-theme="dark"] .status.active{background:color-mix(in srgb,#16a36a 22%,var(--surface));color:#7fe0b4}
+[data-theme="dark"] .status.warning,[data-theme="dark"] .status.pending,[data-theme="dark"] .status.processing{background:color-mix(in srgb,#e8a33b 22%,var(--surface));color:#f6c97c}
+[data-theme="dark"] .status.danger,[data-theme="dark"] .status.cancelled{background:color-mix(in srgb,#e0483e 22%,var(--surface));color:#ff9d90}
+[data-theme="dark"] th{background:var(--surface-2);color:var(--muted-text);border-color:var(--border)}
+[data-theme="dark"] .address-actions button{background:var(--surface-2);color:#8fdcf7}
+[data-theme="dark"] .address-head span{background:color-mix(in srgb,var(--blue,#25addb) 18%,var(--surface));color:#8fdcf7}
+.order-number-title{overflow-wrap:anywhere}
+@media(max-width:600px){.order-number-title{font-size:24px}}
