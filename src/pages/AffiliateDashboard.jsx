@@ -6,6 +6,7 @@ import Pagination from "../components/Pagination";
 import SmartTable from "../components/SmartTable";
 import { useAuth } from "../context/AuthContext";
 import { affiliatesApi } from "../API/affiliates";
+import { authApi } from "../API/auth";
 import { productsApi } from "../API/products";
 import { mapBackendProduct } from "../services/catalogApi";
 import { extractErrorMessage } from "../API/client";
@@ -67,7 +68,9 @@ function Overview() {
     <div className="dash-page-head"><div><span className="eyebrow">AFFILIATE PLATFORM</span><h1>Affiliate dashboard</h1><p>Live performance of your links, attributed orders and commissions.</p></div><button className="outline-btn" onClick={load} disabled={loading}>{loading ? "Refreshing…" : "Refresh"}</button></div>
     {error && <div className="form-error">{error} <button className="outline-btn" onClick={load}>Retry</button></div>}
     <div className="metric-grid">
-      <div className="metric"><div className="metric-icon"><Icon name="tag" /></div><div><span>Links</span><strong>{v(data?.links?.total)}</strong><small>{v(data?.links?.active)} active · {v(data?.links?.terminated)} terminated</small></div></div>
+      <div className="metric"><div className="metric-icon"><Icon name="tag" /></div><div><span>Created links</span><strong>{v(data?.links?.created)}</strong><small>{v(data?.links?.active)} active · {v(data?.links?.terminated)} terminated</small></div></div>
+      <div className="metric"><div className="metric-icon"><Icon name="chart" /></div><div><span>Clicked links</span><strong>{v(data?.links?.clicked)}</strong><small>Visited, whether or not they led to a sale</small></div></div>
+      <div className="metric"><div className="metric-icon"><Icon name="cart" /></div><div><span>Successful links</span><strong>{v(data?.links?.successful)}</strong><small>Clicked, ordered and delivered</small></div></div>
       <div className="metric"><div className="metric-icon"><Icon name="chart" /></div><div><span>Clicks</span><strong>{v(data?.clicks)}</strong><small>{v(data?.uniqueVisitors)} unique visitors</small></div></div>
       <div className="metric"><div className="metric-icon"><Icon name="cart" /></div><div><span>Attributed orders</span><strong>{v(data?.attributedOrders)}</strong><small>{v(data?.conversionRate)}% of clicks · {v(data?.conversions)} items</small></div></div>
       <div className="metric"><div className="metric-icon"><Icon name="wallet" /></div><div><span>Net commission</span><strong>{v(c.net, money)}</strong><small>{v(c.reversed, money)} reversed by refunds</small></div></div>
@@ -200,7 +203,7 @@ function Products() {
            return (
              <div className="data-card" key={p.id}>
                <div className="admin-product-main"><ProductImage src={p.image} alt="" /><div><b>{p.name}</b><small>{money(p.price)} · {p.vendor}</small></div></div>
-               <div className="affiliate-product-meta"><span>Available stock <b>{p.stock} units</b></span>{hasLink && <small style={{ display: "block", wordBreak: "break-all" }}>{affiliateUrl(hasLink.affiliateCode)}</small>}</div>
+               <div className="affiliate-product-meta"><span>Available stock <b>{p.stock} units</b></span>{hasLink && <div className="affiliate-link-box"><code>{affiliateUrl(hasLink.affiliateCode)}</code></div>}</div>
 <div className="affiliate-link-actions">
 {hasLink ? (
     <>
@@ -208,7 +211,7 @@ function Products() {
       <button
         onClick={() => terminateLink(p)}
         disabled={terminating === p.id}
-        className="px-4 py-2 text-sm font-medium text-red-600 border border-red-600 bg-transparent hover:bg-red-50 rounded transition-colors"
+        className="terminate-btn"
       >
         {terminating === p.id ? "Terminating…" : "Terminate Link"}
       </button>
@@ -216,7 +219,7 @@ function Products() {
       {/* Copy Link Button placed directly adjacent */}
       <button
         onClick={() => copyFor(p)}
-        className="px-4 py-2 text-sm font-medium border border-gray-300 text-gray-700 hover:bg-gray-100 rounded transition"
+        className="gradient-btn"
       >
         {copied === String(p.id) ? "Copied!" : "Copy Link"}
       </button>
@@ -271,18 +274,23 @@ function Links() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [status, setStatus] = useState("ALL");
+  const [q, setQ] = useState("");
   const [copied, setCopied] = useState("");
   const [busy, setBusy] = useState("");
+  const [confirm, setConfirm] = useState(null);
 
   const load = () => {
     setLoading(true);
     setError("");
-    affiliatesApi.getMyLinks({ status: status === "ALL" ? undefined : status })
+    affiliatesApi.getMyLinks({ status: status === "ALL" ? undefined : status, q: q.trim() || undefined })
       .then(res => setLinks(res.data || []))
       .catch(err => setError(extractErrorMessage(err)))
       .finally(() => setLoading(false));
   };
-  useEffect(load, [status]);
+  useEffect(() => {
+    const t = setTimeout(load, q ? 300 : 0);
+    return () => clearTimeout(t);
+  }, [status, q]);
 
   const copy = async l => {
     await copyText(affiliateUrl(l.affiliateCode));
@@ -290,10 +298,10 @@ function Links() {
     setTimeout(() => setCopied(""), 1600);
   };
   const terminate = async l => {
-    if (!window.confirm(`Terminate this link for ${l.targetProduct?.name || "this product"}? History is kept, but new clicks stop being tracked.`)) return;
     setBusy(String(l.id));
     try {
       await affiliatesApi.terminateLink(l.id);
+      setConfirm(null);
       load();
     } catch (err) {
       setError(extractErrorMessage(err));
@@ -302,45 +310,53 @@ function Links() {
     }
   };
 
-  const rows = links.map(l => ({
-    id: l.id,
-    product: l.targetProduct?.name || "—",
-    code: l.affiliateCode,
-    status: l.status,
-    clicks: l.clickCount || 0,
-    visitors: l.uniqueVisitors || 0,
-    orders: l.conversionCount || 0,
-    commission: l.commissionEarned || 0,
-    raw: l,
-  }));
-
   return <>
-    <div className="dash-page-head"><div><span className="eyebrow">MY LINKS</span><h1>Affiliate links</h1><p>Performance of every link you created, including terminated ones.</p></div>
-      <select value={status} onChange={e => setStatus(e.target.value)}><option value="ALL">All links</option><option value="ACTIVE">Active</option><option value="TERMINATED">Terminated</option></select></div>
+    <div className="dash-page-head"><div><span className="eyebrow">MY LINKS</span><h1>Affiliate links</h1><p>Every link you created, with its clicks and successful (delivered) orders.</p></div>
+      <button className="outline-btn" onClick={load} disabled={loading}>{loading ? "Refreshing…" : "Refresh"}</button></div>
     {error && <div className="form-error">{error}</div>}
-    <div className="data-card">
-      {loading && <div className="empty-state"><h3>Loading…</h3></div>}
-      {!loading && <SmartTable
-        columns={[
-          { key: "product", label: "Product" },
-          { key: "link", label: "Link", render: r => <small>{affiliateUrl(r.code)}</small> },
-          { key: "status", label: "Status" },
-          { key: "clicks", label: "Clicks" },
-          { key: "visitors", label: "Visitors" },
-          { key: "orders", label: "Orders" },
-          { key: "commission", label: "Commission", render: r => money(r.commission) },
-          { key: "actions", label: "", render: r => r.status === "ACTIVE" ? <>
-            <button className="outline-btn" onClick={() => copy(r.raw)}>{copied === String(r.id) ? "Copied!" : "Copy"}</button>{" "}
-            <button className="danger-btn" disabled={busy === String(r.id)} onClick={() => terminate(r.raw)}>{busy === String(r.id) ? "…" : "Terminate"}</button>
-          </> : <small>Terminated</small> },
-        ]}
-        rows={rows}
-        rowKey={r => r.id}
-        searchPlaceholder="Search affiliate links…"
-        empty="No links yet. Create one from the Promote Products tab."
-        exportName="affiliate-links"
-      />}
+    <div className="dash-toolbar">
+      <div className="dash-filter"><Icon name="search" /><input value={q} onChange={e => setQ(e.target.value)} placeholder="Search by product, label or code…" /></div>
+      <select value={status} onChange={e => setStatus(e.target.value)}><option value="ALL">All links</option><option value="ACTIVE">Active</option><option value="TERMINATED">Terminated</option></select>
+      <span className="table-count">{links.length} links</span>
     </div>
+    {loading && !links.length && <div className="empty-state"><h3>Loading…</h3></div>}
+    {!loading && !links.length && !error && <div className="empty-state"><h3>No links yet</h3><p>Create one from the Promote Products tab.</p></div>}
+    <div className="affiliate-links-list">
+      {links.map(l => {
+        const active = l.status === "ACTIVE";
+        return <div className="affiliate-link-card" key={l.id}>
+          <div className="affiliate-link-main">
+            <div className="affiliate-link-title">
+              <b>{l.targetProduct?.name || "Product"}</b>
+              <span className={`status ${active ? "active" : ""}`}>{active ? "Active" : "Terminated"}</span>
+            </div>
+            <div className="affiliate-link-box">
+              <code>{affiliateUrl(l.affiliateCode)}</code>
+              <div className="affiliate-link-stats">
+                <span>Clicks <strong>{l.clickCount || 0}</strong></span>
+                <span>Successful <strong>{l.successfulCount || 0}</strong></span>
+                <span>Ordered <strong>{l.conversionCount || 0}</strong></span>
+                <span>Commission <strong>{money(l.commissionEarned)}</strong></span>
+              </div>
+            </div>
+          </div>
+          <div className="affiliate-link-actions">
+            {active ? <>
+              <button className="gradient-btn" onClick={() => copy(l)}>{copied === String(l.id) ? "Copied!" : "Copy link"}</button>
+              <button className="terminate-btn" disabled={busy === String(l.id)} onClick={() => setConfirm(l)}>Terminate link</button>
+            </> : <small className="muted">Terminated {l.terminatedAt ? new Date(l.terminatedAt).toLocaleDateString("en-GB") : ""}</small>}
+          </div>
+        </div>;
+      })}
+    </div>
+    {confirm && <div className="modal-backdrop"><div className="modal">
+      <h3 className="modal-title">Terminate link</h3>
+      <p className="modal-text">Terminate the link for {confirm.targetProduct?.name || "this product"}? New clicks will no longer be tracked. Past clicks, orders and commissions are kept.</p>
+      <div className="modal-actions">
+        <button className="outline-btn" onClick={() => setConfirm(null)}>Cancel</button>
+        <button className="terminate-btn" disabled={busy === String(confirm.id)} onClick={() => terminate(confirm)}>{busy === String(confirm.id) ? "Terminating…" : "Yes, terminate"}</button>
+      </div>
+    </div></div>}
   </>;
 }
 
@@ -469,23 +485,101 @@ function Withdrawals() {
 }
 
 function Profile() {
-  const { user } = useAuth();
+  const { refresh } = useAuth();
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const [form, setForm] = useState({ fullName: "", phone: "", email: "", displayName: "", bio: "", website: "" });
+  const [profileMsg, setProfileMsg] = useState(null);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [pw, setPw] = useState({ currentPassword: "", newPassword: "", confirmPassword: "" });
+  const [pwMsg, setPwMsg] = useState(null);
+  const [savingPw, setSavingPw] = useState(false);
+
+  useEffect(() => {
+    affiliatesApi.getProfile()
+      .then(p => setForm({
+        fullName: p.Fullname || p.fullname || "",
+        phone: p.phone || "",
+        email: p.email || "",
+        displayName: p.displayName || "",
+        bio: p.bio || "",
+        website: p.website || "",
+      }))
+      .catch(err => setLoadError(extractErrorMessage(err)))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const set = key => e => setForm(prev => ({ ...prev, [key]: e.target.value }));
+  const setPass = key => e => setPw(prev => ({ ...prev, [key]: e.target.value }));
+
+  const saveProfile = async e => {
+    e.preventDefault();
+    setProfileMsg(null);
+    if (form.fullName.trim().length < 2) return setProfileMsg({ ok: false, text: "Full name is required." });
+    if (!form.phone.trim()) return setProfileMsg({ ok: false, text: "Phone number is required." });
+    setSavingProfile(true);
+    try {
+      await affiliatesApi.updateProfile({
+        fullName: form.fullName.trim(),
+        phone: form.phone.trim(),
+        email: form.email.trim(),
+        displayName: form.displayName,
+        bio: form.bio,
+        website: form.website,
+      });
+      await refresh?.();
+      setProfileMsg({ ok: true, text: "Profile updated." });
+    } catch (err) {
+      setProfileMsg({ ok: false, text: extractErrorMessage(err) });
+    } finally {
+      setSavingProfile(false);
+    }
+  };
+
+  const savePassword = async e => {
+    e.preventDefault();
+    setPwMsg(null);
+    if (!pw.currentPassword) return setPwMsg({ ok: false, text: "Enter your current password." });
+    if (pw.newPassword.length < 8) return setPwMsg({ ok: false, text: "New password must be at least 8 characters." });
+    if (pw.newPassword !== pw.confirmPassword) return setPwMsg({ ok: false, text: "New password and confirmation do not match." });
+    setSavingPw(true);
+    try {
+      await authApi.changePassword({ currentPassword: pw.currentPassword, newPassword: pw.newPassword });
+      setPw({ currentPassword: "", newPassword: "", confirmPassword: "" });
+      setPwMsg({ ok: true, text: "Password updated." });
+    } catch (err) {
+      setPwMsg({ ok: false, text: extractErrorMessage(err) });
+    } finally {
+      setSavingPw(false);
+    }
+  };
+
+  const Msg = ({ m }) => m ? <p className={m.ok ? "success-text" : "form-alert error"}>{m.text}</p> : null;
+
   return <>
-    <div className="dash-page-head"><div><span className="eyebrow">AFFILIATE PROFILE</span><h1>Profile</h1><p>Your affiliate account details.</p></div></div>
-    <div className="profile-grid">
-      <div className="data-card">
-        <div className="profile-avatar-wrap"><div className="profile-avatar">{user?.fullName?.charAt(0) || "A"}</div></div>
-        <h2>{user?.fullName || "Affiliate"}</h2>
-        <p className="muted">Affiliate marketer, MVEC account</p>
-        <span className="role-chip">Affiliate</span>
-      </div>
-      <div className="data-card"><h3>Account details</h3>
-        <label className="field"><span>Full name</span><input defaultValue={user?.fullName || ""} disabled /></label>
-        <label className="field"><span>Phone number</span><input defaultValue={user?.phone || ""} disabled /></label>
-        <label className="field"><span>Email</span><input defaultValue={user?.email || ""} disabled /></label>
-        <p className="tiny">Update your name, phone or email from your account settings.</p>
-      </div>
-    </div>
+    <div className="dash-page-head"><div><span className="eyebrow">AFFILIATE PROFILE</span><h1>Profile</h1><p>Manage your account details and password without leaving the dashboard.</p></div></div>
+    {loadError && <div className="form-error">{loadError}</div>}
+    {loading ? <div className="empty-state"><h3>Loading…</h3></div> : <div className="profile-grid">
+      <form className="data-card" onSubmit={saveProfile}>
+        <h3>Account details</h3>
+        <label className="field"><span>Full name *</span><input value={form.fullName} onChange={set("fullName")} required /></label>
+        <label className="field"><span>Phone number *</span><input value={form.phone} onChange={set("phone")} placeholder="0788123456" required /></label>
+        <label className="field"><span>Email (optional)</span><input type="email" value={form.email} onChange={set("email")} /></label>
+        <label className="field"><span>Public display name</span><input value={form.displayName} onChange={set("displayName")} /></label>
+        <label className="field"><span>Website</span><input value={form.website} onChange={set("website")} /></label>
+        <label className="field"><span>Bio</span><textarea rows={3} value={form.bio} onChange={set("bio")} /></label>
+        <Msg m={profileMsg} />
+        <button className="gradient-btn" type="submit" disabled={savingProfile}>{savingProfile ? "Saving…" : "Save changes"}</button>
+      </form>
+      <form className="data-card" onSubmit={savePassword}>
+        <h3>Change password</h3>
+        <label className="field"><span>Current password</span><input type="password" autoComplete="current-password" value={pw.currentPassword} onChange={setPass("currentPassword")} /></label>
+        <label className="field"><span>New password</span><input type="password" autoComplete="new-password" value={pw.newPassword} onChange={setPass("newPassword")} /></label>
+        <label className="field"><span>Confirm new password</span><input type="password" autoComplete="new-password" value={pw.confirmPassword} onChange={setPass("confirmPassword")} /></label>
+        <Msg m={pwMsg} />
+        <button className="gradient-btn" type="submit" disabled={savingPw}>{savingPw ? "Updating…" : "Update password"}</button>
+      </form>
+    </div>}
   </>;
 }
 

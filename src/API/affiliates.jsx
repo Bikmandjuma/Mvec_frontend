@@ -34,6 +34,10 @@ export const affiliatesApi = {
     client.delete(`/affiliates/links/${id}`).then((r) => r.data),
   deleteLink: (id) =>
     client.delete(`/affiliates/links/${id}`).then((r) => r.data),
+  getProfile: () =>
+    client.get("/affiliates/profile").then((r) => r.data?.profile || r.data),
+  updateProfile: (payload) =>
+    client.patch("/affiliates/profile", payload).then((r) => r.data?.profile || r.data),
   getOverview: () =>
     client.get("/affiliates/overview").then((r) => r.data),
   getStats: (range = "30d") =>
