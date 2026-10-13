@@ -378,19 +378,105 @@ button:disabled{cursor:not-allowed;opacity:.55;transform:none!important}
 .dashboard-bell{position:relative}
 .bell-badge{position:absolute;top:-4px;right:-6px;background:#e0483e;color:#fff;font-size:9px;font-weight:900;min-width:16px;height:16px;border-radius:9px;display:grid;place-items:center;padding:0 3px;line-height:1}
 
-/* ── Admin sidebar: grouped categories with sub-links ───────────────────── */
-.admin-grouped-nav{display:grid;gap:2px;margin-top:6px}
-.nav-group{border-radius:8px}
-.nav-group-head{display:flex;align-items:center;justify-content:space-between;width:100%;padding:11px 12px;border:0;background:transparent;color:#4c5a62;font-size:11px;font-weight:900;letter-spacing:.4px;text-transform:uppercase;border-radius:8px}
-.nav-group-head:hover{background:#f3f7f8}
-.nav-group-head svg{transition:transform .18s;flex:0 0 auto}
-.nav-group.open .nav-group-head svg{transform:rotate(90deg)}
-.nav-group.has-active .nav-group-head{color:var(--blue-deep)}
-.nav-group-body{display:grid;gap:2px;padding:2px 0 6px}
-.nav-group-body a{padding-left:24px}
-[data-theme="dark"] .nav-group-head{color:#a9bcc5}
-[data-theme="dark"] .nav-group-head:hover{background:var(--surface-2)}
-[data-theme="dark"] .nav-group.has-active .nav-group-head{color:#9ae2fb}
+.admin-grouped-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin-top: 2px;
+}
+
+.nav-group {
+  border-radius: 8px;
+  padding: 0;
+  /* background: red; */
+}
+
+.nav-group-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 36px;
+  padding: 0 10px;
+  border: 0;
+  background: transparent;
+  color: #52616a;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.nav-group-head:hover {
+  background: #f5f8f7;
+}
+
+.nav-group-head svg {
+  transition: transform .18s;
+  flex: 0 0 auto;
+}
+
+.nav-group.open .nav-group-head svg {
+  transform: rotate(90deg);
+}
+
+.nav-group.has-active .nav-group-head {
+  color: #047857;
+}
+
+.nav-group-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 2px 0 4px 8px;
+}
+
+.nav-group-body a {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 0 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #64748b;
+  text-decoration: none;
+}
+
+.nav-group-body a:hover {
+  background: #f5f8f7;
+  color: #334155;
+}
+
+.nav-group-body a.active {
+  background: #ecfdf5;
+  color: #047857;
+  font-weight: 500;
+}
+
+[data-theme="dark"] .nav-group-head {
+  color: #a9bcc5;
+}
+[data-theme="dark"] .nav-group-head:hover {
+  background: var(--surface-2, #27272a);
+}
+[data-theme="dark"] .nav-group.has-active .nav-group-head {
+  color: #86efac;
+}
+[data-theme="dark"] .nav-group-body a {
+  color: #94a3b8;
+}
+[data-theme="dark"] .nav-group-body a:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: #f8fafc;
+}
+[data-theme="dark"] .nav-group-body a.active {
+  background: rgba(16, 185, 129, 0.12);
+  color: #86efac;
+}
 
 /* ── Hero entrance animation: copy slides in from the left, the visual ──── */
 /* slides in from the right, once, on page load/refresh, then stay put.     */
@@ -467,6 +553,149 @@ button:disabled{cursor:not-allowed;opacity:.55;transform:none!important}
 .filter-check input{width:auto;height:auto}
 .delivery-options{border:0;padding:0;margin:0}
 .stock-line{font-weight:700;color:#167554;margin:8px 0}
+
+/* Compact dashboard sidebar panel and consistent navigation rows */
+.dashboard-sidebar {
+  left: 12px;
+  top: 12px;
+  bottom: 12px;
+  width: 256px;
+  height: auto;
+  padding: 16px 12px;
+  overflow: hidden;
+  border: 1px solid rgba(148, 163, 184, .22);
+  border-radius: 16px;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, .06);
+}
+
+.dashboard-main {
+  margin-left: 280px;
+}
+
+.dash-logo {
+  padding: 4px 8px 12px;
+  border-color: rgba(148, 163, 184, .2);
+}
+
+.dash-logo span {
+  font-weight: 500;
+  letter-spacing: 1px;
+}
+
+.dash-user {
+  gap: 9px;
+  padding: 12px 8px;
+}
+
+.dash-avatar {
+  width: 36px;
+  height: 36px;
+  font-weight: 500;
+}
+
+.dash-user b {
+  font-weight: 500;
+}
+
+.dashboard-sidebar nav {
+  gap: 0;
+  padding-right: 0;
+}
+
+.dash-bottom {
+  gap: 2px;
+  padding-top: 8px;
+  border-color: rgba(148, 163, 184, .2);
+}
+
+.dashboard-sidebar nav a,
+.dash-bottom a,
+.dash-bottom button {
+  min-height: 36px;
+  padding: 0 10px;
+  gap: 8px;
+  border: 0;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.dashboard-sidebar nav a.active {
+  background: #ecfdf5;
+  color: #047857;
+  font-weight: 500;
+
+}
+
+.dashboard-sidebar nav a:hover,
+.dash-bottom a:hover,
+.dash-bottom button:hover {
+  background: #f5f8f7;
+}
+
+[data-theme="dark"] .dashboard-sidebar {
+  border-color: rgba(148, 163, 184, .16);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, .2);
+}
+
+[data-theme="dark"] .dash-logo,
+[data-theme="dark"] .dash-bottom {
+  border-color: rgba(148, 163, 184, .16);
+}
+
+[data-theme="dark"] .dashboard-sidebar nav a.active {
+  background: rgba(16, 185, 129, .12);
+  color: #86efac;
+}
+
+[data-theme="dark"] .dashboard-sidebar nav a:hover,
+[data-theme="dark"] .dash-bottom a:hover,
+[data-theme="dark"] .dash-bottom button:hover {
+  background: rgba(255, 255, 255, .05);
+}
+
+@media (min-width: 901px) and (max-width: 1200px) {
+  .dashboard-sidebar {
+    width: 240px;
+  }
+
+  .dashboard-main {
+    margin-left: 264px;
+  }
+}
+
+@media (max-width: 900px) {
+  .dashboard-sidebar {
+    left: 12px;
+    width: min(256px, calc(100vw - 24px));
+    transform: translateX(calc(-100% - 24px));
+    transition: transform .25s ease, box-shadow .25s ease;
+    will-change: transform;
+  }
+
+  .dashboard-sidebar nav {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+  }
+
+  .dashboard-shell.sidebar-open .dashboard-sidebar {
+    transform: translateX(0);
+    box-shadow: 0 12px 32px rgba(15, 23, 42, .16);
+  }
+
+  .dashboard-main {
+    margin-left: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dashboard-sidebar {
+    transition: none;
+  }
+}
 .stock-line.low{color:#b54708}
 .stock-line.out{color:#b42318}
 .stars-empty{opacity:.25}
