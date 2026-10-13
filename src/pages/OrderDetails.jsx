@@ -121,7 +121,12 @@ export default function OrderDetails() {
             <div><b>{it.name}</b><small>Qty {it.quantity}</small><strong>{money(it.price * it.quantity)}</strong></div>
           </div>
         ))}
-        <div className="order-summary-lines"><span className="grand">Grand total <b>{money(order.totalAmount)}</b></span></div>
+        <div className="order-summary-lines">
+          {order.subtotal != null && <span>Products <b>{money(order.subtotal)}</b></span>}
+          {order.subtotal != null && <span>Delivery{order.shippingMethod ? ` · ${order.shippingMethod.charAt(0) + order.shippingMethod.slice(1).toLowerCase()}` : ''}{order.shippingBreakdown?.length > 1 ? ` (${order.shippingBreakdown.length} parcels)` : ''} <b>{order.shippingFee ? money(order.shippingFee) : 'Free'}</b></span>}
+          {order.shippingBreakdown?.map((p, i) => p.eta && <span className="tiny" key={i}>{p.storeName}: {p.eta}</span>)}
+          <span className="grand">Grand total <b>{money(order.totalAmount)}</b></span>
+        </div>
       </section>
 
       <section className="data-card">
