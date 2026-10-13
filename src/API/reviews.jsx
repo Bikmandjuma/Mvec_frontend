@@ -11,4 +11,6 @@ export const reviewsApi = {
     client.patch(`/reviews/${id}`, payload).then((r) => r.data),
   remove: (id) =>
     client.delete(`/reviews/${id}`).then((r) => r.data),
+  reply: (id, reply) =>
+    client.post(`/reviews/${id}/reply`, { reply }).then((r) => r.data),
 };

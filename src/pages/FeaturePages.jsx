@@ -17,7 +17,8 @@ import ProductImage from '../components/ProductImage';
 import {VendorAdvertising,AdminAdvertising} from './Advertising';
 
 const money=n=>new Intl.NumberFormat('en-RW').format(Number(n)||0)+' RWF';
-const dateDMY=d=>new Date(d).toLocaleDateString('en-GB');
+const dateDMY=d=>d?new Date(d).toLocaleDateString('en-GB'):'—';
+const titleCaseText=s=>String(s||'').toLowerCase().replace(/_/g,' ').replace(/^./,c=>c.toUpperCase());
 const RELEASE='v9';
 const read=(k,f)=>{try{const v=JSON.parse(localStorage.getItem(`mvec_${RELEASE}_${k}`));return v??f}catch{return f}};
 const write=(k,v)=>localStorage.setItem(`mvec_${RELEASE}_${k}`,JSON.stringify(v));
@@ -29,14 +30,9 @@ function SettingCard({title,desc,children}){return <div className="data-card"><h
 const moduleConfig={
  vendor:{
   support:['support','MVEC Support','Contact MVEC directly about payments, delivery, orders or marketplace issues.'],
-  categories:['categories','Category management','Organize products into simple categories and subcategories.'],
   purchases:['purchases','Purchases','Track stock purchased from suppliers and supplier order history.'],
-  advertisements:['advertisements','Advertising','Create sponsored product campaigns and monitor their performance.'],
-  subscription:['subscription','Subscription','Manage the optional premium vendor plan and advanced tools.'],
   refunds:['refunds','Refunds','Review buyer refund requests and their evidence.'],
-  reviews:['reviews','Reviews','Monitor customer ratings, feedback and seller reputation.'],
-  messages:['messages','Messages','Keep buyer and supplier conversations organized.'],
-  shipping:['shipping','Shipping','Configure delivery zones, fees and estimated delivery times.']
+  messages:['messages','Messages','Keep buyer and supplier conversations organized.']
  },
  supplier:{
   support:['support','MVEC Support','Contact MVEC directly about payments, delivery, supply orders or marketplace issues.'],
@@ -97,18 +93,91 @@ function VendorCategories(){
    {!loading&&<SmartTable columns={[{key:'name',label:'Category'},{key:'myProducts',label:'My Products',render:r=>Number(r.myProducts)||0},{key:'productCount',label:'Marketplace',render:r=>Number(r.productCount)||0},{key:'status',label:'Status',render:r=><em className={'status '+(r.active?'active':'warning')}>{r.active?'Active':'Inactive'}</em>}]} rows={rows} rowKey={r=>r.id||r._id} searchPlaceholder="Search categories…" empty="No categories yet."/>}
   </div></>;
 }
+// Wholesale order lifecycle: label, pill tone and what it means for each side.
+const WHOLESALE_STATUS={
+ PENDING_PAYMENT:['Awaiting payment','pending','Pay to lock funds in escrow.','Waiting for the vendor to pay.'],
+ ESCROW_HELD:['Paid · in escrow','pending','Funds are held safely until you confirm receipt.','Funds are secured. Ship the order.'],
+ SHIPPED:['Shipped','pending','On its way. Confirm once the stock arrives.','Waiting for the vendor to confirm receipt.'],
+ DELIVERED:['Delivered','pending','Delivered. Confirm receipt to release payment.','Waiting for the vendor to confirm receipt.'],
+ CONFIRMED_RELEASED:['Completed','active','Received. Payment released to the supplier.','Completed. Funds added to your balance.'],
+ DISPUTED:['Disputed','danger','Under review by MVEC.','Under review by MVEC.'],
+ CANCELLED:['Cancelled','danger','This order was cancelled.','This order was cancelled.']
+};
+const IN_ESCROW=['ESCROW_HELD','SHIPPED','DELIVERED'];
+const partyName=p=>p?.companyName||p?.Fullname||p?.fullName||p?.email||'—';
+const itemCount=o=>(o.items||[]).reduce((n,i)=>n+(Number(i.quantity)||0),0);
+function WholesaleStatus({value}){const s=WHOLESALE_STATUS[value];return <em className={'status '+(s?.[1]||'warning')}>{s?.[0]||value}</em>}
 
 function WholesaleList({role}){
+ const supplier=role==='supplier';
  const [rows,setRows]=useState([]);const [loading,setLoading]=useState(true);const [error,setError]=useState('');
- useEffect(()=>{wholesaleApi.getMine().then(res=>setRows(res.data||[])).catch(err=>setError(extractErrorMessage(err))).finally(()=>setLoading(false));},[]);
- const columns=role==='supplier'
-  ?[{key:'orderNumber',label:'Order'},{key:'vendor',label:'Vendor',render:r=>r.vendor?.companyName||r.vendor?.fullName||'Vendor'},{key:'totalAmount',label:'Total',render:r=>money(r.totalAmount)},{key:'status',label:'Status',render:r=><em className={'status '+(r.status==='CONFIRMED_RELEASED'?'active':'warning')}>{r.status}</em>}]
-  :[{key:'orderNumber',label:'Order'},{key:'supplier',label:'Supplier',render:r=>r.supplier?.companyName||r.supplier?.fullName||'Supplier'},{key:'totalAmount',label:'Total',render:r=>money(r.totalAmount)},{key:'status',label:'Status',render:r=><em className={'status '+(r.status==='CONFIRMED_RELEASED'?'active':'warning')}>{r.status}</em>}];
- return <><Header eyebrow={role==='supplier'?'SUPPLIER · ORDERS':'VENDOR · PURCHASES'} title={role==='supplier'?'Vendor orders':'Purchases'} desc={role==='supplier'?'Wholesale orders vendors have placed with you.':'Wholesale stock you have ordered from suppliers.'}/>
+ const [busyId,setBusyId]=useState('');const [notice,setNotice]=useState('');const [details,setDetails]=useState(null);
+ const load=()=>wholesaleApi.getMine().then(res=>{setRows(res.orders||res.data||[]);setError('')}).catch(err=>setError(extractErrorMessage(err))).finally(()=>setLoading(false));
+ useEffect(()=>{load()},[]);
+ useEffect(()=>{if(!notice)return;const t=setTimeout(()=>setNotice(''),3000);return()=>clearTimeout(t)},[notice]);
+
+ const run=async(order,fn,done)=>{
+  setBusyId(order._id);setError('');
+  try{await fn();setNotice(done);setDetails(null);await load()}
+  catch(err){setError(extractErrorMessage(err))}
+  finally{setBusyId('')}
+ };
+ const confirmReceipt=o=>window.confirm(`Confirm you received ${o.orderNumber}? ${money(o.totalAmount)} will be released to ${partyName(o.supplier)}. This cannot be undone.`)
+  &&run(o,()=>wholesaleApi.confirmReceipt(o._id),`${o.orderNumber} confirmed. Payment released to the supplier.`);
+ const markShipped=o=>run(o,()=>wholesaleApi.markShipped(o._id),`${o.orderNumber} marked as shipped.`);
+ const nextAction=o=>{
+  const busy=busyId===o._id;
+  if(!supplier&&['SHIPPED','DELIVERED'].includes(o.status)) return <button type="button" className="table-action-btn primary" disabled={busy} onClick={()=>confirmReceipt(o)}><Icon name="check" size={15}/>{busy?'Confirming…':'Confirm receipt'}</button>;
+  if(supplier&&o.status==='ESCROW_HELD') return <button type="button" className="table-action-btn primary" disabled={busy} onClick={()=>markShipped(o)}><Icon name="box" size={15}/>{busy?'Saving…':'Mark shipped'}</button>;
+  return null;
+ };
+
+ const stats=useMemo(()=>{
+  const sum=list=>list.reduce((n,o)=>n+(Number(o.totalAmount)||0),0);
+  const escrow=rows.filter(o=>IN_ESCROW.includes(o.status));
+  const toAct=rows.filter(o=>supplier?o.status==='ESCROW_HELD':['SHIPPED','DELIVERED'].includes(o.status));
+  const done=rows.filter(o=>o.status==='CONFIRMED_RELEASED');
+  return {escrow:sum(escrow),escrowCount:escrow.length,toAct:toAct.length,pending:rows.filter(o=>o.status==='PENDING_PAYMENT').length,done:sum(done),doneCount:done.length};
+ },[rows,supplier]);
+
+ const counterpart=supplier?'vendor':'supplier';
+ const columns=[
+  {key:'orderNumber',label:'Order',render:r=><div><b>{r.orderNumber}</b><small className="tiny seller-block">{dateDMY(r.createdAt)}</small></div>},
+  {key:counterpart,label:supplier?'Vendor':'Supplier',render:r=>partyName(r[counterpart])},
+  {key:'items',label:'Items',render:r=><div>{r.items?.[0]?.productName||'—'}<small className="tiny seller-block">{r.items?.length>1?`+${r.items.length-1} more · `:''}{itemCount(r)} units</small></div>},
+  {key:'totalAmount',label:'Total',render:r=><b>{money(r.totalAmount)}</b>},
+  {key:'status',label:'Status',render:r=><WholesaleStatus value={r.status}/>}
+ ];
+ const actions=r=><span className="row-actions">{nextAction(r)}<button type="button" title="View details" onClick={()=>setDetails(r)}><Icon name="eye" size={16}/></button></span>;
+ const findSuppliers=!supplier&&<Link className="gradient-btn" to="/vendor/suppliers"><Icon name="plus" size={16}/> New purchase</Link>;
+
+ return <><Header eyebrow={supplier?'SUPPLIER · ORDERS':'VENDOR · PURCHASES'} title={supplier?'Vendor orders':'Purchases'} desc={supplier?'Wholesale orders vendors have placed with you.':'Wholesale stock you have ordered from suppliers, protected by escrow until you confirm receipt.'} action={findSuppliers}/>
   {error&&<div className="form-error">{error}</div>}
-  <div className="data-card">{loading&&<div className="empty-state"><h3>Loading…</h3></div>}
-   {!loading&&<SmartTable columns={columns} rows={rows} rowKey={r=>r.id} searchPlaceholder="Search wholesale orders…" empty="No wholesale orders yet."/>}
-  </div></>;
+  {notice&&<div className="form-alert success">{notice}</div>}
+  {!loading&&rows.length>0&&<div className="metric-grid">
+   <Metric icon="receipt" label={supplier?'Orders received':'Purchase orders'} value={rows.length} sub={`${stats.pending} awaiting payment`}/>
+   <Metric icon="shield" label="Held in escrow" value={money(stats.escrow)} sub={`${stats.escrowCount} active order${stats.escrowCount===1?'':'s'}`}/>
+   <Metric icon="bell" label={supplier?'To ship':'To confirm'} value={stats.toAct} sub={supplier?'Paid and ready to ship':'Arrived or on the way'}/>
+   <Metric icon="wallet" label={supplier?'Earned':'Total spent'} value={money(stats.done)} sub={`${stats.doneCount} completed`}/>
+  </div>}
+  <div className="data-card">
+   {loading&&<div className="empty-state"><h3>Loading…</h3></div>}
+   {!loading&&!error&&!rows.length&&<div className="empty-state"><h3>No wholesale orders yet</h3><p>{supplier?'Orders vendors place for your wholesale products will appear here.':'Buy stock in bulk from verified suppliers. Your payment stays in escrow until you confirm the delivery.'}</p>{findSuppliers}</div>}
+   {!loading&&rows.length>0&&<SmartTable columns={columns} rows={rows} rowKey={r=>r._id||r.id} actions={actions} searchPlaceholder="Search by order, supplier or product…" empty="No wholesale orders match your search." exportName={supplier?'mvec-vendor-orders':'mvec-purchases'}/>}
+  </div>
+  {details&&<div className="modal-backdrop" onMouseDown={()=>setDetails(null)}><div className="modal seller-modal" onMouseDown={e=>e.stopPropagation()} role="dialog" aria-label={`Order ${details.orderNumber}`}>
+   <button type="button" className="modal-close" onClick={()=>setDetails(null)} aria-label="Close">×</button>
+   <h2>{details.orderNumber}</h2>
+   <p>{supplier?'Vendor':'Supplier'}: <b>{partyName(details[counterpart])}</b> · Placed {dateDMY(details.createdAt)}</p>
+   <div className="purchase-status-note"><WholesaleStatus value={details.status}/><span>{WHOLESALE_STATUS[details.status]?.[supplier?3:2]}</span></div>
+   <div className="purchase-items">
+    {(details.items||[]).map((i,k)=><div key={k}><span><b>{i.productName}</b><small>{i.quantity} × {money(i.unitPrice)} · MOQ {i.moq}</small></span><b>{money(i.quantity*i.unitPrice)}</b></div>)}
+    <div className="purchase-total"><span>Total</span><b>{money(details.totalAmount)}</b></div>
+   </div>
+   <div className="purchase-dates tiny">{[['Shipped',details.shippedAt],['Delivered',details.deliveredAt],['Confirmed',details.confirmedAt]].filter(d=>d[1]).map(d=><span key={d[0]}>{d[0]} {dateDMY(d[1])}</span>)}</div>
+   <div className="modal-actions"><button type="button" className="outline-btn" onClick={()=>setDetails(null)}>Close</button>{nextAction(details)}</div>
+  </div></div>}
+ </>;
 }
 
 function SupplierLiveModule({type}){
@@ -128,14 +197,62 @@ function AdminPayments(){
   </div></>;
 }
 
+const DISPUTE_REASON={ITEM_NOT_RECEIVED:'Item not received',DAMAGED_GOODS:'Damaged goods',WRONG_ITEM:'Wrong item',INCOMPLETE_ORDER:'Incomplete order',SLA_BREACH:'Late delivery',OTHER:'Other'};
+const DISPUTE_STATUS={OPEN:['Open','warning'],UNDER_REVIEW:['Under review','pending'],EVIDENCE_SUBMITTED:['Evidence submitted','pending'],RESOLVED_BUYER_REFUNDED:['Refunded to buyer','danger'],RESOLVED_VENDOR_RELEASED:['Released to seller','active'],RESOLVED_SPLIT:['Split settlement','active'],REJECTED:['Rejected','danger']};
+const disputeOpen=s=>['OPEN','UNDER_REVIEW','EVIDENCE_SUBMITTED'].includes(s);
+function DisputeStatus({value}){const s=DISPUTE_STATUS[value];return <em className={'status '+(s?.[1]||'warning')}>{s?.[0]||value}</em>}
+
 function DisputesList({role}){
+ const admin=role==='admin';
  const [rows,setRows]=useState([]);const [loading,setLoading]=useState(true);const [error,setError]=useState('');
- useEffect(()=>{disputesApi.getAll({pageSize:100}).then(res=>setRows(res.data||[])).catch(err=>setError(extractErrorMessage(err))).finally(()=>setLoading(false));},[]);
- return <><Header eyebrow={`${role.toUpperCase()} · REFUNDS`} title="Refunds & disputes" desc="Review reported problems, evidence and their current resolution status."/>
+ const [open,setOpen]=useState(null);const [reply,setReply]=useState('');const [sending,setSending]=useState(false);const [notice,setNotice]=useState('');
+ const load=()=>(admin?disputesApi.getAll({pageSize:100}):disputesApi.getMine()).then(res=>{setRows(res.data||[]);setError('')}).catch(err=>setError(extractErrorMessage(err))).finally(()=>setLoading(false));
+ useEffect(()=>{load()},[]);// eslint-disable-line react-hooks/exhaustive-deps
+ const active=rows.filter(r=>disputeOpen(r.status));
+ const atStake=active.reduce((n,r)=>n+(Number(r.disputedAmount)||0),0);
+ const needsReply=active.filter(r=>r.status==='OPEN').length;
+ const respond=async()=>{
+  if(!reply.trim())return;setSending(true);setError('');
+  try{await disputesApi.submitEvidence(open._id||open.id,{message:reply.trim()});setNotice(`Your response to ${open.disputeNumber} was sent to MVEC.`);setOpen(null);setReply('');await load()}
+  catch(err){setError(extractErrorMessage(err))}finally{setSending(false)}
+ };
+ const columns=[
+  {key:'disputeNumber',label:'Case',render:r=><div><b>{r.disputeNumber}</b><small className="tiny seller-block">{dateDMY(r.createdAt)}</small></div>},
+  {key:'order',label:'Order',render:r=>r.order?.orderNumber||'—'},
+  ...(role==='buyer'?[]:[{key:'raisedBy',label:'Raised by',render:r=>r.raisedBy?.Fullname||r.raisedBy?.email||'Buyer'}]),
+  {key:'reason',label:'Reason',render:r=>DISPUTE_REASON[r.reason]||r.reason},
+  {key:'disputedAmount',label:'Amount',render:r=><b>{money(r.disputedAmount)}</b>},
+  {key:'status',label:'Status',render:r=><DisputeStatus value={r.status}/>}
+ ];
+ const actions=r=><span className="row-actions">
+  {!admin&&disputeOpen(r.status)&&<button type="button" className="table-action-btn primary" onClick={()=>{setOpen(r);setReply('')}}>Respond</button>}
+  <button type="button" title="View case" onClick={()=>{setOpen(r);setReply('')}}><Icon name="eye" size={16}/></button>
+ </span>;
+ return <><Header eyebrow={`${role.toUpperCase()} · REFUNDS`} title="Refunds & disputes" desc={admin?'Review reported problems, evidence and their resolution.':'Problems buyers reported with your orders. Respond with your side so MVEC can resolve them fairly.'}/>
   {error&&<div className="form-error">{error}</div>}
+  {notice&&<div className="form-alert success">{notice}</div>}
+  {!loading&&rows.length>0&&<div className="metric-grid">
+   <Metric icon="bell" label="Open cases" value={active.length} sub={`${rows.length} in total`}/>
+   <Metric icon="edit" label={admin?'Awaiting evidence':'Need your response'} value={needsReply} sub="Not yet answered"/>
+   <Metric icon="shield" label="Amount at stake" value={money(atStake)} sub="Held until resolved"/>
+   <Metric icon="check" label="Resolved" value={rows.length-active.length} sub="Closed by MVEC"/>
+  </div>}
   <div className="data-card">{loading&&<div className="empty-state"><h3>Loading…</h3></div>}
-   {!loading&&<SmartTable columns={[{key:'disputeNumber',label:'Case'},{key:'order',label:'Order',render:r=>r.order?.orderNumber||''},{key:'reason',label:'Reason'},{key:'disputedAmount',label:'Amount',render:r=>money(r.disputedAmount)},{key:'status',label:'Status',render:r=><em className={'status '+(r.status.startsWith('RESOLVED')?'active':'warning')}>{r.status}</em>}]} rows={rows} rowKey={r=>r.id} searchPlaceholder="Search disputes…" empty="No disputes yet."/>}
-  </div></>;
+   {!loading&&!error&&!rows.length&&<div className="empty-state"><h3>No refund requests</h3><p>{admin?'Disputes raised by buyers will appear here.':'Good news: no buyer has reported a problem with your orders.'}</p></div>}
+   {!loading&&rows.length>0&&<SmartTable columns={columns} rows={rows} rowKey={r=>r._id||r.id} actions={actions} searchPlaceholder="Search cases…" empty="No cases match your search." exportName={`mvec-${role}-refunds`}/>}
+  </div>
+  {open&&<div className="modal-backdrop" onMouseDown={()=>setOpen(null)}><div className="modal seller-modal" role="dialog" aria-label={`Case ${open.disputeNumber}`} onMouseDown={e=>e.stopPropagation()}>
+   <button type="button" className="modal-close" onClick={()=>setOpen(null)} aria-label="Close">×</button>
+   <h2>{open.disputeNumber}</h2>
+   <p>Order <b>{open.order?.orderNumber||'—'}</b> · {DISPUTE_REASON[open.reason]||open.reason} · {money(open.disputedAmount)}</p>
+   <div className="purchase-status-note"><DisputeStatus value={open.status}/><span>Opened {dateDMY(open.createdAt)}</span></div>
+   {open.description&&<div className="case-quote"><small>Buyer's description</small><p>{open.description}</p></div>}
+   {open.arbitrationDecision?.decision&&<div className="case-quote"><small>MVEC decision</small><p>{titleCaseText(open.arbitrationDecision.decision)}{open.arbitrationDecision.notes?` · ${open.arbitrationDecision.notes}`:''}</p></div>}
+   {!admin&&disputeOpen(open.status)&&<label className="field"><span>Your response</span><textarea rows="4" value={reply} onChange={e=>setReply(e.target.value)} placeholder="Explain what happened: delivery proof, photos you have, or how you want to resolve it."/></label>}
+   <div className="modal-actions"><button type="button" className="outline-btn" onClick={()=>setOpen(null)}>Close</button>
+    {!admin&&disputeOpen(open.status)&&<button type="button" className="gradient-btn" disabled={!reply.trim()||sending} onClick={respond}>{sending?'Sending…':'Send response'}</button>}</div>
+  </div></div>}
+ </>;
 }
 
 function GenericTableModule({role,type}){
@@ -188,7 +305,6 @@ function GenericTableModule({role,type}){
  };
  if(type==='support') return <SupportModule role={role}/>;
  if(type==='notifications') return <><Header eyebrow={`${role.toUpperCase()} · ${cfg[0]}`} title={cfg[1]} desc={cfg[2]}/><NotificationPanel/></>;
- if(type==='categories'&&role==='vendor') return <VendorCategories/>;
  if(type==='purchases'&&role==='vendor') return <WholesaleList role="vendor"/>;
  if((type==='supply-requests'||type==='transactions'||type==='reviews')&&role==='supplier') return <SupplierLiveModule type={type}/>;
  if(type==='payments'&&role==='admin') return <AdminPayments/>;
@@ -199,10 +315,76 @@ function GenericTableModule({role,type}){
 }
 
 
+const SUPPORT_CATEGORIES=[['ORDER','Order or delivery'],['PAYMENT','Payment or payout'],['ACCOUNT','My account'],['VENDOR_ONBOARDING','Store setup'],['TECHNICAL','Technical problem'],['OTHER','Something else']];
+const CASE_STATUS={OPEN:['Open','warning'],IN_PROGRESS:['In progress','pending'],RESOLVED:['Resolved','active'],CLOSED:['Closed','active']};
+function CaseStatus({value}){const s=CASE_STATUS[value];return <em className={'status '+(s?.[1]||'warning')}>{s?.[0]||value}</em>}
+
 function SupportModule({role}){
- const [subject,setSubject]=useState('Marketplace support'); const [reference,setReference]=useState(''); const [message,setMessage]=useState(''); const [sent,setSent]=useState(false);
- const submit=async()=>{if(!subject.trim()||!message.trim())return;try{await supportApi.createCase({subject:subject.trim(),description:message.trim(),orderId:reference.trim()||undefined});setSent(true);setMessage('');}catch(error){setSent(false);}};
- return <div className="data-card support-direct"><h3>Contact MVEC</h3><p>Send a message directly to the MVEC support team. Your request can be linked to an order or transaction reference.</p><div className="form-row"><label className="field"><span>Subject</span><input value={subject} onChange={e=>setSubject(e.target.value)}/></label><label className="field"><span>Order or transaction ID</span><input value={reference} onChange={e=>setReference(e.target.value)} placeholder="Optional"/></label></div><label className="field"><span>Message</span><textarea rows="5" value={message} onChange={e=>setMessage(e.target.value)} placeholder="Describe the issue…"/></label><div className="support-actions"><button className="gradient-btn" onClick={submit} disabled={!subject.trim()||!message.trim()}>Send to MVEC</button><a className="outline-btn" href="sms:+250788100000">Send SMS</a></div>{sent&&<p className="success-text">Support request submitted successfully.</p>}</div>;
+ const blank={subject:'',category:'ORDER',priority:'MEDIUM',reference:'',description:''};
+ const [form,setForm]=useState(blank);const [sending,setSending]=useState(false);const [error,setError]=useState('');const [notice,setNotice]=useState('');
+ const [cases,setCases]=useState([]);const [loading,setLoading]=useState(true);
+ const [open,setOpen]=useState(null);const [reply,setReply]=useState('');const [replying,setReplying]=useState(false);
+ const load=()=>supportApi.listCases({pageSize:50}).then(res=>setCases(res.cases||[])).catch(err=>setError(extractErrorMessage(err))).finally(()=>setLoading(false));
+ useEffect(()=>{load()},[]);// eslint-disable-line react-hooks/exhaustive-deps
+ const update=e=>setForm(f=>({...f,[e.target.name]:e.target.value}));
+ const submit=async e=>{
+  e.preventDefault();if(!form.subject.trim()||!form.description.trim())return;
+  setSending(true);setError('');
+  try{
+   const description=form.reference.trim()?`Reference: ${form.reference.trim()}\n\n${form.description.trim()}`:form.description.trim();
+   const res=await supportApi.createCase({subject:form.subject.trim(),category:form.category,priority:form.priority,description});
+   setNotice(`Ticket ${res.case?.ticketNumber||''} created. MVEC support will reply here.`);setForm(blank);await load();
+  }catch(err){setError(extractErrorMessage(err))}finally{setSending(false)}
+ };
+ const view=c=>{setReply('');setOpen(c);supportApi.getCaseById(c._id||c.id).then(res=>setOpen(res.case||c)).catch(()=>{})};
+ const sendReply=async()=>{
+  if(!reply.trim())return;setReplying(true);
+  try{await supportApi.addComment(open._id||open.id,{message:reply.trim()});const res=await supportApi.getCaseById(open._id||open.id);setOpen(res.case);setReply('');load()}
+  catch(err){setError(extractErrorMessage(err))}finally{setReplying(false)}
+ };
+ const columns=[
+  {key:'ticketNumber',label:'Ticket',render:c=><div><b>{c.ticketNumber}</b><small className="tiny seller-block">{dateDMY(c.createdAt)}</small></div>},
+  {key:'subject',label:'Subject'},
+  {key:'category',label:'Topic',render:c=>(SUPPORT_CATEGORIES.find(x=>x[0]===c.category)||[0,c.category])[1]},
+  {key:'comments',label:'Replies',render:c=>c.comments?.length||0},
+  {key:'status',label:'Status',render:c=><CaseStatus value={c.status}/>}
+ ];
+ return <><Header eyebrow={`${role.toUpperCase()} · SUPPORT`} title="MVEC Support" desc="Contact the MVEC team about payments, deliveries, orders or your account, and follow every request here."/>
+  {notice&&<div className="form-alert success">{notice}</div>}
+  {error&&<div className="form-error">{error}</div>}
+  <div className="dash-grid support-grid">
+   <form className="data-card support-direct" onSubmit={submit}>
+    <h3>New request</h3>
+    <div className="seller-form-grid">
+     <label className="field"><span>Subject *</span><input name="subject" value={form.subject} onChange={update} required placeholder="e.g. Payout not received"/></label>
+     <label className="field half"><span>Topic</span><select name="category" value={form.category} onChange={update}>{SUPPORT_CATEGORIES.map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></label>
+     <label className="field half"><span>Urgency</span><select name="priority" value={form.priority} onChange={update}><option value="LOW">Low</option><option value="MEDIUM">Normal</option><option value="HIGH">High</option><option value="URGENT">Urgent: money or orders blocked</option></select></label>
+     <label className="field"><span>Order or transaction ID</span><input name="reference" value={form.reference} onChange={update} placeholder="Optional"/></label>
+     <label className="field"><span>Message *</span><textarea name="description" rows="5" value={form.description} onChange={update} required placeholder="Describe the issue and what you've already tried…"/></label>
+    </div>
+    <div className="support-actions"><button className="gradient-btn" type="submit" disabled={sending||!form.subject.trim()||!form.description.trim()}>{sending?'Sending…':'Send to MVEC'}</button></div>
+   </form>
+   <div className="data-card">
+    <div className="data-card-head"><div><h3>Your requests</h3><span>{cases.filter(c=>c.status==='OPEN'||c.status==='IN_PROGRESS').length} open</span></div></div>
+    {loading&&<div className="empty-state"><h3>Loading…</h3></div>}
+    {!loading&&!cases.length&&<div className="empty-state"><h3>No requests yet</h3><p>Requests you send will appear here with MVEC's replies.</p></div>}
+    {!loading&&cases.length>0&&<SmartTable columns={columns} rows={cases} rowKey={c=>c._id||c.id} pageSize={5} enableTools={cases.length>5} actions={c=><span className="row-actions"><button type="button" title="Open ticket" onClick={()=>view(c)}><Icon name="eye" size={16}/></button></span>}/>}
+   </div>
+  </div>
+  {open&&<div className="modal-backdrop" onMouseDown={()=>setOpen(null)}><div className="modal seller-modal" role="dialog" aria-label={`Ticket ${open.ticketNumber}`} onMouseDown={e=>e.stopPropagation()}>
+   <button type="button" className="modal-close" onClick={()=>setOpen(null)} aria-label="Close">×</button>
+   <h2>{open.subject}</h2>
+   <div className="purchase-status-note"><CaseStatus value={open.status}/><span>{open.ticketNumber} · opened {dateDMY(open.createdAt)}</span></div>
+   <div className="case-thread">
+    <div className="case-quote mine"><small>You · {dateDMY(open.createdAt)}</small><p>{open.description}</p></div>
+    {(open.comments||[]).map((c,i)=>{const staff=c.author&&typeof c.author==='object'&&c.author.role!==undefined&&!['vendor','supplier','buyer','affiliate'].includes(c.author.role);
+     return <div key={c._id||i} className={'case-quote'+(staff?'':' mine')}><small>{staff?'MVEC support':'You'} · {dateDMY(c.createdAt)}</small><p>{c.message}</p></div>})}
+   </div>
+   {!['RESOLVED','CLOSED'].includes(open.status)&&<label className="field"><span>Reply</span><textarea rows="3" value={reply} onChange={e=>setReply(e.target.value)} placeholder="Add more details…"/></label>}
+   <div className="modal-actions"><button type="button" className="outline-btn" onClick={()=>setOpen(null)}>Close</button>
+    {!['RESOLVED','CLOSED'].includes(open.status)&&<button type="button" className="gradient-btn" disabled={!reply.trim()||replying} onClick={sendReply}>{replying?'Sending…':'Send reply'}</button>}</div>
+  </div></div>}
+ </>;
 }
 function BuyerRefunds(){
  const [rows,setRows]=useState([]);const [loading,setLoading]=useState(true);const [error,setError]=useState('');

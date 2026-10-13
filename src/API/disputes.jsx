@@ -1,6 +1,7 @@
 import { client } from "./client";
 
 export const disputesApi = {
+  // All marketplace disputes (super_admin only).
   getAll: (params) =>
     client.get("/disputes", { params }).then((r) => r.data),
   // Disputes the signed-in user raised (buyers) or is involved in.

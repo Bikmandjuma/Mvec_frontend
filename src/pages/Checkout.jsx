@@ -7,10 +7,12 @@ import { useAuth } from "../context/AuthContext";
 import { productsApi } from "../API/products";
 import { ordersApi } from "../API/orders";
 import { addressesApi } from "../API/addresses";
+import { shippingApi } from "../API/shipping";
+import { RWANDA_LOCATIONS, PROVINCES } from "../data/rwandaLocations";
 import { extractErrorMessage } from "../API/client";
 import { mapBackendProduct, clearCatalogCache } from "../services/catalogApi";
 import { money } from "../utils/format";
-import { PROVINCES, shippingFee, isRwandanPhone } from "../utils/delivery";
+import { isRwandanPhone } from "../utils/delivery";
 
 const FORM_KEY = "mvec_checkout_form";
 const EMPTY_FORM = { name: "", phone: "", email: "", province: "Kigali City", district: "", sector: "", street: "", method: "standard" };
@@ -19,9 +21,20 @@ const readSavedForm = () => {
   try { return JSON.parse(sessionStorage.getItem(FORM_KEY) || "null"); } catch { return null; }
 };
 
+const METHODS = ["standard", "express"];
+
+// The province a district belongs to, matched case-insensitively.
+const findDistrict = (name) => {
+  const wanted = String(name || "").trim().toLowerCase();
+  for (const province of PROVINCES) {
+    const district = RWANDA_LOCATIONS[province].find((d) => d.toLowerCase() === wanted);
+    if (district) return { province, district };
+  }
+  return null;
+};
+
 const fromAddress = (a) => ({
-  province: PROVINCES.includes(a.provinceState) ? a.provinceState : "Kigali City",
-  district: a.cityDistrict || "",
+  ...(findDistrict(a.cityDistrict) || { province: PROVINCES.includes(a.provinceState) ? a.provinceState : "Kigali City", district: "" }),
   sector: a.sector || "",
   street: [a.street, a.building, a.apartment].filter(Boolean).join(", "),
   phone: a.phone || "",
@@ -32,7 +45,7 @@ function validate(form) {
   if (form.name.trim().length < 2) errors.name = "Enter the name of the person receiving the order.";
   if (!isRwandanPhone(form.phone)) errors.phone = "Enter a Rwandan mobile number, for example 0788 123 456.";
   if (form.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) errors.email = "Enter a valid email or leave it empty.";
-  if (!form.district.trim()) errors.district = "Enter your district.";
+  if (!RWANDA_LOCATIONS[form.province]?.includes(form.district)) errors.district = "Choose your district.";
   if (form.street.trim().length < 3) errors.street = "Enter your street, house number or a nearby landmark.";
   return errors;
 }
@@ -107,12 +120,49 @@ export default function Checkout() {
 
   const unavailable = items.filter((x) => (x.status && x.status !== "ACTIVE") || (Number.isFinite(x.stock) && x.stock <= 0) || (Number(x.stock) > 0 && x.qty > x.stock));
   const subtotal = items.reduce((s, x) => s + (Number(x.price) || 0) * (x.qty || 1), 0);
-  const delivery = shippingFee(form.province, form.method);
+
+  // Delivery quotes from the sellers' shipping zones, one per method. The
+  // server recomputes the fee when the order is created.
+  const [quotes, setQuotes] = useState({ standard: null, express: null });
+  const [quoting, setQuoting] = useState(false);
+  const [quoteError, setQuoteError] = useState("");
+  const quote = quotes[form.method];
+  const delivery = quote?.shippingFee ?? 0;
   const total = subtotal + delivery;
+  const undeliverable = Boolean(quote && !quote.deliverable);
+  const undeliverableMessage = undeliverable ? quote.groups.filter((g) => !g.deliverable).map((g) => g.message).join(" ") : "";
+
+  const quoteItems = useMemo(() => items.map((x) => ({ productId: x.id || x._id, qty: x.qty || 1 })), [items]);
+  const quoteKey = JSON.stringify([form.province, form.district, quoteItems]);
+  useEffect(() => {
+    const validDistrict = RWANDA_LOCATIONS[form.province]?.includes(form.district);
+    if (!user || !quoteItems.length || !validDistrict) { setQuotes({ standard: null, express: null }); return undefined; }
+    let alive = true;
+    setQuoting(true);
+    setQuoteError("");
+    const t = setTimeout(() => {
+      const address = { province: form.province, district: form.district };
+      Promise.all(METHODS.map((m) => shippingApi.quote({ address, method: m.toUpperCase(), items: quoteItems })))
+        .then(([standard, express]) => alive && setQuotes({ standard, express }))
+        .catch((err) => alive && setQuoteError(extractErrorMessage(err, "We could not work out the delivery fee right now. You can still place the order; the fee is confirmed on the next step.")))
+        .finally(() => alive && setQuoting(false));
+    }, 250);
+    return () => { alive = false; clearTimeout(t); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [quoteKey, user]);
+
+  const feeLabel = (method) => {
+    const q = quotes[method];
+    if (!user) return "Shown after sign-in";
+    if (!q) return quoting ? "…" : "—";
+    if (!q.deliverable) return "Unavailable";
+    return q.shippingFee === 0 ? "FREE" : money(q.shippingFee);
+  };
 
   const update = (e) => {
     const { name, value } = e.target;
-    setForm((f) => ({ ...f, [name]: value }));
+    // Changing province resets the district to one in that province.
+    setForm((f) => (name === "province" ? { ...f, province: value, district: "" } : { ...f, [name]: value }));
     if (errors[name]) setErrors((x) => ({ ...x, [name]: undefined }));
     if (["province", "district", "sector", "street"].includes(name)) setAddressId("");
   };
@@ -143,13 +193,15 @@ export default function Checkout() {
       navigate("/login", { state: { from: `${location.pathname}${location.search}`, checkoutReturn: true } });
       return;
     }
+    if (undeliverable) { showError(`${undeliverableMessage} Choose another district or remove those items.`); return; }
 
     setSubmitting(true);
     try {
       const payload = {
-        shippingAddress: { street: form.street.trim(), district: form.district.trim(), sector: form.sector.trim(), province: form.province },
+        shippingAddress: { street: form.street.trim(), district: form.district, sector: form.sector.trim(), province: form.province, country: "Rwanda" },
         recipient: { name: form.name.trim(), phone: form.phone.trim(), email: form.email.trim() },
         deliveryMethod: form.method,
+        shippingMethod: form.method.toUpperCase(),
       };
       const res = pid
         ? await ordersApi.directCheckout({ ...payload, items: items.map((x) => ({ productId: x.id, quantity: x.qty })) })
@@ -157,7 +209,7 @@ export default function Checkout() {
 
       if (saveAddress && !addressId) {
         addressesApi.add({
-          type: "HOME", country: "Rwanda", provinceState: form.province, cityDistrict: form.district.trim(),
+          type: "HOME", country: "Rwanda", provinceState: form.province, cityDistrict: form.district,
           sector: form.sector.trim(), street: form.street.trim(), phone: form.phone.trim(),
         }).catch(() => {});
       }
@@ -217,7 +269,13 @@ export default function Checkout() {
         )}
         <div className="two-col">
           <label className="field"><span>Province / City</span><select name="province" value={form.province} onChange={update}>{PROVINCES.map((p) => <option key={p}>{p}</option>)}</select></label>
-          {field("district", "District", { placeholder: "e.g. Gasabo", autoComplete: "address-level2", required: true })}
+          <label className={`field ${errors.district ? "has-error" : ""}`}><span>District</span>
+            <select name="district" value={form.district} onChange={update} aria-invalid={Boolean(errors.district)} required>
+              <option value="">Choose a district</option>
+              {(RWANDA_LOCATIONS[form.province] || []).map((d) => <option key={d}>{d}</option>)}
+            </select>
+            {errors.district && <small className="field-error">{errors.district}</small>}
+          </label>
         </div>
         <div className="two-col">
           {field("sector", "Sector (optional)", { placeholder: "e.g. Remera" })}
@@ -226,10 +284,16 @@ export default function Checkout() {
         {user && !addressId && <label className="filter-check"><input type="checkbox" checked={saveAddress} onChange={(e) => setSaveAddress(e.target.checked)} /> Save this address to my account</label>}
         <fieldset className="delivery-options">
           <legend className="tiny">Delivery speed</legend>
-          <label><input type="radio" name="method" checked={form.method === "standard"} onChange={() => setForm((f) => ({ ...f, method: "standard" }))} /> Standard delivery <b>{shippingFee(form.province, "standard") ? money(shippingFee(form.province, "standard")) : "FREE"}</b></label>
-          <label><input type="radio" name="method" checked={form.method === "express"} onChange={() => setForm((f) => ({ ...f, method: "express" }))} /> Express delivery <b>{money(shippingFee(form.province, "express"))}</b></label>
+          <label><input type="radio" name="method" checked={form.method === "standard"} onChange={() => setForm((f) => ({ ...f, method: "standard" }))} /> Standard delivery <b>{feeLabel("standard")}</b></label>
+          <label><input type="radio" name="method" checked={form.method === "express"} onChange={() => setForm((f) => ({ ...f, method: "express" }))} /> Express delivery <b>{feeLabel("express")}</b></label>
         </fieldset>
-        <p className="tiny">The seller or an MVEC delivery partner brings your order. You give them your delivery code when it arrives.</p>
+        {quoteError && <div className="form-alert error">{quoteError}</div>}
+        {undeliverable && <div className="form-alert error">{undeliverableMessage} Choose another district or remove those items.</div>}
+        {quote?.deliverable && <div className="checkout-parcels">{quote.groups.map((g) => <div key={`${g.vendor}-${g.store}`}>
+          <span><b>{g.storeName}</b><small>{g.zoneName}{g.eta ? ` · ${g.eta}` : ""}{g.freeOverAmount && g.fee > 0 ? ` · free from ${money(g.freeOverAmount)}` : ""}</small>{g.message && <small className="checkout-parcel-note">{g.message}</small>}</span>
+          <strong>{g.fee === 0 ? "FREE" : money(g.fee)}</strong>
+        </div>)}</div>}
+        <p className="tiny">Delivery fees are set by each seller for your district; items from different stores ship separately. The seller or an MVEC delivery partner brings your order. You give them your delivery code when it arrives.</p>
       </div>
 
       <div className="form-card"><h2>Order items</h2>
@@ -248,10 +312,10 @@ export default function Checkout() {
     </section>
     <aside className="summary-card"><h2>Order summary</h2>
       <div><span>Products</span><b>{money(subtotal)}</b></div>
-      <div><span>Delivery</span><b>{delivery ? money(delivery) : "FREE"}</b></div>
+      <div><span>Delivery{quote?.groups?.length > 1 ? ` (${quote.groups.length} parcels)` : ""}</span><b>{!user ? "Shown after sign-in" : quoting && !quote ? "…" : undeliverable ? "—" : !quote ? "—" : delivery === 0 ? "FREE" : money(delivery)}</b></div>
       <hr />
       <div className="grand"><span>Total to pay</span><strong>{money(total)}</strong></div>
-      <button className="gradient-btn full" type="submit" disabled={submitting || authLoading || unavailable.length > 0}>
+      <button className="gradient-btn full" type="submit" disabled={submitting || authLoading || unavailable.length > 0 || undeliverable}>
         {submitting ? "Placing order…" : user ? "Continue to payment" : "Sign in to continue"}
       </button>
       {!pid && <Link to="/cart" className="back-link">← Back to cart</Link>}

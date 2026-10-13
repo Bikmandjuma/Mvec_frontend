@@ -8,7 +8,8 @@ import { authApi } from '../API/auth';
 import { addressesApi } from '../API/addresses';
 import { uploadsApi } from '../API/uploads';
 import { extractErrorMessage } from '../API/client';
-import { PROVINCES, isRwandanPhone } from '../utils/delivery';
+import { isRwandanPhone } from '../utils/delivery';
+import { PROVINCES } from '../data/rwandaLocations';
 
 const ROLE_LABEL = { buyer: 'Buyer', vendor: 'Vendor', supplier: 'Supplier', affiliate: 'Affiliate', super_admin: 'Super Admin', delivery: 'Delivery' };
 const ADDRESS_TYPES = [['HOME', 'Home'], ['OFFICE', 'Office'], ['PARENTS', 'Family'], ['OTHER', 'Other']];

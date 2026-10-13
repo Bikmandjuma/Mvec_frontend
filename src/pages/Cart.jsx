@@ -4,7 +4,6 @@ import Storefront from '../components/Storefront';
 import ProductImage from '../components/ProductImage';
 import { useMarketplace } from '../context/MarketplaceContext';
 import { money } from '../utils/format';
-import { FEES } from '../utils/delivery';
 
 export default function Cart() {
   const navigate = useNavigate();
@@ -61,7 +60,7 @@ export default function Cart() {
         <h3>Order summary</h3>
         <div><span>Subtotal</span><b>{money(subtotal)}</b></div>
         <div><span>Delivery</span><b>Calculated at checkout</b></div>
-        <p className="tiny">Standard delivery is free in Kigali and {money(FEES.standardProvince)} elsewhere. Express delivery is {money(FEES.express)}.</p>
+        <p className="tiny">Each seller sets its own delivery fee for your district. You see the exact amount at checkout before you pay.</p>
         <hr />
         <div className="grand"><span>Subtotal</span><strong>{money(subtotal)}</strong></div>
         <button type="button" className="gradient-btn full" disabled={blocked} onClick={() => navigate('/checkout')}>Proceed to checkout</button>

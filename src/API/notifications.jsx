@@ -1,18 +1,15 @@
 import { client } from "./client";
 
+// Normalises the backend's { data, meta: { unreadCount } } into one shape.
+const mine = (params) =>
+  client.get("/notifications/mine", { params }).then((r) => ({
+    notifications: (r.data.data || []).map((n) => ({ ...n, body: n.body || n.message || "" })),
+    unreadCount: r.data.meta?.unreadCount || 0,
+  }));
+
 export const notificationsApi = {
-  getAll: (params) =>
-    client.get("/notifications/mine", { params }).then((r) => {
-      const payload = r.data || {};
-      const notifications = Array.isArray(payload) ? payload : payload.data;
-      const meta = Array.isArray(payload) ? r.meta : payload.meta;
-      return {
-      notifications: (Array.isArray(notifications) ? notifications : []).map(notification => ({
-        ...notification,
-        body: notification.body || notification.message || "",
-      })),
-      unreadCount: meta?.unreadCount || 0,
-    }; }),
+  getMine: mine,
+  getAll: mine,
   markAsRead: (id) =>
     client.patch(`/notifications/${id}/read`).then((r) => r.data),
   markAllAsRead: () =>

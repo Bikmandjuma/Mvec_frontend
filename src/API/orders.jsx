@@ -26,6 +26,18 @@ const checkoutBody = ({ shippingAddress = {}, recipient = {}, deliveryMethod = "
   visitorId: getVisitorId() || undefined,
 });
 
+// city = district and state = province, as the backend Order model expects.
+const mapAddress = (a = {}) => ({
+  street: a.street || a.address || "",
+  city: a.district || a.city || "",
+  state: a.province || a.state || "",
+  province: a.province || a.state || "",
+  district: a.district || a.city || "",
+  sector: a.sector || "",
+  country: a.country || "Rwanda",
+  postalCode: a.postalCode || "",
+});
+
 export const ordersApi = {
   checkout: (payload) =>
     client.post("/orders/checkout", checkoutBody(payload)).then((r) => ({ ...r.data, order: withOrderId(r.data.order) })),
@@ -37,6 +49,9 @@ export const ordersApi = {
     client.get("/orders/my-orders").then((r) => ({ ...r.data, orders: (r.data.orders || []).map(withOrderId) })),
   getVendorOrders: () =>
     client.get("/orders/vendor/orders").then((r) => r.data),
+  // All marketplace orders (super_admin only).
+  getAll: () =>
+    client.get("/orders").then((r) => ({ ...r.data, orders: (r.data.orders || []).map(withOrderId) })),
   getDeliverable: () =>
     client.get("/orders/deliverable").then((r) => ({
       ...r.data,
@@ -48,6 +63,9 @@ export const ordersApi = {
   },
   updateStatus: (id, status) =>
     client.patch(`/orders/${id}/status`, { status }).then((r) => r.data),
+  // Seller records an order taken in person / by phone.
+  createManual: (payload) =>
+    client.post("/orders/vendor/manual", payload).then((r) => r.data),
   updateVendorOrderStatus: (payload) =>
     client.patch("/orders/vendor/status", payload).then((r) => r.data),
   confirmDelivery: (id, deliveryOtp) => {
