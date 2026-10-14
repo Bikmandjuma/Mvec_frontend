@@ -53,6 +53,13 @@ export const adminApi = {
   getPayments: (params) =>
     client.get("/admin/payments", { params }).then((r) => r.data),
   // Everything waiting for an admin, with per-page badge counts.
+  // MVEC's own wallet (what MVEC keeps) and withdrawals recorded by admins.
+  getMvecWallet: () =>
+    client.get("/admin/payouts/balance").then((r) => r.data),
+  getMvecWithdrawals: () =>
+    client.get("/admin/payouts/history").then((r) => r.data),
+  recordMvecWithdrawal: (payload) =>
+    client.post("/admin/payouts/request", payload).then((r) => r.data),
   getAttention: () =>
     client.get("/admin/attention").then((r) => r.data),
   getEarnings: (params) =>
@@ -67,10 +74,6 @@ export const adminApi = {
     client.get("/admin/platform").then((r) => r.data),
   getAuditLogs: (params) =>
     client.get("/admin/audit-logs", { params }).then((r) => r.data),
-  getSupplyRequests: () =>
-    client.get("/admin/suppliers/supply-requests").then((r) => r.data),
-  updateSupplyRequest: (id, payload) =>
-    client.patch(`/admin/suppliers/supply-requests/${id}`, payload).then((r) => r.data),
   getSupplierPayouts: () =>
     client.get("/admin/suppliers/payouts").then((r) => r.data),
   updateSupplierPayout: (id, payload) =>
