@@ -5,41 +5,44 @@
 
 export const sellerNav = [['/vendor','Dashboard','grid'],['/vendor/stores','My Stores','shop'],['/vendor/products','Products','box'],['/vendor/categories','Categories','tag'],['/vendor/inventory','Inventory','grid'],['/vendor/orders','Orders','cart'],['/vendor/purchases','Purchases','receipt'],['/vendor/customers','Customers','users'],['/vendor/analytics','Analytics','chart'],['/vendor/payouts','Payouts','wallet'],['/vendor/transactions','Transactions','wallet'],['/vendor/suppliers','Find Suppliers','shop'],['/vendor/affiliates','Affiliate Marketing','users'],['/vendor/advertisements','Advertisements','tag'],['/vendor/promotions','Promotions','tag'],['/vendor/subscription','Subscription','wallet'],['/vendor/reviews','Reviews','heart'],['/vendor/refunds','Refunds','wallet'],['/vendor/shipping','Shipping','shop'],['/vendor/delivery','Delivery & Settlement','box'],['/vendor/reports','Reports','chart'],['/vendor/messages','Messages','users'],['/vendor/notifications','Notifications','bell'],['/vendor/team','Team / Staff','users'],['/vendor/settings','Settings','settings'],['/vendor/support','MVEC Support','bell']];
 
-export const adminNav = [['/admin','Overview','grid'],['/admin/become-seller','Become a Seller','shop'],['/admin/messages','Messages','users'],['/admin/analytics','Analytics','chart'],['/admin/ledger','Financial Ledger','wallet'],['/admin/commission-rules','Commission Rules','wallet'],['/admin/risk','Fraud & Risk','bell'],['/admin/supplier-acquisition','Supplier Acquisition','users'],['/admin/vendor-acquisition','Vendor Acquisition','users'],['/admin/users','Users','users'],['/admin/vendors','Vendors','shop'],['/admin/suppliers','Suppliers','shop'],['/admin/affiliates','Affiliates','users'],['/admin/products','Products','box'],['/admin/categories','Categories','tag'],['/admin/orders','Orders','cart'],['/admin/payments','Payments','wallet'],['/admin/transfers','Refunds & Withdrawals','wallet'],['/admin/transactions','Transactions','wallet'],['/admin/commissions','Commissions','wallet'],['/admin/deliveries','Deliveries','box'],['/admin/refunds','Refunds','wallet'],['/admin/disputes','Disputes','bell'],['/admin/advertising','Advertising','tag'],['/admin/subscriptions','Subscriptions','wallet'],['/admin/reports','Reports','chart'],['/admin/recommendations','Recommendations','chart'],['/admin/matching','Supplier Matching','users'],['/admin/trust','Trust Scores','chart'],['/admin/notifications','Notifications','bell'],['/admin/languages','Languages','grid'],['/admin/locations','Locations','shop'],['/admin/audit-logs','Audit Logs','box'],['/admin/security','Security','settings'],['/admin/system','System Administration','settings'],['/admin/settings','Settings','settings'],['/admin/support','MVEC Support','bell']];
+export const adminNav = [['/admin','Overview','grid'],['/admin/become-seller','Become a Seller','shop'],['/admin/analytics','Analytics','chart'],['/admin/trust','Trust Scores','chart'],['/admin/users','Users','users'],['/admin/vendors','Sellers','shop'],['/admin/suppliers','Suppliers','shop'],['/admin/affiliates','Affiliates','users'],['/admin/products','Products','box'],['/admin/categories','Categories','tag'],['/admin/orders','Orders','cart'],['/admin/deliveries','Deliveries','box'],['/admin/disputes','Disputes','bell'],['/admin/payments','Payments','wallet'],['/admin/transfers','Refunds & Withdrawals','wallet'],['/admin/commissions','MVEC Earnings','wallet'],['/admin/ledger','Financial Ledger','wallet'],['/admin/advertising','Advertising','tag'],['/admin/subscriptions','Subscriptions','wallet'],['/admin/risk','Fraud & Risk','bell'],['/admin/audit-logs','Audit Log','box'],['/admin/settings','Settings','settings'],['/admin/messages','Messages','users'],['/admin/notifications','Notifications','bell'],['/admin/support','MVEC Support','bell']];
 
 // Grouped version of the admin sidebar: a short list of always-visible top
 // links, then collapsible categories each holding their sub-links. Built
-// from the exact same [href,label,icon] tuples as adminNav above, just
-// organized, nothing added or removed, so every route above is still
-// reachable, just under a category instead of one 35-item flat list.
+// from the exact same [href,label,icon] tuples as adminNav above. Every page
+// here reads live data; pages with badges show work waiting for an admin.
 export const adminNavGroups = [
   {
     label: 'Overview',
     items: [['/admin','Overview','grid'],['/admin/become-seller','Become a Seller','shop']],
   },
   {
-    label: 'Insights',
-    items: [['/admin/analytics','Analytics','chart'],['/admin/reports','Reports','chart'],['/admin/recommendations','Recommendations','chart'],['/admin/matching','Supplier Matching','users'],['/admin/trust','Trust Scores','chart']],
+    label: 'People & Stores',
+    items: [['/admin/vendors','Sellers','shop'],['/admin/suppliers','Suppliers','shop'],['/admin/affiliates','Affiliates','users'],['/admin/users','Users','users']],
   },
   {
-    label: 'People & Stores',
-    items: [['/admin/users','Users','users'],['/admin/vendors','Vendors','shop'],['/admin/suppliers','Suppliers','shop'],['/admin/affiliates','Affiliates','users'],['/admin/supplier-acquisition','Supplier Acquisition','users'],['/admin/vendor-acquisition','Vendor Acquisition','users']],
+    label: 'Orders',
+    items: [['/admin/orders','Orders','cart'],['/admin/deliveries','Deliveries','box'],['/admin/disputes','Disputes','bell']],
+  },
+  {
+    label: 'Money',
+    items: [['/admin/payments','Payments','wallet'],['/admin/transfers','Refunds & Withdrawals','wallet'],['/admin/commissions','MVEC Earnings','wallet'],['/admin/ledger','Financial Ledger','wallet']],
   },
   {
     label: 'Catalog',
     items: [['/admin/products','Products','box'],['/admin/categories','Categories','tag']],
   },
   {
-    label: 'Orders & Payments',
-    items: [['/admin/orders','Orders','cart'],['/admin/payments','Payments','wallet'],['/admin/transfers','Refunds & Withdrawals','wallet'],['/admin/transactions','Transactions','wallet'],['/admin/commissions','Commissions','wallet'],['/admin/commission-rules','Commission Rules','wallet'],['/admin/ledger','Financial Ledger','wallet'],['/admin/deliveries','Deliveries','box'],['/admin/refunds','Refunds','wallet'],['/admin/disputes','Disputes','bell']],
-  },
-  {
     label: 'Growth',
     items: [['/admin/advertising','Advertising','tag'],['/admin/subscriptions','Subscriptions','wallet']],
   },
   {
+    label: 'Insights',
+    items: [['/admin/analytics','Analytics','chart'],['/admin/trust','Trust Scores','chart'],['/admin/risk','Fraud & Risk','bell']],
+  },
+  {
     label: 'Platform',
-    items: [['/admin/languages','Languages','grid'],['/admin/locations','Locations','shop'],['/admin/audit-logs','Audit Logs','box'],['/admin/security','Security','settings'],['/admin/system','System Administration','settings'],['/admin/settings','Settings','settings'],['/admin/risk','Fraud & Risk','bell']],
+    items: [['/admin/settings','Settings','settings'],['/admin/audit-logs','Audit Log','box']],
   },
   {
     label: 'Communication',

@@ -19,8 +19,9 @@ export const adminApi = {
     client.post("/admin/translations", payload).then((r) => r.data),
   getVendors: (params) =>
     client.get("/admin/vendors", { params }).then((r) => r.data),
-  verifyVendor: (id) =>
-    client.patch(`/admin/vendors/${id}/verify`).then((r) => r.data),
+  // decision: "VERIFIED" | "REJECTED"; a rejection needs a reason the seller sees.
+  verifyVendor: (id, { decision, reason } = {}) =>
+    client.patch(`/admin/vendors/${id}/verify`, { decision, reason }).then((r) => r.data),
   updateVendorStatus: (id, payload) =>
     client.patch(`/admin/vendors/${id}/status`, payload).then((r) => r.data),
   getSuppliers: (params) =>
@@ -43,4 +44,35 @@ export const adminApi = {
     client.get("/admin/overview").then((r) => r.data),
   getPayments: (params) =>
     client.get("/admin/payments", { params }).then((r) => r.data),
+  // Everything waiting for an admin, with per-page badge counts.
+  getAttention: () =>
+    client.get("/admin/attention").then((r) => r.data),
+  getEarnings: (params) =>
+    client.get("/admin/earnings", { params }).then((r) => r.data),
+  getAnalytics: (params) =>
+    client.get("/admin/analytics", { params }).then((r) => r.data),
+  getRisk: () =>
+    client.get("/admin/risk").then((r) => r.data),
+  getTrust: () =>
+    client.get("/admin/trust").then((r) => r.data),
+  getPlatform: () =>
+    client.get("/admin/platform").then((r) => r.data),
+  getAuditLogs: (params) =>
+    client.get("/admin/audit-logs", { params }).then((r) => r.data),
+  getSupplyRequests: () =>
+    client.get("/admin/suppliers/supply-requests").then((r) => r.data),
+  updateSupplyRequest: (id, payload) =>
+    client.patch(`/admin/suppliers/supply-requests/${id}`, payload).then((r) => r.data),
+  getSupplierPayouts: () =>
+    client.get("/admin/suppliers/payouts").then((r) => r.data),
+  updateSupplierPayout: (id, payload) =>
+    client.patch(`/admin/suppliers/payouts/${id}`, payload).then((r) => r.data),
+  getVendorSubscriptions: (params) =>
+    client.get("/admin/subscriptions", { params }).then((r) => r.data),
+  getBuyerSubscriptions: (params) =>
+    client.get("/admin/buyer-subscriptions", { params }).then((r) => r.data),
+  updateSubscriptionStatus: (id, status) =>
+    client.patch(`/admin/subscriptions/${id}/status`, { status }).then((r) => r.data),
+  updateAbuseReport: (id, payload) =>
+    client.patch(`/abuse-reports/${id}`, payload).then((r) => r.data),
 };

@@ -1276,3 +1276,51 @@ button.seller-cat-name:disabled svg{visibility:hidden}
 .order-progress .step-by{color:var(--blue-deep,#127ca3)!important;font-weight:800}
 .order-progress .timeline-item.current b{color:var(--blue-deep,#127ca3)}
 [data-theme="dark"] .order-progress .step-by,[data-theme="dark"] .order-progress .timeline-item.current b{color:#8fdcf7!important}
+
+/* ── Admin operations: attention queue, badges, verification, charts ── */
+.admin-tabs{margin:0 0 14px;flex-wrap:wrap;max-width:100%}
+.attention-card .attention-list{display:grid;gap:8px}
+.attention-item{display:flex;align-items:center;gap:14px;padding:12px 14px;border:1px solid var(--border);border-radius:12px;color:var(--text);background:var(--surface);transition:border-color .15s,background .15s}
+.attention-item:hover{border-color:var(--blue);background:var(--surface-2)}
+.attention-item>strong{min-width:34px;height:34px;display:grid;place-items:center;border-radius:10px;background:var(--surface-2);font-size:15px;color:var(--blue-deep)}
+.attention-item.urgent>strong{background:#fdeceb;color:#c23b31}
+.attention-item>span{display:grid;gap:2px;flex:1;min-width:0}
+.attention-item small{color:var(--muted-text);font-size:12px}
+.dashboard-sidebar.sb .sb-badge,.sb-badge{margin-left:auto;flex:0 0 auto;min-width:20px;padding:1px 6px;border-radius:10px;background:#e5484d;color:#fff;font-style:normal;font-size:10.5px;font-weight:800;line-height:16px;text-align:center}
+.sb-group-head .sb-badge{margin-left:auto;margin-right:6px}
+.review-modal{max-width:640px;max-height:92vh;overflow:auto}
+.review-head{display:flex;gap:14px;align-items:center;margin:6px 0 12px}
+.review-head img,.review-head .product-image{width:64px;height:64px;border-radius:14px;object-fit:cover;flex:0 0 auto;border:1px solid var(--border)}
+.review-head h2{margin:0 0 2px}.review-head small{display:block;color:var(--muted-text);margin-bottom:6px}
+.review-checklist{list-style:none;margin:12px 0;padding:0;display:grid;gap:6px}
+.review-checklist li{display:grid;grid-template-columns:22px 130px 1fr;gap:8px;align-items:start;font-size:13px;padding:7px 10px;border-radius:9px;background:var(--surface-2)}
+.review-checklist li span{font-weight:800;color:#15803d}.review-checklist li.missing span{color:#c23b31}.review-checklist li.info span{color:var(--muted-text)}
+.review-checklist li small{color:var(--muted-text);overflow-wrap:anywhere}
+.reason-chips{display:flex;flex-wrap:wrap;gap:6px;margin:-4px 0 14px}
+.chip-btn{border:1px solid var(--border);background:var(--surface);color:var(--text);border-radius:999px;padding:5px 10px;font-size:12px;cursor:pointer;text-align:left}
+.chip-btn:hover{border-color:var(--blue)}
+.review-history{margin-top:14px;border-top:1px solid var(--border);padding-top:10px;display:grid;gap:4px}
+.review-history h4{margin:0 0 4px;font-size:13px}.review-history small{color:var(--muted-text)}
+.order-row .row-logo,.order-row img.row-logo{width:44px;height:44px;border-radius:10px;object-fit:cover;flex:0 0 auto;border:1px solid var(--border)}
+.supply-row .order-row-actions{flex-wrap:wrap}
+.filter-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.filter-row .inline-table-input{min-width:0}
+.bar-chart{display:flex;align-items:flex-end;gap:3px;height:160px;padding-top:8px}
+.bar-chart .bar{flex:1;height:100%;display:flex;align-items:flex-end;min-width:2px}
+.bar-chart .bar i{display:block;width:100%;border-radius:4px 4px 0 0;background:var(--gradient)}
+.bar-chart .bar:hover i{opacity:.75}
+.setting-line{display:flex;justify-content:space-between;gap:14px;align-items:center;padding:10px 0;border-bottom:1px solid var(--border)}
+.setting-line:last-child{border-bottom:0}
+.setting-line span{display:grid;gap:2px;min-width:0}.setting-line small{color:var(--muted-text);font-size:12px}
+.setting-line strong{text-align:right;font-size:13px}
+.block-small{display:block;color:var(--muted-text);font-size:12px}
+.logo-field{display:flex;gap:14px;align-items:center;margin-bottom:10px}
+.logo-field img,.logo-field .product-image{width:64px;height:64px;border-radius:14px;object-fit:cover;border:1px solid var(--border)}
+.supply-line{align-items:end}
+@media (max-width:640px){
+  .review-checklist li{grid-template-columns:22px 1fr}.review-checklist li small{grid-column:2}
+  .setting-line{flex-direction:column;align-items:flex-start}.setting-line strong{text-align:left}
+  .filter-row{width:100%}.filter-row>*{flex:1 1 140px}
+  .attention-item{padding:10px}
+}
+.dash-page-head select.inline-table-input{min-width:150px;padding-right:28px}
