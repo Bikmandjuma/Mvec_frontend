@@ -46,6 +46,7 @@ function Metric({ label, value, change, icon }) {
 // -----------------------------------------------------------------------------
 
 function GenericAdminTable({ title, subtitle, type }) {
+  const { user: me } = useAuth();
   const [list, setList] = useState([]);
   const [meta, setMeta] = useState({ total: 0 });
   const [loading, setLoading] = useState(true);
@@ -156,6 +157,20 @@ function GenericAdminTable({ title, subtitle, type }) {
     }
   };
 
+  const changeRole = async (row, role) => {
+    const label = { buyer: "a buyer", delivery: "a courier", super_admin: "an admin" }[role];
+    if (!window.confirm(`Make ${row.name || row.email} ${label}?${role === "super_admin" ? " Admins can see and change everything." : ""}`)) return;
+    setBusyId(row.id);
+    try {
+      await adminApi.updateUserStatus(row.id, { role });
+      setList((current) => current.map((u) => (u.id === row.id ? { ...u, role } : u)));
+    } catch (err) {
+      window.alert(extractErrorMessage(err));
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   function deleteCategory(category) {
     if (category.products && category.products > 0) {
       window.alert(`Cannot delete category "${category.name}": It has ${category.products} product(s). Please reassign or remove all products before deleting.`);
@@ -182,12 +197,13 @@ function GenericAdminTable({ title, subtitle, type }) {
       <div className="data-card">
         <div className="data-card-head">
           <div><h3>{title}</h3><span>{meta.total} records</span></div>
-          {type === "users" && <label className="field"><span>Filter by role</span><select value={roleFilter} onChange={e => { setRoleFilter(e.target.value); setPage(1); }}><option value="">All roles</option><option value="buyer">Buyers</option><option value="vendor">Vendors</option><option value="affiliate">Affiliates</option><option value="supplier">Suppliers</option><option value="super_admin">Administrators</option><option value="developer">Developers</option></select></label>}
+          {type === "users" && <label className="field"><span>Filter by role</span><select value={roleFilter} onChange={e => { setRoleFilter(e.target.value); setPage(1); }}><option value="">All roles</option><option value="buyer">Buyers</option><option value="vendor">Vendors</option><option value="affiliate">Affiliates</option><option value="supplier">Suppliers</option><option value="super_admin">Administrators</option><option value="delivery">Couriers</option><option value="developer">Developers</option></select></label>}
         </div>
         <span className="muted">Marketplace records from the database</span>
         {loading && <div className="empty-state"><h3>Loading…</h3></div>}
         {!loading && error && <div className="empty-state"><h3>Couldn't load {title.toLowerCase()}</h3><p>{error}</p></div>}
         {!loading && !error && <SmartTable columns={columns} rows={rows} rowKey={(r, i) => r.id || r.email || r.name || i} searchPlaceholder={`Search ${title.toLowerCase()}…`} exportName={`admin-${type}`} actions={item => <>
+          {type === "users" && ["buyer", "delivery", "super_admin"].includes(item.role) && item.id !== me?.id && <select className="inline-table-input" aria-label={`Role of ${item.name}`} value={item.role} disabled={busyId === item.id} onChange={(e) => changeRole(item, e.target.value)}><option value="buyer">Buyer</option><option value="delivery">Courier</option><option value="super_admin">Admin</option></select>}
           {type === "users" && item.role !== "super_admin" && <button className="table-action-btn" disabled={busyId === item.id} onClick={() => toggleUserBlock(item)}>{item.status === "Active" ? "Block" : "Unblock"}</button>}
           <button className="table-action-btn" onClick={() => setViewing(item)}><Icon name="eye" /> View</button>
           {type === "categories" && <button className="table-action-btn" onClick={() => deleteCategory(item)}><Icon name="trash" /> Delete</button>}
