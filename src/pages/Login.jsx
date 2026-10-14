@@ -12,7 +12,7 @@ export default function Login() {
   const [params] = useSearchParams();
   const { login } = useAuth();
   const [form, setForm] = useState({ identity: "", password: "" });
-  const [error, setError] = useState("");
+  const [error, setError] = useState(params.get("blocked") ? "Your account is blocked or suspended. Contact MVEC support." : "");
   const [loading, setLoading] = useState(false);
   const returnTo = safeRedirect(location.state?.from) || safeRedirect(params.get("next"));
   const update = (e) => setForm({ ...form, [e.target.name]: e.target.value });

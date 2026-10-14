@@ -24,11 +24,12 @@ client.interceptors.response.use(
     // An expired or revoked session: sign out and send the user to log in,
     // remembering where they were. Requests made without a token (guests)
     // simply fail and are handled by the page.
-    if (error.response?.status === 401 && localStorage.getItem("huska_token")) {
+    const blocked = error.response?.status === 403 && error.response?.data?.code === "ACCOUNT_BLOCKED";
+    if ((error.response?.status === 401 || blocked) && localStorage.getItem("huska_token")) {
       localStorage.removeItem("huska_token");
       if (window.location.pathname !== "/login") {
         const next = `${window.location.pathname}${window.location.search}`;
-        window.location.href = `/login?next=${encodeURIComponent(next)}`;
+        window.location.href = blocked ? "/login?blocked=1" : `/login?next=${encodeURIComponent(next)}`;
       }
     }
     return Promise.reject(error);
@@ -99,6 +100,7 @@ export function mapUser(u) {
     location: u.location || null,
     isOnboarded: u.isOnboarded !== false,
     verificationStatus: u.verificationStatus || "VERIFIED",
+    verificationNote: u.verificationNote || "",
     isSellerEnabled: Boolean(u.isSellerEnabled),
   };
 }
