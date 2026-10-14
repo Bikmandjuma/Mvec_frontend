@@ -309,7 +309,7 @@ function GenericTableModule({role,type}){
  if(type==='support') return <SupportModule role={role}/>;
  if(type==='notifications') return <NotificationPanel/>; // the panel has its own heading
  if(type==='purchases'&&role==='vendor') return <WholesaleList role="vendor"/>;
- if((type==='supply-requests'||type==='transactions'||type==='reviews')&&role==='supplier') return <SupplierLiveModule type={type}/>;
+ if((type==='requests'||type==='transactions'||type==='reviews')&&role==='supplier') return <SupplierLiveModule type={type==='requests'?'supply-requests':type}/>;
  if(type==='payments'&&role==='admin') return <AdminPayments/>;
  if(type==='advertisements'&&role==='vendor') return <VendorAdvertising/>;
  if(type==='advertising'&&role==='admin') return <AdminAdvertising/>;
@@ -558,8 +558,13 @@ function BuyerModule({type}){
  return null;
 }
 
+// URL segments whose module key is named differently.
+const PATH_KEYS={'supply-requests':'requests','audit-logs':'audit'};
+
+export function AdminDisputesPage(){return <DashboardLayout admin><DisputesList role="admin"/></DashboardLayout>}
+
 export default function FeaturePages({role}){
- const path=useLocation().pathname; const key=path.split('/').filter(Boolean)[1]||'';
+ const path=useLocation().pathname; const segment=path.split('/').filter(Boolean)[1]||''; const key=PATH_KEYS[segment]||segment;
  if(role==='buyer') return <Storefront><main className="account-page"><BuyerModule type={key}/></main></Storefront>;
  if(!moduleConfig[role]?.[key]) return <DashboardLayout admin={role==='admin'}><div className="data-card"><h2>Page unavailable</h2><p>The requested workspace page could not be found.</p><Link className="gradient-btn" to={role==='admin'?'/admin':`/${role}`}>Return to dashboard</Link></div></DashboardLayout>; return <DashboardLayout admin={role==='admin'}><GenericTableModule role={role} type={key}/></DashboardLayout>;
 }

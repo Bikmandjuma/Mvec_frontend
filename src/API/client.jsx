@@ -99,6 +99,7 @@ export function mapUser(u) {
     location: u.location || null,
     isOnboarded: u.isOnboarded !== false,
     verificationStatus: u.verificationStatus || "VERIFIED",
+    verificationNote: u.verificationNote || "",
     isSellerEnabled: Boolean(u.isSellerEnabled),
   };
 }

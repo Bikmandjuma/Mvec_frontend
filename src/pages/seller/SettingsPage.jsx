@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Icon from '../../components/Icon';
 import { vendorsApi } from '../../API/vendors';
+import { useAuth } from '../../context/AuthContext';
 import { payoutsApi } from '../../API/payouts';
 import { PageHead, Loading, StatusPill, useLoader, useNotice } from './shared';
 
@@ -15,6 +16,7 @@ const SHORTCUTS = [
 ];
 
 export default function SettingsPage() {
+  const { refresh } = useAuth();
   const { data, loading, error, notFound, setData } = useLoader(() =>
     Promise.all([vendorsApi.getMyProfile(), payoutsApi.getBalance().catch(() => null)])
       .then(([p, b]) => ({ vendor: p.vendor, commissionRate: b?.commissionRate })));
@@ -34,7 +36,8 @@ export default function SettingsPage() {
     try {
       const res = await vendorsApi.updateMyProfile(form);
       setData(d => ({ ...d, vendor: res.vendor || { ...d.vendor, ...form } }));
-      notice.success('Business profile saved.');
+      notice.success(res.message === 'Vendor profile updated' ? 'Business profile saved.' : res.message || 'Business profile saved.');
+      refresh?.();
     } catch (err) { notice.fail(err); }
     finally { setSaving(false); }
   };
@@ -43,6 +46,7 @@ export default function SettingsPage() {
   return <>
     <PageHead title="Settings" desc="Business profile, verification status and shortcuts to every store setting." />
     {notice.banner}
+    {vendor?.verificationStatus === 'REJECTED' && <div className="form-alert error"><b>MVEC asked for changes:</b> {vendor.verificationNote || 'Check your business details.'} Save your profile to send it back for review.</div>}
     {loading && <Loading />}
     {!loading && error && <div className="form-error">{notFound ? 'No business profile yet. Create your store first from My Store.' : error}</div>}
     {!loading && vendor && <div className="dash-grid">

@@ -24,25 +24,20 @@ import VendorNetwork from "./pages/VendorNetwork";
 import VendorAffiliate from "./pages/VendorAffiliate";
 import AdminDashboard from "./pages/AdminDashboard";
 import BecomeSeller from "./pages/BecomeSeller";
-import Transactions from "./pages/Transactions";
 import SellerOrderDetail from "./pages/SellerOrderDetail";
 import RequireAuth from "./components/RequireAuth";
 import DeliveryTracking from "./components/DeliveryTracking";
 import DashboardLayout from "./components/DashboardLayout";
 import NotificationPanel from "./components/NotificationPanel";
 import MobileBottomNav from "./components/MobileBottomNav";
-import FeaturePages from "./pages/FeaturePages";
+import FeaturePages, { AdminDisputesPage } from "./pages/FeaturePages";
 import AffiliateRedirect from "./components/AffiliateRedirect";
 import AdminTransfers from "./pages/AdminTransfers";
 import {
-  CommissionRules,
-  FinancialLedger,
-  AdminAnalytics,
-  CommunicationPage,
-  AcquisitionPage,
-  RiskManagement,
-  LanguageSettings,
-} from "./pages/ExtendedModules";
+  AdminVendors, AdminSuppliers, AdminPaymentsPage, AdminEarnings, AdminLedgerPage, AdminAnalyticsPage,
+  AdminRisk, AdminTrust, AdminSubscriptionsPage, AdminPlatform, AdminAuditLog,
+} from "./pages/AdminOps";
+import { CommunicationPage } from "./pages/ExtendedModules";
 function DashboardDelivery({ role }) {
   return (
     <DashboardLayout admin={role === "admin"}>
@@ -258,7 +253,7 @@ export default function App() {
         path="/supplier/supply-requests"
         element={
           <RequireAuth roles={["supplier"]}>
-            <FeaturePages role="supplier" />
+            <SupplierDashboard />
           </RequireAuth>
         }
       />
@@ -352,16 +347,14 @@ export default function App() {
         path="/admin/payments"
         element={
           <RequireAuth roles={["super_admin"]}>
-            <FeaturePages role="admin" />
+            <AdminPaymentsPage />
           </RequireAuth>
         }
       />
       <Route
         path="/admin/refunds"
         element={
-          <RequireAuth roles={["super_admin"]}>
-            <FeaturePages role="admin" />
-          </RequireAuth>
+          <Navigate to="/admin/disputes" replace />
         }
       />
       <Route
@@ -376,39 +369,33 @@ export default function App() {
         path="/admin/subscriptions"
         element={
           <RequireAuth roles={["super_admin"]}>
-            <FeaturePages role="admin" />
+            <AdminSubscriptionsPage />
           </RequireAuth>
         }
       />
       <Route
         path="/admin/languages"
         element={
-          <RequireAuth roles={["super_admin"]}>
-            <LanguageSettings />
-          </RequireAuth>
+          <Navigate to="/admin/settings" replace />
         }
       />
       <Route
         path="/admin/locations"
         element={
-          <RequireAuth roles={["super_admin"]}>
-            <FeaturePages role="admin" />
-          </RequireAuth>
+          <Navigate to="/admin/settings" replace />
         }
       />
       <Route
         path="/admin/security"
         element={
-          <RequireAuth roles={["super_admin"]}>
-            <FeaturePages role="admin" />
-          </RequireAuth>
+          <Navigate to="/admin/settings" replace />
         }
       />
       <Route
         path="/admin/audit-logs"
         element={
           <RequireAuth roles={["super_admin"]}>
-            <FeaturePages role="admin" />
+            <AdminAuditLog />
           </RequireAuth>
         }
       />
@@ -423,33 +410,27 @@ export default function App() {
       <Route
         path="/admin/recommendations"
         element={
-          <RequireAuth roles={["super_admin"]}>
-            <FeaturePages role="admin" />
-          </RequireAuth>
+          <Navigate to="/admin/analytics" replace />
         }
       />
       <Route
         path="/admin/matching"
         element={
-          <RequireAuth roles={["super_admin"]}>
-            <FeaturePages role="admin" />
-          </RequireAuth>
+          <Navigate to="/admin/suppliers" replace />
         }
       />
       <Route
         path="/admin/trust"
         element={
           <RequireAuth roles={["super_admin"]}>
-            <FeaturePages role="admin" />
+            <AdminTrust />
           </RequireAuth>
         }
       />
       <Route
         path="/admin/system"
         element={
-          <RequireAuth roles={["super_admin"]}>
-            <FeaturePages role="admin" />
-          </RequireAuth>
+          <Navigate to="/admin/settings" replace />
         }
       />
       <Route
@@ -463,9 +444,7 @@ export default function App() {
       <Route
         path="/admin/transactions"
         element={
-          <RequireAuth roles={["super_admin"]}>
-            <Transactions />
-          </RequireAuth>
+          <Navigate to="/admin/payments" replace />
         }
       />
       <Route
@@ -480,7 +459,7 @@ export default function App() {
         path="/admin/suppliers"
         element={
           <RequireAuth roles={["super_admin"]}>
-            <PlatformOperations type="suppliers" />
+            <AdminSuppliers />
           </RequireAuth>
         }
       />
@@ -504,7 +483,7 @@ export default function App() {
         path="/admin/disputes"
         element={
           <RequireAuth roles={["super_admin"]}>
-            <PlatformOperations type="disputes" />
+            <AdminDisputesPage />
           </RequireAuth>
         }
       />
@@ -512,7 +491,7 @@ export default function App() {
         path="/admin/commissions"
         element={
           <RequireAuth roles={["super_admin"]}>
-            <PlatformOperations type="commissions" />
+            <AdminEarnings />
           </RequireAuth>
         }
       />
@@ -520,7 +499,7 @@ export default function App() {
         path="/admin/analytics"
         element={
           <RequireAuth roles={["super_admin"]}>
-            <AdminAnalytics />
+            <AdminAnalyticsPage />
           </RequireAuth>
         }
       />
@@ -528,40 +507,56 @@ export default function App() {
         path="/admin/ledger"
         element={
           <RequireAuth roles={["super_admin"]}>
-            <FinancialLedger />
+            <AdminLedgerPage />
           </RequireAuth>
         }
       />
       <Route
         path="/admin/commission-rules"
         element={
-          <RequireAuth roles={["super_admin"]}>
-            <CommissionRules />
-          </RequireAuth>
+          <Navigate to="/admin/settings" replace />
         }
       />
       <Route
         path="/admin/risk"
         element={
           <RequireAuth roles={["super_admin"]}>
-            <RiskManagement />
+            <AdminRisk />
           </RequireAuth>
         }
       />
       <Route
         path="/admin/supplier-acquisition"
         element={
-          <RequireAuth roles={["super_admin"]}>
-            <AcquisitionPage type="supplier" />
-          </RequireAuth>
+          <Navigate to="/admin/suppliers" replace />
         }
       />
       <Route
         path="/admin/vendor-acquisition"
         element={
+          <Navigate to="/admin/vendors" replace />
+        }
+      />
+      <Route
+        path="/admin/vendors"
+        element={
           <RequireAuth roles={["super_admin"]}>
-            <AcquisitionPage type="vendor" />
+            <AdminVendors />
           </RequireAuth>
+        }
+      />
+      <Route
+        path="/admin/settings"
+        element={
+          <RequireAuth roles={["super_admin"]}>
+            <AdminPlatform />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/admin/reports"
+        element={
+          <Navigate to="/admin/analytics" replace />
         }
       />
       <Route
