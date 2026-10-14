@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import Icon from '../../components/Icon';
 import { vendorsApi } from '../../API/vendors';
 import { useAuth } from '../../context/AuthContext';
+import CategorySelect from '../../components/CategorySelect';
 import { payoutsApi } from '../../API/payouts';
 import { PageHead, Loading, StatusPill, useLoader, useNotice } from './shared';
 
@@ -17,16 +18,18 @@ const SHORTCUTS = [
 
 export default function SettingsPage() {
   const { refresh } = useAuth();
+  const [fees, setFees] = useState(null);
+  useEffect(() => { vendorsApi.getMyFees().then(setFees).catch(() => setFees(null)); }, []);
   const { data, loading, error, notFound, setData } = useLoader(() =>
     Promise.all([vendorsApi.getMyProfile(), payoutsApi.getBalance().catch(() => null)])
       .then(([p, b]) => ({ vendor: p.vendor, commissionRate: b?.commissionRate })));
-  const [form, setForm] = useState({ businessName: '', email: '', phone: '', location: '', description: '' });
+  const [form, setForm] = useState({ businessName: '', category: '', email: '', phone: '', location: '', description: '' });
   const [saving, setSaving] = useState(false);
   const notice = useNotice();
 
   useEffect(() => {
     const v = data?.vendor;
-    if (v) setForm({ businessName: v.businessName || '', email: v.email || '', phone: v.phone || '', location: v.location || '', description: v.description || '' });
+    if (v) setForm({ businessName: v.businessName || '', category: v.category || '', email: v.email || '', phone: v.phone || '', location: v.location || '', description: v.description || '' });
   }, [data]);
 
   const update = e => setForm(f => ({ ...f, [e.target.name]: e.target.value }));
@@ -53,6 +56,7 @@ export default function SettingsPage() {
       <form className="data-card" onSubmit={save}>
         <div className="data-card-head"><div><h3>Business profile</h3><span>Shown on your public vendor page</span></div></div>
         <label className="field"><span>Business name *</span><input name="businessName" value={form.businessName} onChange={update} required /></label>
+        <CategorySelect valueKey="name" label="Business category" name="category" value={form.category} onChange={value => setForm(f => ({ ...f, category: value }))} />
         <div className="two-col">
           <label className="field"><span>Business email</span><input type="email" name="email" value={form.email} onChange={update} /></label>
           <label className="field"><span>Business phone</span><input name="phone" value={form.phone} onChange={update} /></label>
@@ -66,9 +70,14 @@ export default function SettingsPage() {
           <div className="data-card-head"><div><h3>Account status</h3><span>Managed by MVEC</span></div></div>
           <div className="seller-kv"><span>Account</span><StatusPill value={vendor.status || 'ACTIVE'} /></div>
           <div className="seller-kv"><span>Verification</span><StatusPill value={vendor.verificationStatus || 'PENDING'} /></div>
-          <div className="seller-kv"><span>Platform fee</span><b>{data.commissionRate || '5%'} per sale</b></div>
+          <div className="seller-kv"><span>MVEC commission</span><b>{fees ? `${fees.defaultPercent}% unless your category differs` : data.commissionRate || '—'}</b></div>
           <div className="seller-kv"><span>Rating</span><b>{Number(vendor.ratingAvg || 0).toFixed(1)} / 5</b></div>
         </div>
+        {fees && fees.categories.some(c => c.percent !== fees.defaultPercent) && <div className="data-card">
+          <div className="data-card-head"><div><h3>Your MVEC commission by category</h3><span>Taken from each sale when the buyer pays. Payment provider fees are paid by {fees.gatewayFeePayer === 'SELLER' ? 'you' : 'MVEC'}.</span></div></div>
+          {fees.categories.filter(c => c.percent !== fees.defaultPercent).map(c => <div className="seller-kv" key={c.categoryId}><span>{c.category}<small className="block-small">{c.source}</small></span><b>{c.percent}%</b></div>)}
+          <div className="seller-kv"><span>Every other category</span><b>{fees.defaultPercent}%</b></div>
+        </div>}
         <div className="data-card seller-shortcuts">
           {SHORTCUTS.map(([to, title, sub, icon]) => <Link key={to} to={to}>
             <span><Icon name={icon} size={17} /></span>

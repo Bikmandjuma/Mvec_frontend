@@ -111,10 +111,47 @@ const partyName=p=>p?.companyName||p?.Fullname||p?.fullName||p?.email||'—';
 const itemCount=o=>(o.items||[]).reduce((n,i)=>n+(Number(i.quantity)||0),0);
 function WholesaleStatus({value}){const s=WHOLESALE_STATUS[value];return <em className={'status '+(s?.[1]||'warning')}>{s?.[0]||value}</em>}
 
+// Vendor pays a wholesale order by mobile money or card; MVEC holds the money
+// until the vendor confirms the goods arrived.
+function PayWholesale({order,onClose,onPaid}){
+ const [method,setMethod]=useState('momo');const [phone,setPhone]=useState('');const [busy,setBusy]=useState(false);const [error,setError]=useState('');const [waiting,setWaiting]=useState('');
+ useEffect(()=>{
+  if(!waiting) return undefined;
+  let tries=0;
+  const t=setInterval(async()=>{
+   tries+=1;
+   try{const r=await paymentsApi.getStatus(waiting);const st=r.status||r.payment?.status;if(st==='SUCCESS'){clearInterval(t);onPaid(`${order.orderNumber} is paid. The supplier has been told to ship.`);}else if(st==='FAILED'){clearInterval(t);setWaiting('');setBusy(false);setError('The payment was declined or cancelled. No money was taken.');}}catch{/* keep waiting */}
+   if(tries>45){clearInterval(t);setWaiting('');setBusy(false);setError('We did not get a confirmation yet. If you approved it, the order updates by itself in a few minutes.');}
+  },4000);
+  return()=>clearInterval(t);
+ },[waiting]); // eslint-disable-line react-hooks/exhaustive-deps
+ const submit=async e=>{
+  e.preventDefault();setBusy(true);setError('');
+  try{
+   const r=await wholesaleApi.pay(order._id,{method,phoneNumber:phone});
+   if(r.checkoutUrl){window.location.assign(r.checkoutUrl);return;}
+   if(r.status==='SUCCESS'){onPaid(`${order.orderNumber} is paid. The supplier has been told to ship.`);return;}
+   setWaiting(r.paymentId);
+  }catch(err){setError(extractErrorMessage(err));setBusy(false);}
+ };
+ return <div className="modal-backdrop" onMouseDown={onClose}><form className="modal" onMouseDown={e=>e.stopPropagation()} onSubmit={submit}>
+  <button type="button" className="modal-close" onClick={onClose} aria-label="Close">×</button>
+  <span className="eyebrow">PAY WHOLESALE ORDER</span><h2>{money(order.totalAmount)}</h2>
+  <p>{order.orderNumber} · {partyName(order.supplier)}. MVEC holds the money and releases it to the supplier only after you confirm the goods arrived.</p>
+  {error&&<div className="form-alert error" role="alert">{error}</div>}
+  {waiting?<div className="form-alert">Approve the prompt on your phone. This page updates when the payment is confirmed…</div>:<>
+   <label className={`payment-option ${method==='momo'?'selected':''}`}><input type="radio" name="wh-method" checked={method==='momo'} onChange={()=>setMethod('momo')}/><span className="payment-logo" aria-hidden="true">📱</span><span><b>Mobile money</b><small>MTN MoMo or Airtel Money</small></span></label>
+   <label className={`payment-option ${method==='card'?'selected':''}`}><input type="radio" name="wh-method" checked={method==='card'} onChange={()=>setMethod('card')}/><span className="payment-logo" aria-hidden="true">💳</span><span><b>Card</b><small>Visa or Mastercard on a secure page</small></span></label>
+   {method==='momo'&&<label className="field"><span>Mobile money number</span><input value={phone} onChange={e=>setPhone(e.target.value)} placeholder="07…" required inputMode="tel"/></label>}
+  </>}
+  <div className="modal-actions"><button type="button" className="outline-btn" onClick={onClose}>Close</button>{!waiting&&<button className="gradient-btn" disabled={busy}>{busy?'Starting…':`Pay ${money(order.totalAmount)}`}</button>}</div>
+ </form></div>;
+}
+
 function WholesaleList({role}){
  const supplier=role==='supplier';
  const [rows,setRows]=useState([]);const [loading,setLoading]=useState(true);const [error,setError]=useState('');
- const [busyId,setBusyId]=useState('');const [notice,setNotice]=useState('');const [details,setDetails]=useState(null);
+ const [busyId,setBusyId]=useState('');const [notice,setNotice]=useState('');const [details,setDetails]=useState(null);const [paying,setPaying]=useState(null);
  const load=()=>wholesaleApi.getMine().then(res=>{setRows(res.orders||res.data||[]);setError('')}).catch(err=>setError(extractErrorMessage(err))).finally(()=>setLoading(false));
  useEffect(()=>{load()},[]);
  useEffect(()=>{if(!notice)return;const t=setTimeout(()=>setNotice(''),3000);return()=>clearTimeout(t)},[notice]);
@@ -130,6 +167,7 @@ function WholesaleList({role}){
  const markShipped=o=>run(o,()=>wholesaleApi.markShipped(o._id),`${o.orderNumber} marked as shipped.`);
  const nextAction=o=>{
   const busy=busyId===o._id;
+  if(!supplier&&o.status==='PENDING_PAYMENT') return <button type="button" className="table-action-btn primary" onClick={()=>setPaying(o)}><Icon name="wallet" size={15}/>Pay now</button>;
   if(!supplier&&['SHIPPED','DELIVERED'].includes(o.status)) return <button type="button" className="table-action-btn primary" disabled={busy} onClick={()=>confirmReceipt(o)}><Icon name="check" size={15}/>{busy?'Confirming…':'Confirm receipt'}</button>;
   if(supplier&&o.status==='ESCROW_HELD') return <button type="button" className="table-action-btn primary" disabled={busy} onClick={()=>markShipped(o)}><Icon name="box" size={15}/>{busy?'Saving…':'Mark shipped'}</button>;
   return null;
@@ -151,7 +189,7 @@ function WholesaleList({role}){
   {key:'totalAmount',label:'Total',render:r=><b>{money(r.totalAmount)}</b>},
   {key:'status',label:'Status',render:r=><WholesaleStatus value={r.status}/>}
  ];
- const actions=r=><span className="row-actions">{nextAction(r)}<button type="button" title="View details" onClick={()=>setDetails(r)}><Icon name="eye" size={16}/></button></span>;
+ const actions=r=><span className="row-actions">{nextAction(r)}<button type="button" className="table-action-btn icon-only" title="View details" aria-label="View details" onClick={()=>setDetails(r)}><Icon name="eye" size={16}/></button></span>;
  const findSuppliers=!supplier&&<Link className="gradient-btn" to="/vendor/suppliers"><Icon name="plus" size={16}/> New purchase</Link>;
 
  return <><Header eyebrow={supplier?'SUPPLIER · ORDERS':'VENDOR · PURCHASES'} title={supplier?'Vendor orders':'Purchases'} desc={supplier?'Wholesale orders vendors have placed with you.':'Wholesale stock you have ordered from suppliers, protected by escrow until you confirm receipt.'} action={findSuppliers}/>
@@ -168,6 +206,7 @@ function WholesaleList({role}){
    {!loading&&!error&&!rows.length&&<div className="empty-state"><h3>No wholesale orders yet</h3><p>{supplier?'Orders vendors place for your wholesale products will appear here.':'Buy stock in bulk from verified suppliers. Your payment stays in escrow until you confirm the delivery.'}</p>{findSuppliers}</div>}
    {!loading&&rows.length>0&&<SmartTable columns={columns} rows={rows} rowKey={r=>r._id||r.id} actions={actions} searchPlaceholder="Search by order, supplier or product…" empty="No wholesale orders match your search." exportName={supplier?'mvec-vendor-orders':'mvec-purchases'}/>}
   </div>
+  {paying&&<PayWholesale order={paying} onClose={()=>setPaying(null)} onPaid={text=>{setPaying(null);setNotice(text);load();}}/>}
   {details&&<div className="modal-backdrop" onMouseDown={()=>setDetails(null)}><div className="modal seller-modal" onMouseDown={e=>e.stopPropagation()} role="dialog" aria-label={`Order ${details.orderNumber}`}>
    <button type="button" className="modal-close" onClick={()=>setDetails(null)} aria-label="Close">×</button>
    <h2>{details.orderNumber}</h2>

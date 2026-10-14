@@ -10,6 +10,7 @@ import Icon from "../components/Icon";
 import Pagination from "../components/Pagination";
 import SmartTable from "../components/SmartTable";
 import ProductImage from "../components/ProductImage";
+import CategorySelect from "../components/CategorySelect";
 import { adminApi } from "../API/admin";
 import { extractErrorMessage } from "../API/client";
 import { money, formatDate, statusLabel } from "../utils/format";
@@ -355,12 +356,12 @@ export function AdminEarnings() {
     {t && <>
       <div className="metric-grid">
         <Metric icon="chart" label="Sales" value={money(t.gross)} sub="Paid order lines, excluding refunds" />
-        <Metric icon="wallet" label="MVEC fee (5%)" value={money(t.platformFee)} sub="Taken from those sales" />
+        <Metric icon="wallet" label="MVEC commission" value={money(t.platformFee)} sub="From the commission rules" />
         <Metric icon="shop" label="MVEC keeps" value={money(t.mvecNet)} sub={`${money(t.released)} earned · ${money(t.held)} until delivery`} />
         <Metric icon="users" label="Paid to sellers" value={money(t.sellers)} sub="After MVEC's fee and affiliate rates" />
       </div>
       <div className="data-card"><div className="data-card-head"><div><h3>Where MVEC's fee goes</h3><span>From {money(t.platformFee)} in fees</span></div></div>
-        {[["Developer (1%)", t.developer], ["Affiliates (MVEC's 0.5%)", Math.max(0, t.affiliates - t.affiliatesPaidBySellers)], ["Payment provider fees", t.gatewayFees], ["MVEC keeps", t.mvecNet]].map(([label, v]) =>
+        {[["Developer", t.developer], ["Affiliates (paid by MVEC)", Math.max(0, t.affiliates - t.affiliatesPaidBySellers)], ["Payment provider fees", t.gatewayFees], ["MVEC keeps", t.mvecNet]].map(([label, v]) =>
           <div className="progress-row" key={label}><span>{label}</span><div><i style={{ width: `${t.platformFee ? Math.round((v / t.platformFee) * 100) : 0}%` }} /></div><b>{money(v)}</b></div>)}
         {t.affiliatesPaidBySellers > 0 && <p className="tiny">Sellers also paid affiliates {money(t.affiliatesPaidBySellers)} from their own share.</p>}
       </div>
@@ -372,7 +373,7 @@ export function AdminEarnings() {
           { key: "order", label: "Order", render: (r) => (r.order ? <Link to={`/admin/orders/${r.order.id}`}>{r.order.orderNumber}</Link> : "—") },
           { key: "seller", label: "Seller" },
           { key: "gross", label: "Sale", render: (r) => money(r.gross) },
-          { key: "platformFee", label: "MVEC fee", render: (r) => money(r.platformFee) },
+          { key: "platformFee", label: "Commission", render: (r) => `${money(r.platformFee)}${r.rate ? ` (${r.rate}%)` : ""}` },
           { key: "affiliate", label: "Affiliate", render: (r) => (r.affiliate ? money(r.affiliate) : "—") },
           { key: "mvecNet", label: "MVEC keeps", render: (r) => money(r.mvecNet) },
           { key: "status", label: "Status", render: (r) => <Status value={r.status} label={{ HELD: "Until delivery", RELEASED: "Earned", ADMIN_HOLD: "On hold", REFUNDED: "Refunded", CANCELLED: "Cancelled" }[r.status]} /> },
@@ -529,7 +530,7 @@ export function AdminSubscriptionsPage() {
 export function AdminPlatform() {
   const { loading, data, error, reload } = useLoad(adminApi.getPlatform, []);
   return <DashboardLayout admin>
-    <Head eyebrow="PLATFORM" title="Platform settings" desc="How MVEC is set up right now, read live from the server. Fees and rules are set in the code, so they are the same for everyone and cannot drift." />
+    <Head eyebrow="PLATFORM" title="Platform settings" desc="How MVEC is set up right now, read live from the server." />
     {loading ? <Loading what="settings" /> : error ? <Failed error={error} retry={reload} /> : <>
       <div className="settings-grid">
         <div className="data-card"><h3>Fees</h3>{data.fees.map((f) => <div className="setting-line" key={f.label}><span><b>{f.label}</b><small>{f.detail}</small></span><strong>{f.value}</strong></div>)}</div>
@@ -541,7 +542,7 @@ export function AdminPlatform() {
         <div className="data-card"><h3>Automatic jobs</h3><p className="tiny">Environment: {data.environment}</p>
           {data.jobs.map((j) => <div className="setting-line" key={j.label}><span><b>{j.label}</b>{j.detail && <small>{j.detail}</small>}</span><strong>{j.schedule}</strong></div>)}</div>
       </div>
-      {data.commissionRules.active > 0 && <div className="form-alert error">{data.commissionRules.active} commission rule{data.commissionRules.active === 1 ? " is" : "s are"} stored in the database. {data.commissionRules.note}</div>}
+      <div className="verified-box"><b>Change rates and shares</b><p>Commission per category, seller overrides, the developer and affiliate shares and who pays provider fees are all set on the Commission rules page.</p><Link className="gradient-btn" to="/admin/commission-rules">Open commission rules</Link></div>
     </>}
   </DashboardLayout>;
 }
@@ -572,5 +573,143 @@ export function AdminAuditLog() {
         ]} />}
       {(data?.meta?.total || 0) > 30 && <Pagination page={page} setPage={setPage} total={data.meta.total} perPage={30} />}
     </div>
+  </DashboardLayout>;
+}
+
+// ─── Commission rules ──────────────────────────────────────────────────────
+const RULE_TYPES = [["CATEGORY", "Category rate"], ["VENDOR", "Seller override"], ["GLOBAL", "Default rate"]];
+const EMPTY_RULE = { ruleType: "CATEGORY", targetCategory: "", targetVendor: "", rateValue: 5, priority: 0, name: "", isActive: true };
+
+function useSellers() {
+  return useLoad(() => adminApi.getVendors({ pageSize: 100 }).then((r) => (r.data || []).map((v) => ({ id: String(v.user?._id || v.user?.id || v.user), name: v.businessName })).filter((v) => v.id).sort((a, b) => a.name.localeCompare(b.name))), []);
+}
+
+function SellerSelect({ value, onChange, sellers, required, label = "Seller" }) {
+  return <label className="field"><span>{label}{required ? " *" : ""}</span>
+    <select value={value || ""} onChange={(e) => onChange(e.target.value)} required={required}>
+      <option value="">{required ? "Choose a seller" : "Any seller"}</option>
+      {sellers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+    </select></label>;
+}
+
+function RuleForm({ rule, sellers, maxRate, onClose, onSaved }) {
+  const [form, setForm] = useState(rule ? { ...EMPTY_RULE, ...rule, targetCategory: rule.targetCategory?._id || rule.targetCategory || "", targetVendor: rule.targetVendor?._id || rule.targetVendor || "" } : EMPTY_RULE);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+  const save = async (e) => {
+    e.preventDefault(); setBusy(true); setError("");
+    const payload = { ruleType: form.ruleType, rateValue: Number(form.rateValue), priority: Number(form.priority) || 0, name: form.name, targetCategory: form.targetCategory || null, targetVendor: form.targetVendor || null, isActive: form.isActive };
+    try {
+      const res = rule?._id ? await adminApi.updateCommissionRule(rule._id, payload) : await adminApi.createCommissionRule(payload);
+      onSaved(res.message);
+    } catch (err) { setError(extractErrorMessage(err)); setBusy(false); }
+  };
+  return <div className="modal-backdrop" onMouseDown={onClose}>
+    <form className="modal" onMouseDown={(e) => e.stopPropagation()} onSubmit={save}>
+      <button type="button" className="modal-close" onClick={onClose} aria-label="Close">×</button>
+      <span className="eyebrow">COMMISSION RULE</span><h2>{rule?._id ? "Edit rule" : "New rule"}</h2>
+      {error && <div className="form-alert error" role="alert">{error}</div>}
+      <label className="field"><span>Applies to</span><select value={form.ruleType} onChange={(e) => set("ruleType", e.target.value)}>{RULE_TYPES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></label>
+      {form.ruleType === "VENDOR" && <SellerSelect required sellers={sellers} value={form.targetVendor} onChange={(v) => set("targetVendor", v)} />}
+      {form.ruleType !== "GLOBAL" && <CategorySelect label={form.ruleType === "VENDOR" ? "Only in this category (optional)" : "Category"} placeholder={form.ruleType === "VENDOR" ? "All categories" : "Choose a category"} value={form.targetCategory} onChange={(v) => set("targetCategory", v)} required={form.ruleType === "CATEGORY"} />}
+      <div className="form-row">
+        <label className="field"><span>MVEC commission (%) *</span><input type="number" min="0" max={maxRate} step="0.1" value={form.rateValue} onChange={(e) => set("rateValue", e.target.value)} required /></label>
+        <label className="field"><span>Priority</span><input type="number" step="1" value={form.priority} onChange={(e) => set("priority", e.target.value)} /></label>
+      </div>
+      <p className="tiny">Most specific wins: a seller override for a category, then a seller override, then the category rate, then the default. When two rules are equally specific, the higher priority wins.</p>
+      <label className="field"><span>Name (optional)</span><input value={form.name} onChange={(e) => set("name", e.target.value)} placeholder="e.g. Phones launch rate" maxLength={150} /></label>
+      <label className="program-switch"><input type="checkbox" role="switch" checked={form.isActive !== false} onChange={(e) => set("isActive", e.target.checked)} /><span><b>Active</b><small>Inactive rules are kept but not used.</small></span></label>
+      <div className="modal-actions"><button type="button" className="outline-btn" onClick={onClose}>Cancel</button><button className="gradient-btn" disabled={busy}>{busy ? "Saving…" : "Save rule"}</button></div>
+    </form>
+  </div>;
+}
+
+function CommissionSettings({ settings, onSaved }) {
+  const [form, setForm] = useState(settings);
+  const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState(null);
+  useEffect(() => setForm(settings), [settings]);
+  const n = (k) => Number(form[k]) || 0;
+  const example = 100000 * n("defaultCommissionPercent") / 100;
+  const save = async (e) => {
+    e.preventDefault(); setBusy(true); setNotice(null);
+    try { const res = await adminApi.updateCommissionSettings({ ...form, defaultCommissionPercent: n("defaultCommissionPercent"), developerSharePercent: n("developerSharePercent"), affiliateSharePercent: n("affiliateSharePercent") }); setNotice({ ok: true, text: res.message }); onSaved(); }
+    catch (err) { setNotice({ ok: false, text: extractErrorMessage(err) }); } finally { setBusy(false); }
+  };
+  return <form className="data-card" onSubmit={save}>
+    <div className="data-card-head"><div><h3>How the commission is shared</h3><span>Applies to orders paid from now on. Paid orders keep the split they had.</span></div></div>
+    <Notice notice={notice} />
+    <div className="form-row">
+      <label className="field"><span>Default commission (%)</span><input type="number" min="0" max="50" step="0.1" value={form.defaultCommissionPercent} onChange={(e) => setForm({ ...form, defaultCommissionPercent: e.target.value })} /></label>
+      <label className="field"><span>Payment provider fees paid by</span><select value={form.gatewayFeePayer} onChange={(e) => setForm({ ...form, gatewayFeePayer: e.target.value })}><option value="MVEC">MVEC (out of the commission)</option><option value="SELLER">The seller (out of their share)</option></select></label>
+    </div>
+    <div className="form-row">
+      <label className="field"><span>Developer share (% of the commission)</span><input type="number" min="0" max="100" step="1" value={form.developerSharePercent} onChange={(e) => setForm({ ...form, developerSharePercent: e.target.value })} /></label>
+      <label className="field"><span>Affiliate share (% of the commission)</span><input type="number" min="0" max="100" step="1" value={form.affiliateSharePercent} onChange={(e) => setForm({ ...form, affiliateSharePercent: e.target.value })} /></label>
+    </div>
+    <p className="tiny">Example, 100,000 RWF sale at the default rate: MVEC commission {money(example)} → developer {money(example * n("developerSharePercent") / 100)}, affiliate {money(example * n("affiliateSharePercent") / 100)} (only if the buyer came through an affiliate link), MVEC keeps the rest{form.gatewayFeePayer === "MVEC" ? " minus the payment provider fee" : ""}.</p>
+    <button className="gradient-btn" disabled={busy}>{busy ? "Saving…" : "Save settings"}</button>
+  </form>;
+}
+
+function SplitPreview({ sellers }) {
+  const [q, setQ] = useState({ vendorId: "", categoryId: "", amount: 100000, affiliate: false, gatewayFee: 0 });
+  const { data, error } = useLoad(() => adminApi.previewCommission({ ...q, affiliate: q.affiliate ? 1 : 0 }), [q.vendorId, q.categoryId, q.amount, q.affiliate, q.gatewayFee]);
+  return <div className="data-card">
+    <div className="data-card-head"><div><h3>Try a sale</h3><span>See exactly how a sale would be split under the current rules.</span></div></div>
+    <div className="form-row">
+      <SellerSelect sellers={sellers} value={q.vendorId} onChange={(v) => setQ({ ...q, vendorId: v })} />
+      <CategorySelect allowCreate={false} placeholder="Any category" value={q.categoryId} onChange={(v) => setQ({ ...q, categoryId: v })} />
+    </div>
+    <div className="form-row">
+      <label className="field"><span>Sale amount (RWF)</span><input type="number" min="0" value={q.amount} onChange={(e) => setQ({ ...q, amount: e.target.value })} /></label>
+      <label className="field"><span>Payment provider fee (RWF)</span><input type="number" min="0" value={q.gatewayFee} onChange={(e) => setQ({ ...q, gatewayFee: e.target.value })} /></label>
+    </div>
+    <label className="filter-check"><input type="checkbox" checked={q.affiliate} onChange={(e) => setQ({ ...q, affiliate: e.target.checked })} /> The buyer came through an affiliate link</label>
+    {error && <p className="danger-text">{error}</p>}
+    {data && <div className="split-preview">
+      <p><b>{data.commissionPercent}% commission</b> · {data.source}{data.rule ? ` (“${data.rule.name}”)` : ""}</p>
+      {[["Seller receives", data.vendorNet], ["MVEC commission", data.totalPlatformFee], ["  → Developer", data.developerShare], ["  → Affiliate (paid by MVEC)", data.platformAffiliateShare], ["  → MVEC keeps", data.adminShare], ["Payment provider fee", data.gatewayFee]].map(([k, v]) => <div className="setting-line" key={k}><span><b>{k.trim()}</b>{k.startsWith(" ") && <small>part of the commission</small>}</span><strong>{money(v)}</strong></div>)}
+      <p className="tiny">Provider fee paid by {data.gatewayFeePayer === "SELLER" ? "the seller" : "MVEC"}.</p>
+    </div>}
+  </div>;
+}
+
+export function AdminCommissionRules() {
+  const { loading, data, error, reload } = useLoad(adminApi.getCommissionRules, []);
+  const sellers = useSellers();
+  const [tab, setTab] = useState("CATEGORY");
+  const [editing, setEditing] = useState(null);
+  const [notice, setNotice] = useState(null);
+  const [busy, setBusy] = useState("");
+  const rules = data?.rules || [];
+  const shown = rules.filter((r) => r.ruleType === tab);
+  const count = (t) => rules.filter((r) => r.ruleType === t && r.isActive).length;
+  const act = async (fn, okText, id) => {
+    setBusy(id); setNotice(null);
+    try { await fn(); setNotice({ ok: true, text: okText }); reload(); } catch (err) { setNotice({ ok: false, text: extractErrorMessage(err) }); } finally { setBusy(""); }
+  };
+  return <DashboardLayout admin>
+    <Head eyebrow="MONEY" title="Commission rules" desc="Set MVEC's commission per category, with optional special rates for individual sellers. Changes apply to new orders; paid orders keep their rate." action={<button type="button" className="gradient-btn" onClick={() => setEditing({})}><Icon name="plus" /> New rule</button>} />
+    <Notice notice={notice} />
+    {loading && !data ? <Loading what="commission rules" /> : error ? <Failed error={error} retry={reload} /> : <>
+      <CommissionSettings settings={data.settings} onSaved={reload} />
+      <div className="data-card">
+        <Tabs label="Rule type" value={tab} onChange={setTab} tabs={RULE_TYPES.map(([v, l]) => [v, l, count(v)])} />
+        {shown.length === 0 ? <div className="empty-state"><h3>No {RULE_TYPES.find(([v]) => v === tab)[1].toLowerCase()}s yet</h3><p>{tab === "GLOBAL" ? `Without a default rule, sales use the ${data.settings.defaultCommissionPercent}% default commission above.` : tab === "CATEGORY" ? "Every category uses the default until you set a rate." : "Sellers pay their category rates unless you give them an override."}</p><button type="button" className="outline-btn" onClick={() => setEditing({ ruleType: tab })}>Add one</button></div>
+          : <div className="orders-list">{shown.map((r) => <div className={`order-row ${r.isActive ? "" : "inactive-row"}`} key={r.id}>
+            <div className="order-row-main"><b>{r.ruleType === "VENDOR" ? r.sellerName : r.ruleType === "CATEGORY" ? r.categoryName : "All sales"}{r.ruleType === "VENDOR" && r.categoryName ? ` · ${r.categoryName}` : r.ruleType === "VENDOR" ? " · all categories" : ""}</b><small>{r.name} · priority {r.priority}</small></div>
+            <div className="order-row-meta"><strong>{Number(r.rateValue)}%</strong><Status value={r.isActive ? "ACTIVE" : "Off"} label={r.isActive ? "Active" : "Off"} /></div>
+            <div className="order-row-actions">
+              <button type="button" className="outline-btn" onClick={() => setEditing(r)}>Edit</button>
+              <button type="button" className="outline-btn" disabled={busy === r.id} onClick={() => act(() => adminApi.toggleCommissionRule(r._id, !r.isActive), r.isActive ? "Rule switched off." : "Rule switched on.", r.id)}>{r.isActive ? "Switch off" : "Switch on"}</button>
+              <button type="button" className="danger-btn" disabled={busy === r.id} onClick={() => window.confirm("Delete this rule? Paid orders are not affected.") && act(() => adminApi.deleteCommissionRule(r._id), "Rule deleted.", r.id)}>Delete</button>
+            </div>
+          </div>)}</div>}
+      </div>
+      <SplitPreview sellers={sellers.data || []} />
+    </>}
+    {editing && <RuleForm rule={editing._id ? editing : { ...EMPTY_RULE, ...editing }} sellers={sellers.data || []} maxRate={data?.maxRate || 50} onClose={() => setEditing(null)} onSaved={(text) => { setEditing(null); setNotice({ ok: true, text }); reload(); }} />}
   </DashboardLayout>;
 }

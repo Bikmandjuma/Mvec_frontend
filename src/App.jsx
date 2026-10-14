@@ -35,7 +35,7 @@ import AffiliateRedirect from "./components/AffiliateRedirect";
 import AdminTransfers from "./pages/AdminTransfers";
 import {
   AdminVendors, AdminSuppliers, AdminPaymentsPage, AdminEarnings, AdminLedgerPage, AdminAnalyticsPage,
-  AdminRisk, AdminTrust, AdminSubscriptionsPage, AdminPlatform, AdminAuditLog,
+  AdminRisk, AdminTrust, AdminSubscriptionsPage, AdminPlatform, AdminAuditLog, AdminCommissionRules,
 } from "./pages/AdminOps";
 import { CommunicationPage } from "./pages/ExtendedModules";
 function DashboardDelivery({ role }) {
@@ -514,7 +514,9 @@ export default function App() {
       <Route
         path="/admin/commission-rules"
         element={
-          <Navigate to="/admin/settings" replace />
+          <RequireAuth roles={["super_admin"]}>
+            <AdminCommissionRules />
+          </RequireAuth>
         }
       />
       <Route
