@@ -17,6 +17,16 @@ const STEPS = [
   { label: "On the way", by: "Seller, then courier", statuses: ["SHIPPED", "OUT_FOR_DELIVERY"], text: "The seller hands the parcel over; the courier marks it out for delivery." },
   { label: "Delivered", by: "You, with your code", statuses: ["DELIVERED", "COMPLETED"], text: "When the items are in your hands, give the courier or seller your 6-digit code. That confirms delivery and releases the payment to the seller." },
 ];
+const METHOD_LABEL = { MOMO: "MTN MoMo", AIRTEL: "Airtel Money", CARD: "card", SPENN: "SPENN", CASH_ON_DELIVERY: "cash on delivery" };
+const paidWith = (order) => {
+  const via = order.paidVia;
+  const method = via?.method || order.paymentMethod;
+  const label = METHOD_LABEL[method] || method;
+  if (via?.gateway === "KPAY") return `K-Pay (${label})`;
+  return method === "CARD" ? "Card" : label;
+};
+// K-Pay has no refund API: card and SPENN refunds are sent by MVEC's team.
+const manualRefund = (order) => order.paidVia?.gateway === "KPAY" && ["CARD", "SPENN"].includes(order.paidVia?.method);
 const SUBSTATUS = { READY_FOR_SHIPMENT: "Packed, waiting for pickup", OUT_FOR_DELIVERY: "Out for delivery today", PROCESSING: "Being prepared", SHIPPED: "Handed to the courier" };
 const REASONS = [
   ["Product not received", "ITEM_NOT_RECEIVED"],
@@ -83,7 +93,7 @@ export default function OrderDetails() {
 
   const cancel = async () => {
     const paid = order.paymentStatus === "PAID";
-    const backTo = order.paymentMethod === "CARD" ? "the card you paid with" : "your mobile money";
+    const backTo = manualRefund(order) ? "you through K-Pay by MVEC's team" : order.paymentMethod === "CARD" ? "the card you paid with" : "your mobile money";
     if (!window.confirm(paid ? `Cancel this order? Your payment is sent back to ${backTo}.` : "Cancel this order?")) return;
     setNotice(null);
     setCancelling(true);
@@ -185,7 +195,7 @@ export default function OrderDetails() {
         <div className="profile-detail">
           <b>{vendors.join(", ") || "MVEC Seller"}</b>
           <span>Payment: {order.paymentStatus === "PAID" ? `Paid${order.paidAt ? ` on ${formatDate(order.paidAt)}` : ""}` : buyerStatus(order)}</span>
-          {order.paymentMethod && order.paymentStatus !== "PENDING" && <span>Method: {order.paymentMethod === "AIRTEL" ? "Airtel Money" : order.paymentMethod === "MOMO" ? "MTN MoMo" : order.paymentMethod}</span>}
+          {order.paymentMethod && order.paymentStatus !== "PENDING" && <span>Method: {paidWith(order)}</span>}
         </div>
       </section>
     </div>
@@ -209,7 +219,9 @@ export default function OrderDetails() {
       <section className="verified-box refund-box">
         <b>{order.paymentStatus === "REFUNDED" ? "Order cancelled · full refund recorded" : "Order cancelled"}</b>
         <p>{order.paymentStatus === "REFUNDED"
-          ? (order.paymentMethod === "CARD"
+          ? (manualRefund(order)
+            ? `Your full refund is being sent back through K-Pay to the ${order.paidVia.method === "SPENN" ? "SPENN account" : "card"} you paid with. MVEC's team does this by hand, and you get a notification when it is sent.`
+            : order.paymentMethod === "CARD"
             ? "Your full refund was sent back to the card you paid with. Banks usually show it within 5–10 working days."
             : "Your full refund was sent to the mobile money number you paid with. It usually arrives within minutes; you get an SMS when it does.")
           : order.cancellationReason === "PAYMENT_TIMEOUT_EXPIRED_30_MIN"
