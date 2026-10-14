@@ -28,10 +28,10 @@ export default function Vendors() {
     <Storefront>
       <main className="catalog-page">
         <div className="catalog-head">
-          <div><span className="eyebrow">MARKETPLACE STORES</span><h1>Trusted vendors</h1><p>Discover local stores and shop directly from verified sellers.</p></div>
+          <div><span className="eyebrow">MARKETPLACE STORES</span><h1>Stores</h1><p>Every store selling on MVEC. Sellers checked by MVEC carry a Verified badge; every order is protected by MVEC either way.</p></div>
         </div>
         {loading && <div className="empty-state"><h3>Loading vendors…</h3></div>}
-        {!loading && vendors.length === 0 && <div className="empty-state"><h3>No vendors yet</h3><p>Verified vendor storefronts will appear here.</p></div>}
+        {!loading && vendors.length === 0 && <div className="empty-state"><h3>No vendors yet</h3><p>Stores appear here once they have products for sale.</p></div>}
         {!loading && vendors.length > 0 && (
           <div className="vendor-grid vendor-page-grid">
             {vendors.map(v => (
@@ -40,9 +40,9 @@ export default function Vendors() {
                 <div>
                   <b>{v.businessName}</b>
                   <small>{v.category || 'Business'} · {typeof v.location === 'string' ? v.location : (v.location?.city || 'Rwanda')}</small>
-                  <span>★ {Number(v.ratingAvg || 0).toFixed(1)}</span>
+                  <span>{Number(v.ratingAvg) > 0 ? `★ ${Number(v.ratingAvg).toFixed(1)}` : 'New store'}</span>
                   {v.description && <small>{v.description}</small>}
-                  <small>Verified seller · Rwanda</small>
+                  {v.verificationStatus === 'VERIFIED' ? <small className="verified-badge">✓ Verified seller</small> : <small>Seller on MVEC</small>}
                 </div>
                 <Icon name="arrow" />
               </Link>

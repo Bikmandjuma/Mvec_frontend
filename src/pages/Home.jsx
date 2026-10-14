@@ -66,18 +66,6 @@ export default function Home() {
   const shownProducts = popular.slice((productPage - 1) * PRODUCTS_PER_PAGE, productPage * PRODUCTS_PER_PAGE);
   const shownVendors = vendors.slice((vendorPage - 1) * VENDORS_PER_PAGE, vendorPage * VENDORS_PER_PAGE);
   const heroProducts = heroAds.slice(0, 6);
-  // No live ad: show the marketplace's categories as photos instead. A
-  // category's own image is used when an admin set one, otherwise a photo of
-  // one of its products. These tiles link to categories, not to products.
-  const heroCategories = (catalog.categories || [])
-    .map((c) => (typeof c === "string" ? { name: c } : c))
-    .map((c) => {
-      const inCategory = products.filter((p) => p.category === c.name);
-      return { name: c.name, count: inCategory.length, image: c.imageUrl || inCategory.find((p) => p.image)?.image || "" };
-    })
-    .filter((c) => c.count > 0 && c.image)
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 4);
   const deals = products.filter((p) => p.oldPrice > p.price && p.stock > 0);
   const bannerProducts = (deals.length ? deals : products).slice(0, 4);
   // Only categories that actually have products get a home-page section.
@@ -112,7 +100,7 @@ export default function Home() {
               </Link>
             </div>
             <div className="trust-row">
-              <span>✓ Verified sellers</span>
+              <span>✓ Local sellers</span>
               <span>✓ Payment held until delivery</span>
               <span>✓ Mobile money</span>
             </div>
@@ -127,23 +115,19 @@ export default function Home() {
                 <b>{money(p.price)}</b>
               </Link>
             ))}
-            {heroProducts.length === 0 && heroCategories.length > 0 && (
-              <>
-                <div className="hero-category-grid">
-                  {heroCategories.map((c) => (
-                    <Link key={c.name} to={`/shop?category=${encodeURIComponent(c.name)}`} className="hero-category-tile">
-                      <ProductImage src={c.image} alt="" />
-                      <span className="hero-category-label">
-                        <b>{c.name}</b>
-                        <small>{c.count} product{c.count === 1 ? "" : "s"}</small>
-                      </span>
-                    </Link>
-                  ))}
-                </div>
+            {heroProducts.length === 0 && (
+              // No paid campaign right now: a stand-in photo keeps the slot.
+              // Products only appear here when a seller advertises them.
+              <div className="hero-standin">
+                <img src="/hero-standin.jpg" alt="Shopping bags" loading="eager" />
+                <span className="hero-standin-note">
+                  <b>Your products here</b>
+                  <small>Sponsored products appear in this space</small>
+                </span>
                 <Link to={advertiseLink} state={user ? undefined : { role: "vendor" }} className="ad-slot-cta">
                   Advertise here <Icon name="arrow" size={15} />
                 </Link>
-              </>
+              </div>
             )}
           </div>
         </section>
@@ -248,7 +232,7 @@ export default function Home() {
                 <br />
                 Less searching.
               </h2>
-              <p>{deals.length ? `${deals.length} product${deals.length === 1 ? " is" : "s are"} on sale right now.` : "Explore products from verified sellers."}</p>
+              <p>{deals.length ? `${deals.length} product${deals.length === 1 ? " is" : "s are"} on sale right now.` : "Explore products from sellers across Rwanda."}</p>
               <Link to={deals.length ? "/shop?deal=true" : "/shop"} className="gradient-btn">
                 {deals.length ? "Shop deals" : "Browse the shop"}
               </Link>
