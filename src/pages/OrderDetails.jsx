@@ -9,12 +9,15 @@ import { extractErrorMessage } from "../API/client";
 import { money, formatDate } from "../utils/format";
 import { buyerStatus, canCancel, countdown, isAwaitingPayment, paidCancelRemaining } from "../utils/orders";
 
+// Who moves the order at each step, so the buyer knows what to expect.
 const STEPS = [
-  ["Order placed", ["PENDING"]],
-  ["Paid & confirmed", ["CONFIRMED", "PROCESSING", "READY_FOR_SHIPMENT"]],
-  ["Shipped", ["SHIPPED", "OUT_FOR_DELIVERY"]],
-  ["Delivered", ["DELIVERED", "COMPLETED"]],
+  { label: "Order placed", by: "You", statuses: ["PENDING"], text: "The items are reserved for you for 30 minutes while you pay." },
+  { label: "Payment confirmed", by: "Payment provider · automatic", statuses: ["CONFIRMED"], text: "Mobile money, card or K-Pay confirms your payment. MVEC holds the money; the seller is not paid yet." },
+  { label: "Preparing & packing", by: "Seller", statuses: ["PROCESSING", "READY_FOR_SHIPMENT"], text: "The seller prepares your items and marks them packed." },
+  { label: "On the way", by: "Seller, then courier", statuses: ["SHIPPED", "OUT_FOR_DELIVERY"], text: "The seller hands the parcel over; the courier marks it out for delivery." },
+  { label: "Delivered", by: "You, with your code", statuses: ["DELIVERED", "COMPLETED"], text: "When the items are in your hands, give the courier or seller your 6-digit code. That confirms delivery and releases the payment to the seller." },
 ];
+const SUBSTATUS = { READY_FOR_SHIPMENT: "Packed, waiting for pickup", OUT_FOR_DELIVERY: "Out for delivery today", PROCESSING: "Being prepared", SHIPPED: "Handed to the courier" };
 const REASONS = [
   ["Product not received", "ITEM_NOT_RECEIVED"],
   ["Wrong product", "WRONG_ITEM"],
@@ -24,8 +27,8 @@ const REASONS = [
 ];
 
 const stepIndex = (order) => {
-  if (order.paymentStatus === "PENDING") return 0;
-  const i = STEPS.findIndex(([, statuses]) => statuses.includes(order.orderStatus));
+  if (order.paymentStatus === "PENDING" && order.paymentMethod !== "CASH_ON_DELIVERY") return 0;
+  const i = STEPS.findIndex((s) => s.statuses.includes(order.orderStatus));
   return i < 1 ? 1 : i;
 };
 
@@ -217,11 +220,15 @@ export default function OrderDetails() {
 
     {!cancelled && (
       <section className="data-card">
-        <div className="data-card-head"><div><h3>Progress</h3><span>Updates as the seller and courier move your order.</span></div></div>
-        <div className="timeline">
-          {STEPS.map(([label], i) => (
-            <div className={i <= idx ? "timeline-item done" : "timeline-item"} key={label}>
-              <i /><div><b>{label}</b><small>{i === idx ? "Current step" : i < idx ? "Done" : "Next"}</small></div>
+        <div className="data-card-head"><div><h3>Progress</h3><span>Who does what at each step. You get a notification every time it moves.</span></div></div>
+        <div className="timeline order-progress">
+          {STEPS.map((step, i) => (
+            <div className={`${i <= idx ? "timeline-item done" : "timeline-item"}${i === idx ? " current" : ""}`} key={step.label}>
+              <i /><div>
+                <b>{step.label}</b>
+                <small className="step-by">{step.by}{i === idx ? ` · ${SUBSTATUS[order.orderStatus] || "Current step"}` : i < idx ? " · Done" : ""}</small>
+                {i >= idx && <small>{step.text}</small>}
+              </div>
             </div>
           ))}
         </div>
@@ -233,17 +240,21 @@ export default function OrderDetails() {
         <h3>Leave a review</h3>
         <form onSubmit={submitReview}>
           {reviewable.length > 1 && (
-            <select className="field" value={reviewProduct} onChange={(e) => setReviewProduct(e.target.value)} aria-label="Product to review">
-              <option value="">Choose a product</option>
-              {reviewable.map((it) => <option key={productIdOf(it)} value={productIdOf(it)}>{it.name}</option>)}
-            </select>
+            <label className="field"><span>Product</span>
+              <select value={reviewProduct} onChange={(e) => setReviewProduct(e.target.value)}>
+                <option value="">Choose a product</option>
+                {reviewable.map((it) => <option key={productIdOf(it)} value={productIdOf(it)}>{it.name}</option>)}
+              </select>
+            </label>
           )}
           <div className="stars" role="radiogroup" aria-label="Rating">
             {[1, 2, 3, 4, 5].map((n) => (
               <button type="button" key={n} role="radio" aria-checked={n === rating} aria-label={`${n} star${n > 1 ? "s" : ""}`} onClick={() => setRating(n)} className="star-btn" style={{ opacity: n <= rating ? 1 : 0.3 }}>★</button>
             ))}
           </div>
-          <textarea className="field" value={reviewText} onChange={(e) => setReviewText(e.target.value)} maxLength={1000} placeholder="Tell other buyers about the product…" />
+          <label className="field"><span>Your review</span>
+            <textarea rows={3} value={reviewText} onChange={(e) => setReviewText(e.target.value)} maxLength={1000} placeholder="Tell other buyers about the product…" />
+          </label>
           <button type="submit" className="gradient-btn" disabled={reviewBusy}>{reviewBusy ? "Sending…" : "Submit review"}</button>
         </form>
       </section>

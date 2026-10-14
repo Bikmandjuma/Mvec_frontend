@@ -7,8 +7,6 @@ import SmartTable from "../components/SmartTable";
 import { useAuth } from "../context/AuthContext";
 import { affiliatesApi } from "../API/affiliates";
 import { authApi } from "../API/auth";
-import { productsApi } from "../API/products";
-import { mapBackendProduct } from "../services/catalogApi";
 import { extractErrorMessage } from "../API/client";
 import ProductImage from "../components/ProductImage";
 
@@ -128,8 +126,8 @@ function Products() {
   const perPage = 6;
 
   useEffect(() => {
-    Promise.allSettled([productsApi.getAll(), affiliatesApi.getMyLinks()]).then(([p, l]) => {
-      if (p.status === "fulfilled") setCatalog((p.value.products || []).map(mapBackendProduct));
+    Promise.allSettled([affiliatesApi.getPromotable({ pageSize: 60 }), affiliatesApi.getMyLinks()]).then(([p, l]) => {
+      if (p.status === "fulfilled") setCatalog(p.value.products || []);
       else setError(extractErrorMessage(p.reason));
       if (l.status === "fulfilled") setLinks(l.value.data || []);
     }).finally(() => setLoading(false));
@@ -192,18 +190,21 @@ function Products() {
   };
 
   return <>
-    <div className="dash-page-head"><div><span className="eyebrow">AFFILIATE PRODUCTS</span><h1>Choose products to promote</h1><p>Search the marketplace and create a unique promotion link for any product.</p></div></div>
+    <div className="dash-page-head"><div><span className="eyebrow">AFFILIATE PRODUCTS</span><h1>Choose products to promote</h1><p>Only sellers who opened their products to affiliates appear here. Each card shows what you earn per sale once the buyer confirms delivery.</p></div></div>
     {error && <div className="form-error">{error}</div>}
     <div className="dash-toolbar"><div className="dash-filter"><Icon name="search" /><input value={q} onChange={e => { setQ(e.target.value); setPage(1); }} placeholder="Search products, vendors or categories…" /></div><span className="table-count">{filtered.length} products</span></div>
     {loading && <div className="empty-state"><h3>Loading products…</h3></div>}
-     {!loading && (
+     {!loading && catalog.length === 0 && !error && (
+       <div className="empty-state"><h3>No products to promote yet</h3><p>Sellers choose whether affiliates may promote their products. As soon as a seller opens the affiliate program, their products and your commission appear here.</p></div>
+     )}
+     {!loading && catalog.length > 0 && (
        <div className="dash-grid affiliate-product-grid">
          {shown.map(p => {
            const hasLink = linkFor(p.id);
            return (
              <div className="data-card" key={p.id}>
                <div className="admin-product-main"><ProductImage src={p.image} alt="" /><div><b>{p.name}</b><small>{money(p.price)} · {p.vendor}</small></div></div>
-               <div className="affiliate-product-meta"><span>Available stock <b>{p.stock} units</b></span>{hasLink && <div className="affiliate-link-box"><code>{affiliateUrl(hasLink.affiliateCode)}</code></div>}</div>
+               <div className="affiliate-product-meta"><span>You earn <b>{money(p.earnPerSale)}</b> per sale ({p.commissionPercent}%)</span><span>In stock <b>{p.stock} units</b></span>{hasLink && <div className="affiliate-link-box"><code>{affiliateUrl(hasLink.affiliateCode)}</code></div>}</div>
 <div className="affiliate-link-actions">
 {hasLink ? (
     <>
@@ -328,8 +329,10 @@ function Links() {
           <div className="affiliate-link-main">
             <div className="affiliate-link-title">
               <b>{l.targetProduct?.name || "Product"}</b>
-              <span className={`status ${active ? "active" : ""}`}>{active ? "Active" : "Terminated"}</span>
+              <span className={`status ${!active ? "" : l.earning === false ? "warning" : "active"}`}>{!active ? "Terminated" : l.earning === false ? "Paused" : "Active"}</span>
+              {active && l.earning !== false && l.commissionPercent != null && <small className="muted">{l.commissionPercent}% per delivered sale</small>}
             </div>
+            {active && l.earning === false && <p className="tiny link-paused-note">{l.pausedReason} New clicks on this link don't earn until the seller opens it again; your past results are kept.</p>}
             <div className="affiliate-link-box">
               <code>{affiliateUrl(l.affiliateCode)}</code>
               <div className="affiliate-link-stats">

@@ -25,7 +25,8 @@ export default function Payment() {
   const { id } = useParams();
   const [searchParams] = useSearchParams();
   const { user } = useAuth();
-  const [method, setMethod] = useState("momo"); // momo | card
+  const [method, setMethod] = useState("momo"); // momo | card | kpay
+  const [kpayMethod, setKpayMethod] = useState("momo"); // momo | card | spenn (through K-Pay)
 
   const [order, setOrder] = useState(null);
   const [loadingOrder, setLoadingOrder] = useState(true);
@@ -149,11 +150,31 @@ export default function Payment() {
     }
   }
 
+  async function payByKpay() {
+    if (kpayMethod === "momo" && !isRwandanPhone(phone)) {
+      setError("Enter an MTN (078/079) or Airtel (072/073) number.");
+      return;
+    }
+    setStage("waiting");
+    try {
+      const res = await paymentsApi.payKpay({ orderId: id, method: kpayMethod, phoneNumber: phone.trim() });
+      paymentIdRef.current = res.paymentId || null;
+      if (res.status === "SUCCESS") { confirmed(); return; }
+      if (res.checkoutUrl) { setNotice("Opening K-Pay's secure page…"); window.location.assign(res.checkoutUrl); return; }
+      setNotice(res.message || "Approve the prompt on your phone.");
+      startPolling();
+    } catch (err) {
+      setError(extractErrorMessage(err));
+      setStage("choose");
+    }
+  }
+
   async function pay(e) {
     e?.preventDefault();
     setError("");
     setNotice("");
     if (method === "card") { await payByCard(); return; }
+    if (method === "kpay") { await payByKpay(); return; }
     if (!isRwandanPhone(phone)) {
       setError("Enter an MTN (078/079) or Airtel (072/073) number.");
       return;
@@ -220,8 +241,28 @@ export default function Payment() {
               <span className="payment-logo" aria-hidden="true">💳</span>
               <span><b>Card</b><small>Visa or Mastercard on Flutterwave's secure page</small></span>
             </label>
+            <label className={`payment-option ${method === "kpay" ? "selected" : ""}`}>
+              <input type="radio" name="method" value="kpay" checked={method === "kpay"} onChange={() => setMethod("kpay")} disabled={stage === "waiting"} />
+              <span className="payment-logo" aria-hidden="true">K</span>
+              <span><b>K-Pay</b><small>Mobile money, card or SPENN through K-Pay</small></span>
+            </label>
           </div>
-          {method === "momo" ? (
+          {method === "kpay" ? (
+            <div className="payment-fields">
+              <label className="field"><span>Pay with</span>
+                <select value={kpayMethod} onChange={(e) => setKpayMethod(e.target.value)} disabled={stage === "waiting"}>
+                  <option value="momo">Mobile money (MTN / Airtel)</option>
+                  <option value="card">Card (Visa / Mastercard / Amex)</option>
+                  <option value="spenn">SPENN</option>
+                </select>
+              </label>
+              {kpayMethod === "momo"
+                ? <label className="field"><span>Mobile money number</span>
+                    <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="07xx xxx xxx" autoComplete="tel" disabled={stage === "waiting"} />
+                  </label>
+                : <p className="tiny">You finish the payment on K-Pay's secure page and come back here automatically.</p>}
+            </div>
+          ) : method === "momo" ? (
             <label className="field payment-fields"><span>Mobile money number</span>
               <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="07xx xxx xxx" autoComplete="tel" disabled={stage === "waiting"} />
               {provider && <small className="tiny">{provider}</small>}
@@ -232,7 +273,7 @@ export default function Payment() {
           <button className="gradient-btn full" type="submit" disabled={stage === "waiting"}>
             {stage === "waiting"
               ? (method === "card" ? "Confirming your card payment…" : "Waiting for your approval…")
-              : `Pay ${money(order.totalAmount)}${method === "card" ? " by card" : ""}`}
+              : `Pay ${money(order.totalAmount)}${method === "card" ? " by card" : method === "kpay" ? " with K-Pay" : ""}`}
           </button>
           {stage === "waiting" && method === "momo" && <p className="tiny" role="status">Approve the prompt on your phone. This page updates automatically.</p>}
           {stage === "timeout" && (

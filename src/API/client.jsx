@@ -59,7 +59,12 @@ export function extractErrorMessage(error, fallback) {
     }
     return error?.message || fallback || "Something went wrong. Please try again.";
   }
-  if (res.status === 401) return serverMessage || "Your session has expired. Please sign in again.";
+  if (res.status === 401) {
+    // Token missing/expired/revoked: say so plainly (login errors keep their own message).
+    return !serverMessage || /not authori[sz]ed|token|session/i.test(serverMessage)
+      ? "Your session has ended. Please sign in again."
+      : serverMessage;
+  }
   if (res.status === 403) return serverMessage || "Your account isn't allowed to do this.";
   if (res.status === 404) return serverMessage || "We couldn't find what you were looking for. It may have been removed.";
   if (res.status === 413) return "That file is too large. Choose a smaller one and try again.";

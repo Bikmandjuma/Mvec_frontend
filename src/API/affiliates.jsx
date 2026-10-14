@@ -27,6 +27,9 @@ const inflight = new Map();
 export const affiliatesApi = {
   generateLink: (payload) =>
     client.post("/affiliates/links", payload).then((r) => r.data),
+  // Products whose sellers run an affiliate program, with commission per sale.
+  getPromotable: (params) =>
+    client.get("/affiliates/promotable", { params }).then((r) => r.data),
   getMyLinks: (params) =>
     client.get("/affiliates/links", { params }).then((r) => r.data),
   // Terminates (soft) — history is kept server-side.
