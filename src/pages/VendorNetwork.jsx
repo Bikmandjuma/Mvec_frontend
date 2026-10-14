@@ -83,7 +83,7 @@ function CatalogModal({ supplier, onClose, onMessage, messaging, messageError })
         supplierId: idOf(supplier),
         items: lines.map(l => ({ productId: idOf(l.p), productName: l.p.name, quantity: l.quantity })),
       });
-      navigate("/vendor/purchases");
+      navigate("/vendor/purchases", { state: { notice: "Order placed and stock reserved. Pay now (within 48 hours) to confirm it." } });
     } catch (err) {
       setError(extractErrorMessage(err));
       setPlacing(false);

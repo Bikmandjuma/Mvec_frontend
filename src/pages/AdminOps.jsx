@@ -12,6 +12,9 @@ import SmartTable from "../components/SmartTable";
 import ProductImage from "../components/ProductImage";
 import CategorySelect from "../components/CategorySelect";
 import { adminApi } from "../API/admin";
+import { supportApi } from "../API/support";
+import { wholesaleApi } from "../API/wholesale";
+import { quotesApi } from "../API/quotes";
 import { extractErrorMessage } from "../API/client";
 import { money, formatDate, statusLabel } from "../utils/format";
 
@@ -207,50 +210,59 @@ export function AdminVendors() {
 }
 
 // ─── Suppliers: accounts, supply requests, payouts ─────────────────────────
-const NEXT_STEPS = {
-  SUBMITTED: [["UNDER_REVIEW", "Start review"], ["APPROVED", "Approve"], ["REJECTED", "Reject"]],
-  UNDER_REVIEW: [["APPROVED", "Approve"], ["REJECTED", "Reject"]],
-  APPROVED: [["SOURCING", "Sourcing"], ["IN_TRANSIT", "In transit"]],
-  SOURCING: [["IN_TRANSIT", "In transit"], ["REJECTED", "Reject"]],
-  IN_TRANSIT: [["RECEIVED", "Mark received"]],
-};
+const WHOLESALE_LABEL = { PENDING_PAYMENT: "Waiting for payment", ESCROW_HELD: "Paid · to ship", SHIPPED: "Shipped", DELIVERED: "Delivered", CONFIRMED_RELEASED: "Completed", DISPUTED: "Problem reported", CANCELLED: "Cancelled" };
 
-function SupplyRequests({ onChanged }) {
-  const { loading, data, error, reload } = useLoad(adminApi.getSupplyRequests, []);
+// Every wholesale order; disputes are decided here (pay the supplier or refund the vendor).
+function WholesaleOversight({ onChanged }) {
+  const [status, setStatus] = useState("DISPUTED");
+  const { loading, data, error, reload } = useLoad(() => wholesaleApi.adminList(status ? { status } : {}), [status]);
   const [note, setNote] = useState({});
   const [busy, setBusy] = useState("");
   const [notice, setNotice] = useState(null);
-  const [show, setShow] = useState("OPEN");
-  const all = data?.requests || [];
-  const rows = all.filter((r) => (show === "OPEN" ? !["RECEIVED", "REJECTED", "CANCELLED"].includes(r.status) : true));
-  const move = async (r, status) => {
-    if (status === "REJECTED" && !(note[r._id] || "").trim()) { setNotice({ ok: false, text: "Write why the request is rejected; the supplier sees it." }); return; }
-    setBusy(r._id); setNotice(null);
-    try {
-      await adminApi.updateSupplyRequest(r._id, { status, decision: note[r._id] || "" });
-      setNotice({ ok: true, text: `${r.reference}: ${statusLabel(status)}. The supplier was notified.` });
-      setNote({ ...note, [r._id]: "" }); reload(); onChanged?.();
-    } catch (err) { setNotice({ ok: false, text: extractErrorMessage(err) }); } finally { setBusy(""); }
+  const rows = data?.orders || [];
+  const decide = async (o, decision) => {
+    if (!window.confirm(decision === "RELEASE" ? `Pay ${partyOf(o.supplier)} ${money(o.totalAmount)} (minus commission)?` : `Refund ${partyOf(o.vendor)} ${money(o.totalAmount)}?`)) return;
+    setBusy(o._id); setNotice(null);
+    try { const r = await wholesaleApi.adminResolve(o._id, decision, note[o._id] || ""); setNotice({ ok: true, text: r.message }); reload(); onChanged?.(); }
+    catch (err) { setNotice({ ok: false, text: extractErrorMessage(err) }); } finally { setBusy(""); }
   };
   return <div className="data-card">
-    <div className="data-card-head"><div><h3>Supply requests</h3><span>Suppliers ask MVEC to source goods. Move each request along; the supplier is told at every step.</span></div>
-      <select className="inline-table-input" aria-label="Show requests" value={show} onChange={(e) => setShow(e.target.value)}><option value="OPEN">Open</option><option value="ALL">All</option></select></div>
+    <div className="data-card-head"><div><h3>Wholesale orders</h3><span>Vendors buying stock from suppliers. MVEC holds the money until the vendor confirms receipt; problems are decided here.</span></div>
+      <select className="inline-table-input" aria-label="Show" value={status} onChange={(e) => setStatus(e.target.value)}><option value="DISPUTED">Problem reported</option><option value="ESCROW_HELD">Paid, not shipped</option><option value="SHIPPED">Shipped</option><option value="PENDING_PAYMENT">Waiting for payment</option><option value="">All</option></select></div>
     <Notice notice={notice} />
-    {loading ? <Loading what="supply requests" /> : error ? <Failed error={error} retry={reload} /> : rows.length === 0 ? <div className="empty-state"><h3>No supply requests {show === "OPEN" ? "waiting" : "yet"}</h3></div>
-      : <div className="orders-list">{rows.map((r) => {
-        const total = (r.lines || []).reduce((s, l) => s + Number(l.units) * Number(l.unitPrice), 0);
-        return <div className="order-row supply-row" key={r._id}>
-          <div className="order-row-main"><b>{r.reference} · {r.supplier?.businessName || "Supplier"}</b>
-            {(r.lines || []).map((l, i) => <small key={i}>{l.units} {l.unit} × {l.product} at {money(l.unitPrice)}</small>)}
-            <small>Needed by {formatDate(r.neededBy)}{r.note ? ` · “${r.note}”` : ""}</small>
-            {r.decision && <small>Last note: {r.decision}</small>}</div>
-          <div className="order-row-meta"><strong>{money(total)}</strong><Status value={r.status} /></div>
-          {NEXT_STEPS[r.status] && <div className="order-row-actions">
-            <input className="inline-table-input" placeholder="Note for the supplier" aria-label={`Note for ${r.reference}`} value={note[r._id] || ""} onChange={(e) => setNote({ ...note, [r._id]: e.target.value })} />
-            {NEXT_STEPS[r.status].map(([s, label]) => <button type="button" key={s} className={s === "REJECTED" ? "outline-btn" : "gradient-btn"} disabled={busy === r._id} onClick={() => move(r, s)}>{label}</button>)}
-          </div>}
-        </div>;
-      })}</div>}
+    {loading ? <Loading what="wholesale orders" /> : error ? <Failed error={error} retry={reload} /> : rows.length === 0 ? <div className="empty-state"><h3>{status === "DISPUTED" ? "No reported problems" : "No orders here"}</h3></div>
+      : <div className="orders-list">{rows.map((o) => <div className="order-row supply-row" key={o._id}>
+        <div className="order-row-main"><b>{o.orderNumber} · {partyOf(o.vendor)} ← {partyOf(o.supplier)}</b>
+          {(o.items || []).map((i, k) => <small key={k}>{i.quantity} {i.unit || ""} × {i.productName} at {money(i.unitPrice)}</small>)}
+          {o.disputeReason && <small className="danger-text">Problem: {o.disputeReason}</small>}
+          {o.cancelReason && <small>Cancelled: {o.cancelReason}</small>}
+          <small>Placed {formatDate(o.createdAt)}{o.paidAt ? ` · paid ${formatDate(o.paidAt)}` : ""}{o.shippedAt ? ` · shipped ${formatDate(o.shippedAt)}` : ""}</small></div>
+        <div className="order-row-meta"><strong>{money(o.totalAmount)}</strong><Status value={o.status === "CONFIRMED_RELEASED" ? "ACTIVE" : o.status === "DISPUTED" || o.status === "CANCELLED" ? "FAILED" : "PENDING"} label={WHOLESALE_LABEL[o.status]} /></div>
+        {o.status === "DISPUTED" && <div className="order-row-actions">
+          <input className="inline-table-input" placeholder="Decision note (both sides see it)" aria-label={`Note for ${o.orderNumber}`} value={note[o._id] || ""} onChange={(e) => setNote({ ...note, [o._id]: e.target.value })} />
+          <button type="button" className="gradient-btn" disabled={busy === o._id} onClick={() => decide(o, "RELEASE")}>Pay supplier</button>
+          <button type="button" className="outline-btn" disabled={busy === o._id} onClick={() => decide(o, "REFUND")}>Refund vendor</button>
+        </div>}
+      </div>)}</div>}
+  </div>;
+}
+const partyOf = (p) => p?.companyName || p?.Fullname || "—";
+
+// Vendors' quote requests and how many quotes each got (read-only).
+function QuoteOversight() {
+  const { loading, data, error, reload } = useLoad(() => quotesApi.adminList({}), []);
+  const rows = data?.requests || [];
+  return <div className="data-card">
+    <div className="data-card-head"><div><h3>Quote requests</h3><span>Vendors ask for goods; verified suppliers quote; accepted quotes become wholesale orders. Nothing to approve here.</span></div></div>
+    {loading ? <Loading what="quote requests" /> : error ? <Failed error={error} retry={reload} /> : <SmartTable rows={rows} rowKey={(r) => r.id} empty="No quote requests yet." searchPlaceholder="Search requests…"
+      columns={[
+        { key: "reference", label: "Request", render: (r) => <><b>{r.reference}</b><small className="block-small">{(r.lines || []).map((l) => `${l.units} ${l.unit} ${l.product}`).join(", ")}</small></> },
+        { key: "vendor", label: "Vendor", render: (r) => partyOf(r.vendor) },
+        { key: "category", label: "Category" },
+        { key: "quoteCount", label: "Quotes" },
+        { key: "neededBy", label: "Needed by", render: (r) => formatDate(r.neededBy) },
+        { key: "status", label: "Status", render: (r) => <Status value={r.status === "AWARDED" ? "ACTIVE" : r.status === "OPEN" ? "PENDING" : "FAILED"} label={{ OPEN: "Open", AWARDED: "Quote accepted", CANCELLED: "Cancelled", EXPIRED: "Expired" }[r.status]} /> },
+      ]} />}
   </div>;
 }
 
@@ -271,7 +283,7 @@ function SupplierPayouts({ onChanged }) {
     } catch (err) { setNotice({ ok: false, text: extractErrorMessage(err) }); } finally { setBusy(""); }
   };
   return <div className="data-card">
-    <div className="data-card-head"><div><h3>Supplier payouts</h3><span>Send the money from MVEC's account, then mark it paid. The supplier is notified.</span></div><button type="button" className="outline-btn" onClick={() => reload()}>Refresh</button></div>
+    <div className="data-card-head"><div><h3>Supplier bank payouts</h3><span>Mobile money payouts are sent automatically. Bank transfers: send from MVEC's account, then mark paid. The supplier is notified.</span></div><button type="button" className="outline-btn" onClick={() => reload()}>Refresh</button></div>
     <Notice notice={notice} />
     {loading ? <Loading what="payouts" /> : error ? <Failed error={error} retry={reload} /> : rows.length === 0 ? <div className="empty-state"><h3>No payouts waiting</h3></div>
       : <div className="orders-list">{rows.map((p) => <div className="order-row" key={p._id || p.id}>
@@ -291,9 +303,9 @@ export function AdminSuppliers() {
   const attention = useLoad(adminApi.getAttention, []);
   const c = Object.fromEntries((attention.data?.items || []).map((i) => [i.key, i.count]));
   return <DashboardLayout admin>
-    <Head eyebrow="PEOPLE & STORES" title="Suppliers" desc="Verify suppliers, handle their supply requests and send their payouts." />
-    <Tabs label="Supplier work" value={tab} onChange={setTab} tabs={[["accounts", "Verification", c.suppliers], ["requests", "Supply requests", c.supplyRequests], ["payouts", "Payouts", c.supplierPayouts]]} />
-    {tab === "requests" ? <SupplyRequests onChanged={attention.reload} /> : tab === "payouts" ? <SupplierPayouts onChanged={attention.reload} /> : <VerificationList kind="supplier" />}
+    <Head eyebrow="PEOPLE & STORES" title="Suppliers" desc="Verify suppliers, follow wholesale orders and quote requests, decide wholesale problems and send bank payouts." />
+    <Tabs label="Supplier work" value={tab} onChange={setTab} tabs={[["accounts", "Verification", c.suppliers], ["wholesale", "Wholesale orders", c.wholesaleDisputes], ["quotes", "Quote requests"], ["payouts", "Bank payouts", c.supplierPayouts]]} />
+    {tab === "wholesale" ? <WholesaleOversight onChanged={attention.reload} /> : tab === "quotes" ? <QuoteOversight /> : tab === "payouts" ? <SupplierPayouts onChanged={attention.reload} /> : <VerificationList kind="supplier" />}
   </DashboardLayout>;
 }
 
@@ -346,6 +358,41 @@ export function AdminPaymentsPage() {
 }
 
 // ─── MVEC earnings ─────────────────────────────────────────────────────────
+// MVEC's own balance. MVEC does not send this money itself: an admin moves it
+// from the payment provider's account to the company bank and records it here.
+function MvecWallet() {
+  const wallet = useLoad(() => Promise.all([adminApi.getMvecWallet(), adminApi.getMvecWithdrawals()]), []);
+  const [form, setForm] = useState({ amount: "", destination: "", note: "" });
+  const [open, setOpen] = useState(false);
+  const [notice, setNotice] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const w = wallet.data?.[0]?.wallet;
+  const history = wallet.data?.[1]?.payouts || [];
+  const save = async (e) => {
+    e.preventDefault(); setBusy(true); setNotice(null);
+    try { const r = await adminApi.recordMvecWithdrawal({ ...form, amount: Number(form.amount) }); setNotice({ ok: true, text: r.message }); setForm({ amount: "", destination: "", note: "" }); setOpen(false); wallet.reload(); }
+    catch (err) { setNotice({ ok: false, text: extractErrorMessage(err) }); } finally { setBusy(false); }
+  };
+  return <div className="data-card">
+    <div className="data-card-head"><div><h3>MVEC wallet</h3><span>What MVEC keeps after sellers, suppliers, affiliates, the developer and provider fees.</span></div>
+      {w && Number(w.availableBalance) > 0 && <button type="button" className="outline-btn" onClick={() => setOpen(!open)}>Record a withdrawal</button>}</div>
+    <Notice notice={notice} />
+    {wallet.loading ? <Loading what="the wallet" /> : wallet.error ? <Failed error={wallet.error} retry={wallet.reload} /> : <div className="metric-grid">
+      <Metric icon="wallet" label="Available" value={money(w?.availableBalance)} sub="From delivered orders" />
+      <Metric icon="chart" label="Held until delivery" value={money(w?.pendingBalance)} sub="Becomes available on delivery" />
+      <Metric icon="box" label="Withdrawn" value={money(w?.totalWithdrawn)} sub={`${history.length} recorded`} />
+    </div>}
+    {open && <form onSubmit={save}>
+      <p className="tiny">The money sits in MVEC's payment provider accounts (Paypack, Flutterwave, K-Pay). Move it to the company bank there, then record it here so the books match.</p>
+      <div className="form-row"><label className="field"><span>Amount moved (RWF)</span><input type="number" min="1" max={w?.availableBalance} value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} required /></label>
+        <label className="field"><span>Moved to</span><input value={form.destination} onChange={(e) => setForm({ ...form, destination: e.target.value })} placeholder="e.g. BK account 000400012345" required /></label></div>
+      <label className="field"><span>Note (optional)</span><input value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} placeholder="Provider reference, purpose…" /></label>
+      <div className="row-actions"><button type="button" className="outline-btn" onClick={() => setOpen(false)}>Cancel</button><button className="gradient-btn" disabled={busy}>{busy ? "Saving…" : "Record withdrawal"}</button></div>
+    </form>}
+    {history.length > 0 && <div className="review-history"><h4>Recorded withdrawals</h4>{history.slice(0, 8).map((p) => <small key={p._id}>{formatDate(p.createdAt)} · {money(p.amount)} to {p.accountDetails?.accountNumber || p.accountNumber || "—"} · by {p.adminUser?.Fullname || "admin"}</small>)}</div>}
+  </div>;
+}
+
 export function AdminEarnings() {
   const [days, setDays] = useState(30);
   const [page, setPage] = useState(1);
@@ -353,6 +400,7 @@ export function AdminEarnings() {
   const t = data?.totals;
   return <DashboardLayout admin>
     <Head eyebrow="ORDERS & PAYMENTS" title="MVEC earnings" desc="What MVEC earns on every sale, and where the rest of the money goes." action={<Period value={days} onChange={(d) => { setDays(d); setPage(1); }} />} />
+    <MvecWallet />
     {t && <>
       <div className="metric-grid">
         <Metric icon="chart" label="Sales" value={money(t.gross)} sub="Paid order lines, excluding refunds" />
@@ -370,8 +418,8 @@ export function AdminEarnings() {
       <div className="data-card-head"><div><h3>Per order line</h3><span>{data?.meta?.total ?? 0} lines</span></div></div>
       {loading ? <Loading what="earnings" /> : error ? <Failed error={error} retry={reload} /> : <SmartTable rows={data?.data || []} rowKey={(r) => r.id} pageSize={25} enableTools={false} empty="No sales in this period." exportName="mvec-earnings"
         columns={[
-          { key: "order", label: "Order", render: (r) => (r.order ? <Link to={`/admin/orders/${r.order.id}`}>{r.order.orderNumber}</Link> : "—") },
-          { key: "seller", label: "Seller" },
+          { key: "order", label: "Order", render: (r) => (r.order ? (r.order.kind === "Wholesale" ? <span>{r.order.orderNumber}<small className="block-small">Wholesale</small></span> : <Link to={`/admin/orders/${r.order.id}`}>{r.order.orderNumber}</Link>) : "—") },
+          { key: "seller", label: "Paid to" },
           { key: "gross", label: "Sale", render: (r) => money(r.gross) },
           { key: "platformFee", label: "Commission", render: (r) => `${money(r.platformFee)}${r.rate ? ` (${r.rate}%)` : ""}` },
           { key: "affiliate", label: "Affiliate", render: (r) => (r.affiliate ? money(r.affiliate) : "—") },
@@ -578,10 +626,14 @@ export function AdminAuditLog() {
 
 // ─── Commission rules ──────────────────────────────────────────────────────
 const RULE_TYPES = [["CATEGORY", "Category rate"], ["VENDOR", "Seller override"], ["GLOBAL", "Default rate"]];
-const EMPTY_RULE = { ruleType: "CATEGORY", targetCategory: "", targetVendor: "", rateValue: 5, priority: 0, name: "", isActive: true };
+const typeLabel = (t, scope) => (t === "VENDOR" && scope === "WHOLESALE" ? "Supplier override" : RULE_TYPES.find(([v]) => v === t)?.[1]);
+const EMPTY_RULE = { ruleType: "CATEGORY", scope: "RETAIL", targetCategory: "", targetVendor: "", rateValue: 5, priority: 0, name: "", isActive: true };
 
 function useSellers() {
   return useLoad(() => adminApi.getVendors({ pageSize: 100 }).then((r) => (r.data || []).map((v) => ({ id: String(v.user?._id || v.user?.id || v.user), name: v.businessName })).filter((v) => v.id).sort((a, b) => a.name.localeCompare(b.name))), []);
+}
+function useSuppliers() {
+  return useLoad(() => adminApi.getSuppliers({ pageSize: 100, verificationStatus: "VERIFIED" }).then((r) => (r.data || []).map((v) => ({ id: String(v.user?._id || v.user?.id || v.user), name: v.businessName })).filter((v) => v.id).sort((a, b) => a.name.localeCompare(b.name))), []);
 }
 
 function SellerSelect({ value, onChange, sellers, required, label = "Seller" }) {
@@ -599,7 +651,7 @@ function RuleForm({ rule, sellers, maxRate, onClose, onSaved }) {
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
   const save = async (e) => {
     e.preventDefault(); setBusy(true); setError("");
-    const payload = { ruleType: form.ruleType, rateValue: Number(form.rateValue), priority: Number(form.priority) || 0, name: form.name, targetCategory: form.targetCategory || null, targetVendor: form.targetVendor || null, isActive: form.isActive };
+    const payload = { ruleType: form.ruleType, scope: form.scope || "RETAIL", rateValue: Number(form.rateValue), priority: Number(form.priority) || 0, name: form.name, targetCategory: form.targetCategory || null, targetVendor: form.targetVendor || null, isActive: form.isActive };
     try {
       const res = rule?._id ? await adminApi.updateCommissionRule(rule._id, payload) : await adminApi.createCommissionRule(payload);
       onSaved(res.message);
@@ -608,10 +660,10 @@ function RuleForm({ rule, sellers, maxRate, onClose, onSaved }) {
   return <div className="modal-backdrop" onMouseDown={onClose}>
     <form className="modal" onMouseDown={(e) => e.stopPropagation()} onSubmit={save}>
       <button type="button" className="modal-close" onClick={onClose} aria-label="Close">×</button>
-      <span className="eyebrow">COMMISSION RULE</span><h2>{rule?._id ? "Edit rule" : "New rule"}</h2>
+      <span className="eyebrow">{form.scope === "WHOLESALE" ? "WHOLESALE COMMISSION RULE" : "RETAIL COMMISSION RULE"}</span><h2>{rule?._id ? "Edit rule" : "New rule"}</h2>
       {error && <div className="form-alert error" role="alert">{error}</div>}
-      <label className="field"><span>Applies to</span><select value={form.ruleType} onChange={(e) => set("ruleType", e.target.value)}>{RULE_TYPES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></label>
-      {form.ruleType === "VENDOR" && <SellerSelect required sellers={sellers} value={form.targetVendor} onChange={(v) => set("targetVendor", v)} />}
+      <label className="field"><span>Applies to</span><select value={form.ruleType} onChange={(e) => set("ruleType", e.target.value)}>{RULE_TYPES.map(([v]) => <option key={v} value={v}>{typeLabel(v, form.scope)}</option>)}</select></label>
+      {form.ruleType === "VENDOR" && <SellerSelect required label={form.scope === "WHOLESALE" ? "Supplier" : "Seller"} sellers={sellers} value={form.targetVendor} onChange={(v) => set("targetVendor", v)} />}
       {form.ruleType !== "GLOBAL" && <CategorySelect label={form.ruleType === "VENDOR" ? "Only in this category (optional)" : "Category"} placeholder={form.ruleType === "VENDOR" ? "All categories" : "Choose a category"} value={form.targetCategory} onChange={(v) => set("targetCategory", v)} required={form.ruleType === "CATEGORY"} />}
       <div className="form-row">
         <label className="field"><span>MVEC commission (%) *</span><input type="number" min="0" max={maxRate} step="0.1" value={form.rateValue} onChange={(e) => set("rateValue", e.target.value)} required /></label>
@@ -634,14 +686,15 @@ function CommissionSettings({ settings, onSaved }) {
   const example = 100000 * n("defaultCommissionPercent") / 100;
   const save = async (e) => {
     e.preventDefault(); setBusy(true); setNotice(null);
-    try { const res = await adminApi.updateCommissionSettings({ ...form, defaultCommissionPercent: n("defaultCommissionPercent"), developerSharePercent: n("developerSharePercent"), affiliateSharePercent: n("affiliateSharePercent") }); setNotice({ ok: true, text: res.message }); onSaved(); }
+    try { const res = await adminApi.updateCommissionSettings({ ...form, defaultCommissionPercent: n("defaultCommissionPercent"), defaultWholesaleCommissionPercent: n("defaultWholesaleCommissionPercent"), developerSharePercent: n("developerSharePercent"), affiliateSharePercent: n("affiliateSharePercent") }); setNotice({ ok: true, text: res.message }); onSaved(); }
     catch (err) { setNotice({ ok: false, text: extractErrorMessage(err) }); } finally { setBusy(false); }
   };
   return <form className="data-card" onSubmit={save}>
     <div className="data-card-head"><div><h3>How the commission is shared</h3><span>Applies to orders paid from now on. Paid orders keep the split they had.</span></div></div>
     <Notice notice={notice} />
     <div className="form-row">
-      <label className="field"><span>Default commission (%)</span><input type="number" min="0" max="50" step="0.1" value={form.defaultCommissionPercent} onChange={(e) => setForm({ ...form, defaultCommissionPercent: e.target.value })} /></label>
+      <label className="field"><span>Default retail commission (%)</span><input type="number" min="0" max="50" step="0.1" value={form.defaultCommissionPercent} onChange={(e) => setForm({ ...form, defaultCommissionPercent: e.target.value })} /></label>
+      <label className="field"><span>Default wholesale commission (%)</span><input type="number" min="0" max="50" step="0.1" value={form.defaultWholesaleCommissionPercent ?? 0} onChange={(e) => setForm({ ...form, defaultWholesaleCommissionPercent: e.target.value })} /></label>
       <label className="field"><span>Payment provider fees paid by</span><select value={form.gatewayFeePayer} onChange={(e) => setForm({ ...form, gatewayFeePayer: e.target.value })}><option value="MVEC">MVEC (out of the commission)</option><option value="SELLER">The seller (out of their share)</option></select></label>
     </div>
     <div className="form-row">
@@ -653,24 +706,25 @@ function CommissionSettings({ settings, onSaved }) {
   </form>;
 }
 
-function SplitPreview({ sellers }) {
+function SplitPreview({ sellers, scope }) {
   const [q, setQ] = useState({ vendorId: "", categoryId: "", amount: 100000, affiliate: false, gatewayFee: 0 });
-  const { data, error } = useLoad(() => adminApi.previewCommission({ ...q, affiliate: q.affiliate ? 1 : 0 }), [q.vendorId, q.categoryId, q.amount, q.affiliate, q.gatewayFee]);
+  useEffect(() => setQ((x) => ({ ...x, vendorId: "", affiliate: false })), [scope]);
+  const { data, error } = useLoad(() => adminApi.previewCommission({ ...q, scope, affiliate: q.affiliate && scope === "RETAIL" ? 1 : 0 }), [q.vendorId, q.categoryId, q.amount, q.affiliate, q.gatewayFee, scope]);
   return <div className="data-card">
     <div className="data-card-head"><div><h3>Try a sale</h3><span>See exactly how a sale would be split under the current rules.</span></div></div>
     <div className="form-row">
-      <SellerSelect sellers={sellers} value={q.vendorId} onChange={(v) => setQ({ ...q, vendorId: v })} />
+      <SellerSelect label={scope === "WHOLESALE" ? "Supplier" : "Seller"} sellers={sellers} value={q.vendorId} onChange={(v) => setQ({ ...q, vendorId: v })} />
       <CategorySelect allowCreate={false} placeholder="Any category" value={q.categoryId} onChange={(v) => setQ({ ...q, categoryId: v })} />
     </div>
     <div className="form-row">
       <label className="field"><span>Sale amount (RWF)</span><input type="number" min="0" value={q.amount} onChange={(e) => setQ({ ...q, amount: e.target.value })} /></label>
       <label className="field"><span>Payment provider fee (RWF)</span><input type="number" min="0" value={q.gatewayFee} onChange={(e) => setQ({ ...q, gatewayFee: e.target.value })} /></label>
     </div>
-    <label className="filter-check"><input type="checkbox" checked={q.affiliate} onChange={(e) => setQ({ ...q, affiliate: e.target.checked })} /> The buyer came through an affiliate link</label>
+    {scope === "RETAIL" && <label className="filter-check"><input type="checkbox" checked={q.affiliate} onChange={(e) => setQ({ ...q, affiliate: e.target.checked })} /> The buyer came through an affiliate link</label>}
     {error && <p className="danger-text">{error}</p>}
     {data && <div className="split-preview">
       <p><b>{data.commissionPercent}% commission</b> · {data.source}{data.rule ? ` (“${data.rule.name}”)` : ""}</p>
-      {[["Seller receives", data.vendorNet], ["MVEC commission", data.totalPlatformFee], ["  → Developer", data.developerShare], ["  → Affiliate (paid by MVEC)", data.platformAffiliateShare], ["  → MVEC keeps", data.adminShare], ["Payment provider fee", data.gatewayFee]].map(([k, v]) => <div className="setting-line" key={k}><span><b>{k.trim()}</b>{k.startsWith(" ") && <small>part of the commission</small>}</span><strong>{money(v)}</strong></div>)}
+      {[[scope === "WHOLESALE" ? "Supplier receives" : "Seller receives", data.vendorNet], ["MVEC commission", data.totalPlatformFee], ["  → Developer", data.developerShare], ["  → Affiliate (paid by MVEC)", data.platformAffiliateShare], ["  → MVEC keeps", data.adminShare], ["Payment provider fee", data.gatewayFee]].map(([k, v]) => <div className="setting-line" key={k}><span><b>{k.trim()}</b>{k.startsWith(" ") && <small>part of the commission</small>}</span><strong>{money(v)}</strong></div>)}
       <p className="tiny">Provider fee paid by {data.gatewayFeePayer === "SELLER" ? "the seller" : "MVEC"}.</p>
     </div>}
   </div>;
@@ -679,25 +733,30 @@ function SplitPreview({ sellers }) {
 export function AdminCommissionRules() {
   const { loading, data, error, reload } = useLoad(adminApi.getCommissionRules, []);
   const sellers = useSellers();
+  const suppliers = useSuppliers();
+  const [scope, setScope] = useState("RETAIL");
   const [tab, setTab] = useState("CATEGORY");
+  const parties = (scope === "WHOLESALE" ? suppliers.data : sellers.data) || [];
   const [editing, setEditing] = useState(null);
   const [notice, setNotice] = useState(null);
   const [busy, setBusy] = useState("");
   const rules = data?.rules || [];
-  const shown = rules.filter((r) => r.ruleType === tab);
-  const count = (t) => rules.filter((r) => r.ruleType === t && r.isActive).length;
+  const inScope = rules.filter((r) => (r.scope || "RETAIL") === scope);
+  const shown = inScope.filter((r) => r.ruleType === tab);
+  const count = (t) => inScope.filter((r) => r.ruleType === t && r.isActive).length;
   const act = async (fn, okText, id) => {
     setBusy(id); setNotice(null);
     try { await fn(); setNotice({ ok: true, text: okText }); reload(); } catch (err) { setNotice({ ok: false, text: extractErrorMessage(err) }); } finally { setBusy(""); }
   };
   return <DashboardLayout admin>
-    <Head eyebrow="MONEY" title="Commission rules" desc="Set MVEC's commission per category, with optional special rates for individual sellers. Changes apply to new orders; paid orders keep their rate." action={<button type="button" className="gradient-btn" onClick={() => setEditing({})}><Icon name="plus" /> New rule</button>} />
+    <Head eyebrow="MONEY" title="Commission rules" desc="MVEC's commission per category, with optional special rates for individual sellers (retail) or suppliers (wholesale). Changes apply to new orders; paid orders keep their rate." action={<button type="button" className="gradient-btn" onClick={() => setEditing({ scope })}><Icon name="plus" /> New rule</button>} />
+    <Tabs label="Which sales" value={scope} onChange={(v) => { setScope(v); setTab("CATEGORY"); }} tabs={[["RETAIL", "Retail: buyers ← sellers"], ["WHOLESALE", "Wholesale: vendors ← suppliers"]]} />
     <Notice notice={notice} />
     {loading && !data ? <Loading what="commission rules" /> : error ? <Failed error={error} retry={reload} /> : <>
       <CommissionSettings settings={data.settings} onSaved={reload} />
       <div className="data-card">
-        <Tabs label="Rule type" value={tab} onChange={setTab} tabs={RULE_TYPES.map(([v, l]) => [v, l, count(v)])} />
-        {shown.length === 0 ? <div className="empty-state"><h3>No {RULE_TYPES.find(([v]) => v === tab)[1].toLowerCase()}s yet</h3><p>{tab === "GLOBAL" ? `Without a default rule, sales use the ${data.settings.defaultCommissionPercent}% default commission above.` : tab === "CATEGORY" ? "Every category uses the default until you set a rate." : "Sellers pay their category rates unless you give them an override."}</p><button type="button" className="outline-btn" onClick={() => setEditing({ ruleType: tab })}>Add one</button></div>
+        <Tabs label="Rule type" value={tab} onChange={setTab} tabs={RULE_TYPES.map(([v]) => [v, typeLabel(v, scope), count(v)])} />
+        {shown.length === 0 ? <div className="empty-state"><h3>No {typeLabel(tab, scope).toLowerCase()}s yet</h3><p>{tab === "GLOBAL" ? `Without a default rule, ${scope === "WHOLESALE" ? "wholesale orders" : "sales"} use the ${scope === "WHOLESALE" ? data.settings.defaultWholesaleCommissionPercent ?? 0 : data.settings.defaultCommissionPercent}% default above.` : tab === "CATEGORY" ? "Every category uses the default until you set a rate." : `${scope === "WHOLESALE" ? "Suppliers" : "Sellers"} pay their category rates unless you give them an override.`}</p><button type="button" className="outline-btn" onClick={() => setEditing({ ruleType: tab, scope })}>Add one</button></div>
           : <div className="orders-list">{shown.map((r) => <div className={`order-row ${r.isActive ? "" : "inactive-row"}`} key={r.id}>
             <div className="order-row-main"><b>{r.ruleType === "VENDOR" ? r.sellerName : r.ruleType === "CATEGORY" ? r.categoryName : "All sales"}{r.ruleType === "VENDOR" && r.categoryName ? ` · ${r.categoryName}` : r.ruleType === "VENDOR" ? " · all categories" : ""}</b><small>{r.name} · priority {r.priority}</small></div>
             <div className="order-row-meta"><strong>{Number(r.rateValue)}%</strong><Status value={r.isActive ? "ACTIVE" : "Off"} label={r.isActive ? "Active" : "Off"} /></div>
@@ -708,8 +767,75 @@ export function AdminCommissionRules() {
             </div>
           </div>)}</div>}
       </div>
-      <SplitPreview sellers={sellers.data || []} />
+      <SplitPreview sellers={parties} scope={scope} />
     </>}
-    {editing && <RuleForm rule={editing._id ? editing : { ...EMPTY_RULE, ...editing }} sellers={sellers.data || []} maxRate={data?.maxRate || 50} onClose={() => setEditing(null)} onSaved={(text) => { setEditing(null); setNotice({ ok: true, text }); reload(); }} />}
+    {editing && <RuleForm rule={editing._id ? editing : { ...EMPTY_RULE, ...editing }} sellers={((editing.scope || "RETAIL") === "WHOLESALE" ? suppliers.data : sellers.data) || []} maxRate={data?.maxRate || 50} onClose={() => setEditing(null)} onSaved={(text) => { setEditing(null); setNotice({ ok: true, text }); reload(); }} />}
+  </DashboardLayout>;
+}
+
+// ─── Support inbox ─────────────────────────────────────────────────────────
+// Requests from buyers, sellers, suppliers, affiliates and couriers. Admins
+// answer here; the person is notified of every reply and status change.
+const CASE_STATUS = [["OPEN", "New"], ["IN_PROGRESS", "In progress"], ["RESOLVED", "Resolved"], ["CLOSED", "Closed"]];
+const ROLE_LABEL = { buyer: "Buyer", vendor: "Seller", supplier: "Supplier", affiliate: "Affiliate", delivery: "Courier" };
+const PRIORITY_TONE = { URGENT: "danger", HIGH: "pending", MEDIUM: "", LOW: "" };
+
+function CaseThread({ id, onChanged, onClose }) {
+  const { loading, data, error, reload } = useLoad(() => supportApi.getCaseById(id), [id]);
+  const [reply, setReply] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState(null);
+  const c = data?.case;
+  const send = async (e) => {
+    e.preventDefault(); if (!reply.trim()) return;
+    setBusy(true); setNotice(null);
+    try { await supportApi.addComment(id, { message: reply.trim() }); setReply(""); await reload(true); onChanged(); setNotice({ ok: true, text: "Reply sent. They were notified." }); }
+    catch (err) { setNotice({ ok: false, text: extractErrorMessage(err) }); } finally { setBusy(false); }
+  };
+  const setStatus = async (status) => {
+    setBusy(true); setNotice(null);
+    try { await supportApi.updateStatus(id, { status }); await reload(true); onChanged(); setNotice({ ok: true, text: `Marked ${CASE_STATUS.find(([v]) => v === status)[1].toLowerCase()}. They were notified.` }); }
+    catch (err) { setNotice({ ok: false, text: extractErrorMessage(err) }); } finally { setBusy(false); }
+  };
+  if (loading && !c) return <div className="data-card"><Loading what="the request" /></div>;
+  if (error) return <div className="data-card"><Failed error={error} retry={reload} /></div>;
+  return <div className="data-card case-thread">
+    <div className="data-card-head"><div><h3>{c.subject}</h3><span>{c.ticketNumber} · {c.openedBy?.Fullname} ({ROLE_LABEL[c.openedBy?.role] || c.openedBy?.role}) · {c.openedBy?.email} · {dateTime(c.createdAt)}</span></div>
+      <button type="button" className="outline-btn" onClick={onClose}>Back to inbox</button></div>
+    <Notice notice={notice} />
+    <div className="case-meta"><Status value={c.status} label={CASE_STATUS.find(([v]) => v === c.status)?.[1]} /> <span className={`status ${PRIORITY_TONE[c.priority] || ""}`}>{statusLabel(c.priority)} priority</span> <span className="status">{statusLabel(c.category)}</span>{c.assignedTo && <small> · handled by {c.assignedTo.Fullname}</small>}</div>
+    <div className="case-messages">
+      <div className="case-message from-user"><b>{c.openedBy?.Fullname}</b><small>{dateTime(c.createdAt)}</small><p>{c.description}</p></div>
+      {(c.comments || []).map((m, i) => { const mine = m.author?.role === "super_admin"; return <div key={i} className={`case-message ${mine ? "from-mvec" : "from-user"}`}><b>{mine ? `MVEC · ${m.author?.Fullname}` : m.author?.Fullname}</b><small>{dateTime(m.createdAt)}</small><p>{m.message}</p></div>; })}
+    </div>
+    {c.status !== "CLOSED" && <form onSubmit={send}>
+      <label className="field"><span>Your reply</span><textarea rows={3} value={reply} onChange={(e) => setReply(e.target.value)} placeholder="Write the answer they will see…" /></label>
+      <div className="row-actions"><button className="gradient-btn" disabled={busy || !reply.trim()}>Send reply</button>
+        {c.status !== "RESOLVED" && <button type="button" className="outline-btn" disabled={busy} onClick={() => setStatus("RESOLVED")}>Mark resolved</button>}
+        <button type="button" className="outline-btn" disabled={busy} onClick={() => setStatus("CLOSED")}>Close</button></div>
+    </form>}
+    {c.status === "CLOSED" && <button type="button" className="outline-btn" disabled={busy} onClick={() => setStatus("OPEN")}>Reopen</button>}
+  </div>;
+}
+
+export function AdminSupportInbox() {
+  const { search } = useLocation();
+  const [open, setOpen] = useState(new URLSearchParams(search).get("case") || null);
+  const [tab, setTab] = useState("ACTIVE");
+  const { loading, data, error, reload } = useLoad(() => supportApi.listCases({ pageSize: 100 }), [], 60_000);
+  const cases = data?.cases || [];
+  const count = (pred) => cases.filter(pred).length;
+  const active = (c) => ["OPEN", "IN_PROGRESS"].includes(c.status);
+  const shown = cases.filter(tab === "ACTIVE" ? active : (c) => c.status === tab).sort((a, b) => (b.priority === "URGENT") - (a.priority === "URGENT") || new Date(b.updatedAt) - new Date(a.updatedAt));
+  return <DashboardLayout admin>
+    <Head eyebrow="COMMUNICATION" title="Support inbox" desc="Requests from buyers, sellers, suppliers, affiliates and couriers. Reply here; they are notified every time." />
+    {open ? <CaseThread id={open} onChanged={() => reload(true)} onClose={() => setOpen(null)} /> : <div className="data-card">
+      <Tabs label="Requests" value={tab} onChange={setTab} tabs={[["ACTIVE", "Needs an answer", count(active)], ["RESOLVED", "Resolved", count((c) => c.status === "RESOLVED")], ["CLOSED", "Closed", count((c) => c.status === "CLOSED")]]} />
+      {loading && !data ? <Loading what="requests" /> : error ? <Failed error={error} retry={reload} /> : shown.length === 0 ? <div className="empty-state"><h3>{tab === "ACTIVE" ? "Inbox zero" : "Nothing here"}</h3><p>{tab === "ACTIVE" ? "New requests appear here and in your notifications." : ""}</p></div>
+        : <div className="orders-list">{shown.map((c) => <button type="button" className="order-row case-row" key={c._id} onClick={() => setOpen(c._id)}>
+          <div className="order-row-main"><b>{c.subject}</b><small>{c.openedBy?.Fullname} · {ROLE_LABEL[c.openedBy?.role] || c.openedBy?.role} · {statusLabel(c.category)} · {c.ticketNumber}</small><small>{(c.comments || []).length} repl{(c.comments || []).length === 1 ? "y" : "ies"} · updated {dateTime(c.updatedAt)}</small></div>
+          <div className="order-row-meta">{c.priority === "URGENT" || c.priority === "HIGH" ? <span className={`status ${PRIORITY_TONE[c.priority]}`}>{statusLabel(c.priority)}</span> : null}<Status value={c.status} label={CASE_STATUS.find(([v]) => v === c.status)?.[1]} /></div>
+        </button>)}</div>}
+    </div>}
   </DashboardLayout>;
 }

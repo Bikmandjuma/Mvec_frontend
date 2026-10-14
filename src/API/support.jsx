@@ -7,6 +7,9 @@ export const supportApi = {
     client.get("/support/cases", { params }).then((r) => r.data),
   getCaseById: (id) =>
     client.get(`/support/cases/${id}`).then((r) => r.data),
+  // Admin: { status: OPEN | IN_PROGRESS | RESOLVED | CLOSED, assignedTo? }
+  updateStatus: (caseId, payload) =>
+    client.patch(`/support/cases/${caseId}/status`, payload).then((r) => r.data),
   addComment: (caseId, payload) =>
     client.post(`/support/cases/${caseId}/comments`, payload).then((r) => r.data),
 };

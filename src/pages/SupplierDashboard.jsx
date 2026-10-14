@@ -9,6 +9,8 @@ import { suppliersApi } from "../API/suppliers";
 import { uploadsApi } from "../API/uploads";
 import ProductImage from "../components/ProductImage";
 import CategorySelect, { UnitSelect } from "../components/CategorySelect";
+import { WholesaleOrders, SupplierQuotes } from "./Wholesale";
+import { quotesApi } from "../API/quotes";
 import { wholesaleApi } from "../API/wholesale";
 import { extractErrorMessage } from "../API/client";
 import { useAuth } from "../context/AuthContext";
@@ -39,18 +41,20 @@ function VerificationBanner() {
 // What needs doing now, worked out from orders, stock, payouts and requests.
 function todoList({ orders, products, finance, requests }) {
   const toShip = orders.filter(o => o.status === "ESCROW_HELD");
+  const disputed = orders.filter(o => o.status === "DISPUTED");
   const lowStock = products.filter(p => Number(p.stockQuantity || 0) < Math.max(10, Number(p.moq || 0)));
-  const updated = requests.filter(r => ["APPROVED", "IN_TRANSIT", "REJECTED"].includes(r.status) && Date.now() - new Date(r.updatedAt).getTime() < 7 * 864e5);
+  const toQuote = requests.filter(r => r.matchesMyCategory && !r.myQuote);
   const items = [];
-  if (toShip.length) items.push({ text: `${toShip.length} paid order${toShip.length === 1 ? "" : "s"} to ship`, hint: "The vendor has paid; MVEC holds the money until they confirm receipt.", link: "/supplier/delivery", urgent: true });
+  if (toShip.length) items.push({ text: `${toShip.length} paid order${toShip.length === 1 ? "" : "s"} to ship`, hint: "Ship within 7 days. MVEC holds the money until the vendor confirms receipt.", link: "/supplier/orders", urgent: true });
+  if (disputed.length) items.push({ text: `${disputed.length} order${disputed.length === 1 ? "" : "s"} with a reported problem`, hint: "MVEC is reviewing; contact the vendor in Messages if you can fix it.", link: "/supplier/orders", urgent: true });
   if (lowStock.length) items.push({ text: `${lowStock.length} product${lowStock.length === 1 ? "" : "s"} running low`, hint: lowStock.slice(0, 3).map(p => p.name).join(", "), link: "/supplier/inventory" });
   if (Number(finance.availablePayout) >= PAYOUT_MINIMUM) items.push({ text: `${money(finance.availablePayout)} ready to withdraw`, hint: "Request a payout to mobile money or your bank.", link: "/supplier/payments" });
-  if (updated.length) items.push({ text: `${updated.length} supply request${updated.length === 1 ? "" : "s"} updated by MVEC`, hint: updated.map(r => `${r.reference}: ${r.status.toLowerCase().replaceAll("_", " ")}`).join(" · "), link: "/supplier/supply-requests" });
+  if (toQuote.length) items.push({ text: `${toQuote.length} vendor${toQuote.length === 1 ? "" : "s"} asking for quotes in your category`, hint: toQuote.slice(0, 3).map(r => r.lines.map(l => `${l.units} ${l.unit} ${l.product}`).join(", ")).join(" · "), link: "/supplier/quotes" });
   if (!products.length) items.push({ text: "Add your first wholesale product", hint: "Vendors can only order what is in your catalog.", link: "/supplier/products", urgent: true });
   return items;
 }
 
-function Overview() { const { user } = useAuth(); const restricted = user?.isOnboarded === false; if (restricted) return <><Header eyebrow="SUPPLIER PLATFORM" title="Supplier dashboard" description="Complete onboarding to unlock live supplier operations."/><div className="metric-grid"><Metric icon="box" label="Wholesale products" value="—" sub="Available after onboarding"/><Metric icon="cart" label="Vendor orders" value="—" sub="Available after onboarding"/><Metric icon="chart" label="Sales" value="—" sub="Available after onboarding"/><Metric icon="wallet" label="Protected funds" value="—" sub="Available after onboarding"/></div></>; return <Remote load={async () => { const [finance, products, delivery, orders, requests] = await Promise.all([suppliersApi.getFinanceSummary(), suppliersApi.getMyProducts(), suppliersApi.getDeliverySummary(), wholesaleApi.getMine().catch(() => ({ orders: [] })), suppliersApi.getSupplyRequests().catch(() => ({ requests: [] }))]); return { finance: finance.summary || {}, products: products.products || [], delivery: delivery.summary || {}, orders: orders.orders || [], requests: requests.requests || [] }; }}>
+function Overview() { const { user } = useAuth(); const restricted = user?.isOnboarded === false; if (restricted) return <><Header eyebrow="SUPPLIER PLATFORM" title="Supplier dashboard" description="Complete onboarding to unlock live supplier operations."/><div className="metric-grid"><Metric icon="box" label="Wholesale products" value="—" sub="Available after onboarding"/><Metric icon="cart" label="Vendor orders" value="—" sub="Available after onboarding"/><Metric icon="chart" label="Sales" value="—" sub="Available after onboarding"/><Metric icon="wallet" label="Protected funds" value="—" sub="Available after onboarding"/></div></>; return <Remote load={async () => { const [finance, products, delivery, orders, requests] = await Promise.all([suppliersApi.getFinanceSummary(), suppliersApi.getMyProducts(), suppliersApi.getDeliverySummary(), wholesaleApi.getMine().catch(() => ({ orders: [] })), quotesApi.open().catch(() => ({ requests: [] }))]); return { finance: finance.summary || {}, products: products.products || [], delivery: delivery.summary || {}, orders: orders.orders || [], requests: requests.requests || [] }; }}>
   {(data) => { const { finance, products, delivery } = data; const todo = todoList(data); return <><Header eyebrow="SUPPLIER PLATFORM" title="Supplier dashboard" description="What needs your attention, and how your wholesale business is doing."/><VerificationBanner/>
     <div className="data-card attention-card"><div className="data-card-head"><div><h3>To do</h3><span>{todo.length ? "Updates every 30 seconds" : "You are all caught up"}</span></div></div>
       {todo.length === 0 ? <div className="empty-state"><h3>Nothing waiting</h3><p>New orders, low stock and payouts show up here.</p></div> : <div className="attention-list">{todo.map(it => <Link key={it.text} to={it.link} className={`attention-item ${it.urgent ? "urgent" : ""}`}><span><b>{it.text}</b>{it.hint && <small>{it.hint}</small>}</span><Icon name="arrow" size={14}/></Link>)}</div>}
@@ -91,7 +95,6 @@ function ProductTable({ products }) {
 }
 function Products() { return <Remote load={suppliersApi.getMyProducts}>{({ products = [] }) => <ProductTable products={products}/>}</Remote>; }
 
-function Orders() { return <Remote load={wholesaleApi.getMine}>{data => <><Header eyebrow="B2B ORDERS" title="Vendor orders" description="Wholesale orders stored for this supplier account."/><div className="data-card"><SmartTable columns={[{ key: "orderNumber", label: "Order" }, { key: "vendor", label: "Vendor", render: r => r.vendor?.companyName || r.vendor?.Fullname || "Vendor" }, { key: "totalAmount", label: "Total", render: r => money(r.totalAmount) }, { key: "status", label: "Status" }, { key: "createdAt", label: "Created", render: r => date(r.createdAt) }]} rows={data.orders || []} rowKey={r => r._id} searchPlaceholder="Search vendor orders…" empty="No wholesale orders in the database."/></div></>}</Remote>; }
 function Inventory() { return <Remote load={suppliersApi.getMyProducts}>{({ products = [] }) => <><Header eyebrow="INVENTORY" title="Inventory" description="Stock quantities from supplier product records."/><div className="metric-grid"><Metric icon="box" label="Stock units" value={products.reduce((sum, p) => sum + Number(p.stockQuantity || 0), 0)} sub="Across database products"/><Metric icon="grid" label="Low stock" value={products.filter(p => Number(p.stockQuantity || 0) < 10).length} sub="Below 10 units"/><Metric icon="cart" label="Catalog items" value={products.length} sub="Supplier products"/></div><div className="data-card"><SmartTable columns={[{ key: "name", label: "Product" }, { key: "stockQuantity", label: "Available" }, { key: "moq", label: "MOQ" }, { key: "status", label: "Status" }]} rows={products} rowKey={r => r._id} searchPlaceholder="Search inventory…" empty="No inventory records in the database."/></div></>}</Remote>; }
 function Analytics() { const [range, setRange] = useState("30d"); return <Remote load={() => suppliersApi.getAnalytics({ range })} deps={[range]}>{({ analytics = {} }) => <><Header eyebrow="ANALYTICS" title="Analytics" description="Wholesale performance calculated from stored orders."/><select className="period-select" value={range} onChange={e => setRange(e.target.value)}><option value="30d">30 days</option><option value="3m">3 months</option><option value="1y">1 year</option></select><div className="metric-grid"><Metric icon="chart" label="Sales" value={money(analytics.grossSales)} sub={`${analytics.orderCount || 0} database orders`}/><Metric icon="cart" label="Units sold" value={analytics.unitsSold || 0} sub="Recorded order items"/><Metric icon="users" label="Average order" value={money(analytics.averageOrderValue)} sub="Calculated from orders"/></div><div className="data-card"><SmartTable columns={[{ key: "name", label: "Product" }, { key: "units", label: "Units" }, { key: "revenue", label: "Revenue", render: r => money(r.revenue) }]} rows={analytics.topProducts || []} rowKey={r => r.name} searchPlaceholder="Search product performance…" empty="No analytics records for this period."/></div></>}</Remote>; }
 const PAYOUT_METHODS = { MTN_MOMO: "MTN MoMo", AIRTEL_MONEY: "Airtel Money", BANK_TRANSFER: "Bank transfer" };
@@ -153,42 +156,5 @@ function Settings() {
     </form></>;
 }
 
-const REQUEST_STATUS = { SUBMITTED: "Sent to MVEC", UNDER_REVIEW: "MVEC is reviewing", APPROVED: "Approved", SOURCING: "Being sourced", IN_TRANSIT: "On the way", RECEIVED: "Received", REJECTED: "Declined", CANCELLED: "Withdrawn" };
-const emptyLine = () => ({ product: "", units: 1, unit: "piece", unitPrice: 0 });
 
-function SupplyRequests() {
-  const [tick, setTick] = useState(0);
-  const [form, setForm] = useState(null);
-  const [notice, setNotice] = useState(null);
-  const [busy, setBusy] = useState(false);
-  const submit = async e => {
-    e.preventDefault(); setBusy(true); setNotice(null);
-    try { await suppliersApi.createSupplyRequest({ ...form, lines: form.lines.map(l => ({ ...l, units: Number(l.units), unitPrice: Number(l.unitPrice) })) }); setForm(null); setNotice({ ok: true, text: "Request sent. MVEC reviews it and you get a notification at every step." }); setTick(t => t + 1); }
-    catch (err) { setNotice({ ok: false, text: extractErrorMessage(err) }); } finally { setBusy(false); }
-  };
-  const withdraw = async r => { const reason = window.prompt("Why are you withdrawing this request? (optional)"); if (reason === null) return; try { await suppliersApi.cancelSupplyRequest(r._id, reason); setNotice({ ok: true, text: `${r.reference} withdrawn.` }); setTick(t => t + 1); } catch (err) { setNotice({ ok: false, text: extractErrorMessage(err) }); } };
-  const setLine = (i, key, value) => setForm(f => ({ ...f, lines: f.lines.map((l, n) => n === i ? { ...l, [key]: value } : l) }));
-  return <><Header eyebrow="SUPPLY" title="Supply requests" description="Ask MVEC to source goods for you. MVEC reviews, approves, sources and delivers; you are told at each step."/>
-    {notice && <div className={`form-alert ${notice.ok ? "success" : "error"}`} role="status">{notice.text}</div>}
-    {!form ? <button type="button" className="gradient-btn" onClick={() => setForm({ neededBy: new Date(Date.now() + 7 * 864e5).toISOString().slice(0, 10), note: "", lines: [emptyLine()] })}><Icon name="plus"/> New request</button>
-      : <form className="data-card" onSubmit={submit}><h3>New supply request</h3>
-        {form.lines.map((l, i) => <div className="form-row supply-line" key={i}>
-          <label className="field"><span>Item</span><input value={l.product} onChange={e => setLine(i, "product", e.target.value)} required/></label>
-          <label className="field"><span>Quantity</span><input type="number" min="1" value={l.units} onChange={e => setLine(i, "units", e.target.value)} required/></label>
-          <UnitSelect value={l.unit} onChange={v => setLine(i, "unit", v)}/>
-          <label className="field"><span>Target price per unit</span><input type="number" min="0" value={l.unitPrice} onChange={e => setLine(i, "unitPrice", e.target.value)} required/></label>
-          {form.lines.length > 1 && <button type="button" className="outline-btn" aria-label="Remove item" onClick={() => setForm(f => ({ ...f, lines: f.lines.filter((_, n) => n !== i) }))}>Remove</button>}
-        </div>)}
-        <button type="button" className="outline-btn" onClick={() => setForm(f => ({ ...f, lines: [...f.lines, emptyLine()] }))}>Add another item</button>
-        <div className="form-row"><label className="field"><span>Needed by</span><input type="date" min={new Date().toISOString().slice(0, 10)} value={form.neededBy} onChange={e => setForm({ ...form, neededBy: e.target.value })} required/></label>
-          <label className="field"><span>Note (optional)</span><input value={form.note} onChange={e => setForm({ ...form, note: e.target.value })}/></label></div>
-        <div className="row-actions"><button type="button" className="outline-btn" onClick={() => setForm(null)}>Cancel</button><button className="gradient-btn" disabled={busy}>{busy ? "Sending…" : "Send to MVEC"}</button></div>
-      </form>}
-    <Remote deps={[tick]} load={() => suppliersApi.getSupplyRequests()}>{({ requests = [] }) => <div className="data-card">{requests.length === 0 ? <div className="empty-state"><h3>No supply requests yet</h3></div> : <div className="orders-list">{requests.map(r => <div className="order-row" key={r._id}>
-      <div className="order-row-main"><b>{r.reference}</b>{(r.lines || []).map((l, i) => <small key={i}>{l.units} {l.unit} × {l.product}</small>)}<small>Needed by {date(r.neededBy)}</small>{r.decision && <small>MVEC: {r.decision}</small>}</div>
-      <div className="order-row-meta"><span className={`status ${["RECEIVED", "APPROVED"].includes(r.status) ? "active" : ["REJECTED", "CANCELLED"].includes(r.status) ? "danger" : "pending"}`}>{REQUEST_STATUS[r.status] || r.status}</span><small>Updated {date(r.updatedAt)}</small></div>
-      <div className="order-row-actions">{["SUBMITTED", "UNDER_REVIEW", "SOURCING"].includes(r.status) && <button type="button" className="outline-btn" onClick={() => withdraw(r)}>Withdraw</button>}</div>
-    </div>)}</div>}</div>}</Remote></>;
-}
-
-export default function SupplierDashboard() { const path = useLocation().pathname; let page = <Overview/>; if (path.includes("/products")) page = <Products/>; else if (path.includes("/orders")) page = <Orders/>; else if (path.includes("/inventory")) page = <Inventory/>; else if (path.includes("/analytics")) page = <Analytics/>; else if (path.includes("/payments")) page = <Payments/>; else if (path.includes("/supply-requests")) page = <SupplyRequests/>; else if (path.includes("/reports")) page = <Reports/>; else if (path.includes("/team")) page = <Team/>; else if (path.includes("/notifications")) page = <NotificationPanel/>; else if (path.includes("/settings")) page = <Settings/>; return <DashboardLayout><RestrictedOverview>{page}</RestrictedOverview></DashboardLayout>; }
+export default function SupplierDashboard() { const path = useLocation().pathname; let page = <Overview/>; if (path.includes("/products")) page = <Products/>; else if (path.includes("/orders")) page = <WholesaleOrders role="supplier"/>; else if (path.includes("/quotes")) page = <SupplierQuotes/>; else if (path.includes("/inventory")) page = <Inventory/>; else if (path.includes("/analytics")) page = <Analytics/>; else if (path.includes("/payments")) page = <Payments/>;  else if (path.includes("/reports")) page = <Reports/>; else if (path.includes("/team")) page = <Team/>; else if (path.includes("/notifications")) page = <NotificationPanel/>; else if (path.includes("/settings")) page = <Settings/>; return <DashboardLayout><RestrictedOverview>{page}</RestrictedOverview></DashboardLayout>; }

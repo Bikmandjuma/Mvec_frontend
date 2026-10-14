@@ -25,7 +25,7 @@ export default function DeliveryDashboard() {
   const path = useLocation().pathname;
   return (
     <DashboardLayout>
-      {path.includes("/deliveries") ? <DeliveryTracking role="delivery" /> : <Overview />}
+      {path.includes("/deliveries") ? <DeliveryTracking role="delivery" /> : path.includes("/history") ? <DeliveryTracking role="delivery" initialTab="done" /> : <Overview />}
     </DashboardLayout>
   );
 }

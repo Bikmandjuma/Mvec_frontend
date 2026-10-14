@@ -117,7 +117,7 @@ const COPY = {
   delivery: ["My deliveries", "Deliveries assigned to you. Ask the buyer for their 6-digit code when you hand over the items."],
 };
 
-export default function DeliveryTracking({ role = "vendor" }) {
+export default function DeliveryTracking({ role = "vendor", initialTab = "active" }) {
   const { user } = useAuth();
   const wholesale = role === "supplier";
   const [orders, setOrders] = useState([]);
@@ -126,7 +126,7 @@ export default function DeliveryTracking({ role = "vendor" }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [q, setQ] = useState("");
-  const [tab, setTab] = useState("active");
+  const [tab, setTab] = useState(initialTab);
   const [page, setPage] = useState(1);
   const [codes, setCodes] = useState({});
   const [busyId, setBusyId] = useState("");

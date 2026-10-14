@@ -33,9 +33,10 @@ import MobileBottomNav from "./components/MobileBottomNav";
 import FeaturePages, { AdminDisputesPage } from "./pages/FeaturePages";
 import AffiliateRedirect from "./components/AffiliateRedirect";
 import AdminTransfers from "./pages/AdminTransfers";
+import { VendorQuotes } from "./pages/Wholesale";
 import {
   AdminVendors, AdminSuppliers, AdminPaymentsPage, AdminEarnings, AdminLedgerPage, AdminAnalyticsPage,
-  AdminRisk, AdminTrust, AdminSubscriptionsPage, AdminPlatform, AdminAuditLog, AdminCommissionRules,
+  AdminRisk, AdminTrust, AdminSubscriptionsPage, AdminPlatform, AdminAuditLog, AdminCommissionRules, AdminSupportInbox,
 } from "./pages/AdminOps";
 import { CommunicationPage } from "./pages/ExtendedModules";
 function DashboardDelivery({ role }) {
@@ -173,7 +174,7 @@ export default function App() {
         path="/admin/support"
         element={
           <RequireAuth roles={["super_admin"]}>
-            <FeaturePages role="admin" />
+            <AdminSupportInbox />
           </RequireAuth>
         }
       />
@@ -190,6 +191,14 @@ export default function App() {
         element={
           <RequireAuth roles={["vendor"]}>
             <FeaturePages role="vendor" />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/vendor/quotes"
+        element={
+          <RequireAuth roles={["vendor"]}>
+            <DashboardLayout><VendorQuotes /></DashboardLayout>
           </RequireAuth>
         }
       />
@@ -252,9 +261,7 @@ export default function App() {
       <Route
         path="/supplier/supply-requests"
         element={
-          <RequireAuth roles={["supplier"]}>
-            <SupplierDashboard />
-          </RequireAuth>
+          <Navigate to="/supplier/quotes" replace />
         }
       />
       <Route
@@ -284,9 +291,7 @@ export default function App() {
       <Route
         path="/supplier/delivery"
         element={
-          <RequireAuth roles={["supplier"]}>
-            <DashboardDelivery role="supplier" />
-          </RequireAuth>
+          <Navigate to="/supplier/orders" replace />
         }
       />
       <Route
@@ -332,6 +337,14 @@ export default function App() {
         element={
           <RequireAuth roles={["delivery"]}>
             <CommunicationPage role="delivery" />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/delivery/support"
+        element={
+          <RequireAuth roles={["delivery"]}>
+            <FeaturePages role="delivery" />
           </RequireAuth>
         }
       />

@@ -31,12 +31,6 @@ export const suppliersApi = {
     client.get("/suppliers/me/finance/analytics", { params }).then((r) => r.data),
   getDeliverySummary: () =>
     client.get("/suppliers/me/delivery/summary").then((r) => r.data),
-  getSupplyRequests: (params) =>
-    client.get("/suppliers/me/supply-requests", { params }).then((r) => r.data),
-  createSupplyRequest: (payload) =>
-    client.post("/suppliers/me/supply-requests", payload).then((r) => r.data),
-  cancelSupplyRequest: (id, reason) =>
-    client.post(`/suppliers/me/supply-requests/${id}/cancel`, { reason }).then((r) => r.data),
   // method: MTN_MOMO | AIRTEL_MONEY | BANK_TRANSFER; destination: phone or account.
   requestPayout: (payload) =>
     client.post("/suppliers/me/finance/payouts", payload).then((r) => r.data),
