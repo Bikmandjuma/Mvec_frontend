@@ -1,4 +1,5 @@
 import { client } from "./client";
+import { getReferralCode } from "../services/referral";
 
 // city = district and state = province, as the backend Order model expects.
 const mapAddress = (a = {}) => ({
@@ -27,6 +28,8 @@ export const ordersApi = {
       shippingAddress: mapAddress(shippingAddress),
       shippingMethod: String(payload.shippingMethod || "STANDARD").toUpperCase(),
       paymentMethod: paymentMap[requested] || "MOMO",
+      couponCode: payload.couponCode || undefined,
+      affiliateCode: getReferralCode() || undefined,
     };
     return client.post("/orders/checkout", body).then((r) => r.data);
   },
@@ -46,6 +49,8 @@ export const ordersApi = {
       shippingAddress: mapAddress(shippingAddress),
       shippingMethod: String(payload.shippingMethod || "STANDARD").toUpperCase(),
       paymentMethod: paymentMap[requested] || "MOMO",
+      couponCode: payload.couponCode || undefined,
+      affiliateCode: getReferralCode() || undefined,
     };
     return client.post("/orders/direct-checkout", body).then((r) => r.data);
   },

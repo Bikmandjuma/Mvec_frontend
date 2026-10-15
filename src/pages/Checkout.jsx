@@ -6,6 +6,7 @@ import { useAuth } from "../context/AuthContext";
 import { productsApi } from "../API/products";
 import { ordersApi } from "../API/orders";
 import { shippingApi } from "../API/shipping";
+import { promotionsApi } from "../API/promotions";
 import { RWANDA_LOCATIONS, PROVINCES } from "../data/rwandaLocations";
 import { extractErrorMessage } from "../API/client";
 
@@ -62,8 +63,14 @@ export default function Checkout() {
   const subtotal = items.reduce((s, x) => s + (x.price || 0) * (x.qty || x.quantity || 1), 0);
   const quote = quotes[form.method];
   const shipping = quote?.shippingFee ?? 0;
-  const total = subtotal + shipping;
   const undeliverable = quote && !quote.deliverable;
+  // Seller coupon: previewed here, applied for real when the order is created.
+  const [couponInput, setCouponInput] = useState("");
+  const [coupon, setCoupon] = useState(null);
+  const [couponError, setCouponError] = useState("");
+  const [couponBusy, setCouponBusy] = useState(false);
+  const discount = coupon ? Math.min(coupon.discount, subtotal + shipping) : 0;
+  const total = subtotal + shipping - discount;
 
   const quoteItems = useMemo(() => items.map((x) => ({ productId: x.id || x._id, qty: x.qty || x.quantity || 1 })), [items]);
   const quoteKey = JSON.stringify([form.province, form.district, quoteItems]);
@@ -82,6 +89,29 @@ export default function Checkout() {
     return () => { alive = false; clearTimeout(t); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [quoteKey, user]);
+
+  const checkCoupon = async (code, silent = false) => {
+    if (!code.trim()) return;
+    if (!user) { setCouponError("Sign in to use a coupon."); return; }
+    setCouponBusy(true);
+    if (!silent) setCouponError("");
+    try {
+      const res = await promotionsApi.validate({
+        code: code.trim(), items: quoteItems, shippingMethod: form.method,
+        shippingAddress: form.district ? { province: form.province, district: form.district } : undefined,
+      });
+      setCoupon(res);
+      setCouponError("");
+    } catch (err) {
+      setCoupon(null);
+      setCouponError(extractErrorMessage(err));
+    } finally { setCouponBusy(false); }
+  };
+  // The discount depends on the basket and delivery, so re-check when they change.
+  useEffect(() => {
+    if (coupon) checkCoupon(coupon.code, true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [quoteKey, form.method]);
 
   function update(e) {
     const { name, value } = e.target;
@@ -124,10 +154,11 @@ export default function Checkout() {
           shippingAddress,
           paymentMethod: "momo",
           shippingMethod: form.method,
+          couponCode: coupon?.code,
         });
         order = res.order;
       } else {
-        const res = await ordersApi.checkout({ shippingAddress, paymentMethod: "momo", shippingMethod: form.method });
+        const res = await ordersApi.checkout({ shippingAddress, paymentMethod: "momo", shippingMethod: form.method, couponCode: coupon?.code });
         order = res.order;
         await clearCart();
       }
@@ -163,7 +194,17 @@ export default function Checkout() {
         <p className="tiny">Delivery fees are set by each seller for your district. Items from different stores ship separately.</p>
       </div>
       <div className="form-card"><h2>Order items</h2>{items.length === 0 && <p className="tiny">Your cart is empty.</p>}{items.map((x, i) => <div className="mini-item" key={x.id || i}><img src={x.image} alt="" /><div><b>{x.name}</b><span>{x.vendor} · Qty {x.qty || x.quantity || 1}</span></div><strong>{money((x.price || 0) * (x.qty || x.quantity || 1))}</strong></div>)}</div>
-    </section><aside className="summary-card"><h2>Order summary</h2><div><span>Products</span><b>{money(subtotal)}</b></div><div><span>Delivery{quote?.groups?.length > 1 ? ` (${quote.groups.length} parcels)` : ""}</span><b>{!user ? "At sign-in" : quoting && !quote ? "…" : undeliverable ? "—" : shipping === 0 ? "FREE" : money(shipping)}</b></div><div><span>Platform fees</span><b>Included where applicable</b></div><hr /><div className="grand"><span>Grand total</span><strong>{money(total)}</strong></div>
+    </section><aside className="summary-card"><h2>Order summary</h2><div><span>Products</span><b>{money(subtotal)}</b></div><div><span>Delivery{quote?.groups?.length > 1 ? ` (${quote.groups.length} parcels)` : ""}</span><b>{!user ? "At sign-in" : quoting && !quote ? "…" : undeliverable ? "—" : shipping === 0 ? "FREE" : money(shipping)}</b></div>{coupon && <div className="checkout-discount"><span>Coupon {coupon.code}</span><b>−{money(discount)}</b></div>}<div><span>Platform fees</span><b>Included where applicable</b></div>
+      <div className="checkout-coupon">
+        {coupon
+          ? <p className="tiny"><b>{coupon.code}</b> · {coupon.message} <button type="button" className="link-btn" onClick={() => { setCoupon(null); setCouponInput(""); }}>Remove</button></p>
+          : <div className="checkout-coupon-row">
+              <input value={couponInput} onChange={(e) => setCouponInput(e.target.value.toUpperCase())} placeholder="Coupon code" aria-label="Coupon code"
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); checkCoupon(couponInput); } }} />
+              <button type="button" className="outline-btn" disabled={couponBusy || !couponInput.trim()} onClick={() => checkCoupon(couponInput)}>{couponBusy ? "…" : "Apply"}</button>
+            </div>}
+        {couponError && <small className="checkout-coupon-error">{couponError}</small>}
+      </div><hr /><div className="grand"><span>Grand total</span><strong>{money(total)}</strong></div>
       <button className="gradient-btn full" type="submit" disabled={submitting || undeliverable || (user && quoting && !quote)}>{submitting ? "Placing order…" : "Continue to payment"}</button><Link to="/cart" className="back-link">← Back to cart</Link>
       <div className="verified-box"><b>✓ Clear payment flow</b><p>Your payment is processed through an appropriate payment partner. In the protected workflow, funds are recorded as HELD until delivery is confirmed.</p></div>
     </aside></div></form>

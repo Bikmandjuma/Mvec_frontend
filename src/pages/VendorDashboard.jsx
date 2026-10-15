@@ -4,6 +4,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import DashboardLayout from '../components/DashboardLayout';
 import Icon from '../components/Icon';
 import Pagination from '../components/Pagination';
+import useUrlQuery from '../components/useUrlQuery';
 import DeliveryTracking from '../components/DeliveryTracking';
 import NotificationPanel from '../components/NotificationPanel';
 import { productsApi } from '../API/products';
@@ -11,9 +12,9 @@ import { categoriesApi } from '../API/categories';
 import { uploadsApi } from '../API/uploads';
 import { storesApi } from '../API/stores';
 import { ordersApi } from '../API/orders';
-import { payoutsApi } from '../API/payouts';
 import { extractErrorMessage } from '../API/client';
 import { useAuth } from '../context/AuthContext';
+import { STAFF_ROLE_LABEL } from '../data/staffAccess';
 import { money, matches, personName, sellerNextStatuses, StatusPill, titleCase, FormModal } from './seller/shared';
 import StorePage from './seller/StorePage';
 import SettingsPage from './seller/SettingsPage';
@@ -21,9 +22,12 @@ import TeamPage from './seller/TeamPage';
 import PromotionsPage from './seller/PromotionsPage';
 import ShippingPage from './seller/ShippingPage';
 import ReviewsPage from './seller/ReviewsPage';
-import { CustomersPage, AnalyticsPage, ReportsPage, TransactionsPage } from './seller/InsightsPages';
+import { AnalyticsPage, ReportsPage } from './seller/InsightsPages';
+import { PayoutsPage, TransactionsPage } from './seller/FinancePages';
+import CustomersPage from './seller/CustomersPage';
 import CategoriesPage, { buildCategoryTree } from './seller/CategoriesPage';
 import InventoryPage from './seller/InventoryPage';
+import OrdersPage from './seller/OrdersPage';
 import ManualOrderModal from './seller/ManualOrderModal';
 import { AdvertisementsPage, SubscriptionPage } from './seller/GrowthPages';
 
@@ -50,7 +54,7 @@ function SellerOverview(){
   const lowStock=products.filter(p=>Number(p.stockQuantity)<=Number(p.lowStockThreshold||5));
 
   return <>
-    <div className="dash-page-head"><div><span className="eyebrow">SELLER PLATFORM</span><h1>{greeting()}, {user?.fullName?.split(' ')[0]||'Seller'}</h1><p>Everything you need to operate your MVEC store.</p></div></div>
+    <div className="dash-page-head"><div><span className="eyebrow">SELLER PLATFORM</span><h1>{greeting()}, {user?.fullName?.split(' ')[0]||'Seller'}</h1><p>{user?.isStaff?`You're working in ${user.staffStoreName||'the store'} as ${STAFF_ROLE_LABEL[user.staffRole]||'staff'}. Menus show what your role can access.`:'Everything you need to operate your MVEC store.'}</p></div></div>
     <div className="metric-grid">
       <Metric label="Products" value={loading?'...':products.length} icon="box" sub="Published catalog"/>
       <Metric label="Low-stock items" value={loading?'...':lowStock.length} icon="bell" sub="Needs attention"/>
@@ -218,6 +222,7 @@ function ProductModule(){
   const [saving,setSaving]=useState(false);
   const [page,setPage]=useState(1);
   const [q,setQ]=useState('');
+  useUrlQuery(setQ);
   const [statusFilter,setStatusFilter]=useState('');
   const [storeFilter,setStoreFilter]=useState('');
   const [categoryFilter,setCategoryFilter]=useState(()=>new URLSearchParams(location.search).get('category')||'');
@@ -333,134 +338,11 @@ function ProductModule(){
   </>;
 }
 
-function VendorOrders(){
-  const [orders,setOrders]=useState([]);
-  const [loading,setLoading]=useState(true);
-  const [error,setError]=useState('');
-  const [q,setQ]=useState('');
-  const [page,setPage]=useState(1);
-  const per=6;
-
-  const [statusFilter,setStatusFilter]=useState('');
-  const [updating,setUpdating]=useState('');
-  const [creating,setCreating]=useState(false);
-  const [sourceFilter,setSourceFilter]=useState('');
-  const navigateTo=useNavigate();
-  // Manual orders may have no buyer account; their contact is on order.customer.
-  const buyerOf=o=>o.customer?.name||personName(o.user);
-
-  const load=()=>{
-    ordersApi.getVendorOrders().then(res=>setOrders(res.orders||[])).catch(err=>setError(extractErrorMessage(err))).finally(()=>setLoading(false));
-  };
-  useEffect(load,[]);
-
-  const filtered=useMemo(()=>orders.filter(o=>matches(q,o.orderNumber,buyerOf(o),o.user?.email,o.customer?.phone,o.shippingAddress?.city)&&(!statusFilter||o.orderStatus===statusFilter)&&(!sourceFilter||(o.source||'ONLINE')===sourceFilter)),[orders,q,statusFilter,sourceFilter]);
-  const shown=filtered.slice((page-1)*per,page*per);
-
-  const updateStatus=async(order,status)=>{
-    if(status==='CANCELLED'&&!window.confirm(`Cancel order ${order.orderNumber}?`)) return;
-    setError('');
-    setUpdating(order._id);
-    try{
-      await ordersApi.updateVendorOrderStatus({orderId:order._id,status});
-      load();
-    }catch(err){ setError(extractErrorMessage(err)); }
-    finally{ setUpdating(''); }
-  };
-
-  return <>
-    <div className="dash-page-head"><div><span className="eyebrow">SELLER PLATFORM</span><h1>Orders</h1><p>Online orders for your products, plus sales you record yourself.</p></div><button type="button" className="gradient-btn" onClick={()=>setCreating(true)}><Icon name="plus"/> New order</button></div>
-    {creating&&<ManualOrderModal onClose={()=>setCreating(false)} onCreated={res=>{setCreating(false);navigateTo(`/vendor/orders/${res.order._id||res.order.id}`);}}/>}
-    {error&&<div className="form-error">{error}</div>}
-    <div className="dash-toolbar"><div className="dash-filter"><Icon name="search"/><input value={q} onChange={e=>{setQ(e.target.value);setPage(1)}} placeholder="Search orders, buyers or city"/></div><select className="table-filter-select" value={statusFilter} onChange={e=>{setStatusFilter(e.target.value);setPage(1)}}><option value="">All statuses</option>{[...new Set(orders.map(o=>o.orderStatus))].map(x=><option key={x} value={x}>{titleCase(x)}</option>)}</select><select className="table-filter-select" value={sourceFilter} onChange={e=>{setSourceFilter(e.target.value);setPage(1)}} aria-label="Order source"><option value="">All sources</option><option value="ONLINE">Online</option><option value="MANUAL">Manual</option></select></div>
-    <div className="data-card">
-      {loading && <div className="empty-state"><h3>Loading orders…</h3></div>}
-      {!loading && shown.length===0 && <div className="empty-state"><h3>No orders yet</h3><p>Orders containing your products will appear here.</p></div>}
-      {!loading && <div className="data-table">
-        <div className="data-row module-row"><span className="table-label">Order</span><span className="table-label">Buyer</span><span className="table-label">Total</span><span className="table-label">Payment</span><span className="table-label">Status</span><span className="table-label">Next step</span></div>
-        {shown.map(o=>{const next=sellerNextStatuses(o.orderStatus);return <div className="data-row module-row" key={o._id}>
-          <span><Link to={`/vendor/orders/${o._id}`}><b>{o.orderNumber}</b></Link>{o.source==='MANUAL'&&<em className="seller-manual-tag">Manual</em>}</span>
-          <span>{buyerOf(o)}{o.customer?.phone&&<small className="tiny seller-block">{o.customer.phone}</small>}</span>
-          <span>{money(o.vendorSubtotal)}</span>
-          <span><StatusPill value={o.paymentStatus}/></span>
-          <span><StatusPill value={o.orderStatus}/></span>
-          <span>{next.length?<select className="inline-table-input" value="" disabled={updating===o._id} onChange={e=>e.target.value&&updateStatus(o,e.target.value)} aria-label={`Update ${o.orderNumber}`}><option value="">{updating===o._id?'Updating…':'Move to…'}</option>{next.map(s=><option key={s} value={s}>{titleCase(s)}</option>)}</select>:<small className="tiny">{o.orderStatus==='SHIPPED'?'Awaiting delivery OTP':'No action'}</small>}</span>
-        </div>;})}
-      </div>}
-      <Pagination page={page} setPage={setPage} total={filtered.length} perPage={per}/>
-    </div>
-  </>;
-}
-
-const momoProvider=n=>{const d=String(n||'').replace(/\D/g,'').replace(/^250/,'0');return /^07[89]/.test(d)?'MTN MoMo':/^07[23]/.test(d)?'Airtel Money':''};
-function VendorPayouts(){
-  const [balance,setBalance]=useState(null);
-  const [history,setHistory]=useState([]);
-  const [loading,setLoading]=useState(true);
-  const [amount,setAmount]=useState('');
-  const [accountName,setAccountName]=useState('');
-  const [accountNumber,setAccountNumber]=useState('');
-  const [message,setMessage]=useState('');
-  const [error,setError]=useState('');
-  const [busy,setBusy]=useState(false);
-
-  const load=()=>{
-    Promise.allSettled([payoutsApi.getBalance(),payoutsApi.getHistory()]).then(([bRes,hRes])=>{
-      if(bRes.status==='fulfilled') setBalance(bRes.value.balance);
-      if(hRes.status==='fulfilled') setHistory(hRes.value.payouts||[]);
-    }).finally(()=>setLoading(false));
-  };
-  useEffect(load,[]);
-
-  const requestPayout=async(e)=>{
-    e.preventDefault();
-    setError(''); setMessage('');
-    if(!amount||!accountName||!accountNumber){ setError('Please complete amount, account name and phone number.'); return; }
-    if(Number(amount)>(balance?.availableBalance||0)){ setError(`You can withdraw up to ${money(balance?.availableBalance)}.`); return; }
-    setBusy(true);
-    try{
-      const res=await payoutsApi.requestPayout({amount:Number(amount),payoutDetails:{accountName,accountNumber}});
-      setMessage(res.message);
-      setAmount(''); setAccountName(''); setAccountNumber('');
-      load();
-    }catch(err){ setError(extractErrorMessage(err)); }
-    finally{ setBusy(false); }
-  };
-
-  return <>
-    <div className="dash-page-head"><div><span className="eyebrow">SELLER PLATFORM</span><h1>Payouts</h1><p>Track available balance and request withdrawals.</p></div></div>
-    {loading && <div className="empty-state"><h3>Loading…</h3></div>}
-    {!loading && <>
-      <div className="metric-grid">
-        <Metric label="Available" value={money(balance?.availableBalance)} icon="wallet" sub="Ready to withdraw"/>
-        <Metric label="Pending" value={money(balance?.pendingBalance)} icon="wallet" sub="Held until delivery"/>
-        <Metric label="Total earned" value={money(balance?.totalEarned)} icon="chart" sub="All-time"/>
-      </div>
-      <div className="dash-grid">
-        <div className="data-card"><h3>Request payout</h3>
-          {message&&<div className="form-alert success">{message}</div>}
-          {error&&<div className="form-error">{error}</div>}
-          <form onSubmit={requestPayout}>
-            <label className="field"><span>Amount (RWF)</span><div className="payout-amount"><input type="number" min="1" max={balance?.availableBalance||0} value={amount} onChange={e=>setAmount(e.target.value)}/><button type="button" className="table-action-btn" disabled={!balance?.availableBalance} onClick={()=>setAmount(String(Math.floor(balance.availableBalance)))}>Withdraw all</button></div></label>
-            <label className="field"><span>Account name</span><input value={accountName} onChange={e=>setAccountName(e.target.value)}/></label>
-            <label className="field"><span>Mobile money number</span><input value={accountNumber} onChange={e=>setAccountNumber(e.target.value)} placeholder="078 / 079 (MTN) or 072 / 073 (Airtel)"/>{momoProvider(accountNumber)&&<small className="tiny">Paid to {momoProvider(accountNumber)}</small>}</label>
-            <button className="gradient-btn" type="submit" disabled={busy}>{busy?'Requesting…':'Request payout'}</button>
-          </form>
-        </div>
-        <div className="data-card"><h3>Payout history</h3>
-          {history.length===0&&<p className="tiny">No payouts yet.</p>}
-          {history.map(p=><div className="activity-row" key={p._id||p.id||p.payoutNumber}><div><b>{p.payoutNumber}</b><small>{[p.payoutDetails?.bankName,p.payoutDetails?.accountNumber].filter(Boolean).join(' · ')}</small></div><div><strong>{money(p.amount)}</strong><StatusPill value={p.status}/></div></div>)}
-        </div>
-      </div>
-    </>}
-  </>;
-}
-
 const SELLER_PAGES={
   stores:StorePage, categories:CategoriesPage, customers:CustomersPage, analytics:AnalyticsPage, reports:ReportsPage,
   transactions:TransactionsPage, promotions:PromotionsPage, shipping:ShippingPage, reviews:ReviewsPage,
   team:TeamPage, settings:SettingsPage, advertisements:AdvertisementsPage, subscription:SubscriptionPage,
-  products:ProductModule, inventory:InventoryPage, orders:VendorOrders, payouts:VendorPayouts,
+  products:ProductModule, inventory:InventoryPage, orders:OrdersPage, payouts:PayoutsPage,
 };
 
 export default function VendorDashboard(){

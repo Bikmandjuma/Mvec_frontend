@@ -43,6 +43,19 @@ export function mapUser(u) {
     role: u.role || "buyer",
     companyName: u.companyName || "",
     isSellerEnabled: Boolean(u.isSellerEnabled),
+    // Vendor staff sign in to their employer's store with limited access.
+    isStaff: Boolean(u.isStaff),
+    staffRole: u.staffRole || null,
+    staffStoreName: u.staffStoreName || null,
+    permissionsMap: u.permissionsMap || {},
+    // Account settings
+    avatarUrl: u.avatarUrl || "",
+    preferences: u.preferences || null,
+    emailVerified: Boolean(u.email_verified),
+    hasPassword: u.hasPassword !== false,
+    googleLinked: Boolean(u.googleLinked),
+    createdAt: u.createdAt || null,
+    lastPasswordChangeAt: u.lastPasswordChangeAt || null,
   };
 }
 

@@ -32,6 +32,10 @@ import DashboardLayout from "./components/DashboardLayout";
 import NotificationPanel from "./components/NotificationPanel";
 import MobileBottomNav from "./components/MobileBottomNav";
 import FeaturePages from "./pages/FeaturePages";
+import VendorPayoutsAdmin from "./pages/admin/VendorPayoutsAdmin";
+import AccountSettings from "./pages/account/AccountSettings";
+import AdvertisingAdmin from "./pages/admin/AdvertisingAdmin";
+import { ReferralCapture } from "./services/referral";
 import {
   CommissionRules,
   FinancialLedger,
@@ -51,6 +55,7 @@ function DashboardDelivery({ role }) {
 export default function App() {
   return (
     <>
+    <ReferralCapture />
     <Routes>
       <Route path="/" element={<Home />} />
       <Route path="/login" element={<Login />} />
@@ -348,7 +353,7 @@ export default function App() {
         path="/admin/advertising"
         element={
           <RequireAuth roles={["super_admin"]}>
-            <FeaturePages role="admin" />
+            <AdvertisingAdmin />
           </RequireAuth>
         }
       />
@@ -493,6 +498,54 @@ export default function App() {
         element={
           <RequireAuth roles={["super_admin"]}>
             <AdminAnalytics />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/vendor/profile"
+        element={
+          <RequireAuth roles={["vendor"]}>
+            <DashboardLayout><AccountSettings eyebrow="SELLER PLATFORM" /></DashboardLayout>
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/admin/profile"
+        element={
+          <RequireAuth roles={["super_admin"]}>
+            <DashboardLayout admin><AccountSettings eyebrow="ADMIN CONTROL" /></DashboardLayout>
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/supplier/profile"
+        element={
+          <RequireAuth roles={["supplier"]}>
+            <DashboardLayout><AccountSettings eyebrow="SUPPLIER PORTAL" /></DashboardLayout>
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/affiliate/profile"
+        element={
+          <RequireAuth roles={["affiliate"]}>
+            <DashboardLayout><AccountSettings eyebrow="AFFILIATE PORTAL" /></DashboardLayout>
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/delivery/profile"
+        element={
+          <RequireAuth roles={["delivery"]}>
+            <DashboardLayout><AccountSettings eyebrow="DELIVERY PORTAL" /></DashboardLayout>
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/admin/vendor-payouts"
+        element={
+          <RequireAuth roles={["super_admin"]}>
+            <VendorPayoutsAdmin />
           </RequireAuth>
         }
       />

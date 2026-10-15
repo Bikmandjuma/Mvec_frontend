@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { useState, useEffect } from "react";
 import Pagination from "../components/Pagination";
+import SponsoredProducts from "../components/SponsoredProducts";
 import { loadCatalog } from "../services/catalogApi";
 import Storefront from "../components/Storefront";
 import Icon from "../components/Icon";
@@ -169,6 +170,7 @@ export default function Home() {
             </div>
             <Link to="/shop">View all products →</Link>
           </div>
+          <SponsoredProducts surface="home" catalog={products} limit={4} title="Featured by sellers" />
           <div className="product-grid">
             {shownProducts.map((p) => (
               <ProductCard key={p.id} p={p} />

@@ -89,8 +89,16 @@ function WholesaleList({role}){
  const confirmReceipt=o=>window.confirm(`Confirm you received ${o.orderNumber}? ${money(o.totalAmount)} will be released to ${partyName(o.supplier)}. This cannot be undone.`)
   &&run(o,()=>wholesaleApi.confirmReceipt(o._id),`${o.orderNumber} confirmed. Payment released to the supplier.`);
  const markShipped=o=>run(o,()=>wholesaleApi.markShipped(o._id),`${o.orderNumber} marked as shipped.`);
+ const pay=o=>window.confirm(`Pay ${money(o.totalAmount)} for ${o.orderNumber}? The money is held in escrow and only released to ${partyName(o.supplier)} when you confirm receipt.`)
+  &&run(o,()=>wholesaleApi.holdEscrow(o._id),`${o.orderNumber} paid. The funds are held in escrow and the supplier can ship.`);
+ const cancel=o=>window.confirm(`${supplier?'Decline':'Cancel'} ${o.orderNumber}? This can't be undone.`)
+  &&run(o,()=>wholesaleApi.cancel(o._id),`${o.orderNumber} ${supplier?'declined':'cancelled'}.`);
  const nextAction=o=>{
   const busy=busyId===o._id;
+  if(o.status==='PENDING_PAYMENT') return <>
+   {!supplier&&<button type="button" className="table-action-btn primary" disabled={busy} onClick={()=>pay(o)}><Icon name="wallet" size={15}/>{busy?'Paying…':'Pay into escrow'}</button>}
+   <button type="button" className="table-action-btn" disabled={busy} onClick={()=>cancel(o)}>{supplier?'Decline':'Cancel'}</button>
+  </>;
   if(!supplier&&['SHIPPED','DELIVERED'].includes(o.status)) return <button type="button" className="table-action-btn primary" disabled={busy} onClick={()=>confirmReceipt(o)}><Icon name="check" size={15}/>{busy?'Confirming…':'Confirm receipt'}</button>;
   if(supplier&&o.status==='ESCROW_HELD') return <button type="button" className="table-action-btn primary" disabled={busy} onClick={()=>markShipped(o)}><Icon name="box" size={15}/>{busy?'Saving…':'Mark shipped'}</button>;
   return null;

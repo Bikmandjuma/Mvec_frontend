@@ -9,4 +9,8 @@ export const staffApi = {
     client.put(`/staff/${id}`, payload).then((r) => r.data),
   remove: (id) =>
     client.delete(`/staff/${id}`).then((r) => r.data),
+  resetPassword: (id, password) =>
+    client.post(`/staff/${id}/password`, { password }).then((r) => r.data),
+  activity: (params = {}) =>
+    client.get("/staff/activity", { params }).then((r) => r.data),
 };

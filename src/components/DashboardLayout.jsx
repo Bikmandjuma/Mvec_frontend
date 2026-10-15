@@ -1,7 +1,8 @@
-import {useState,useEffect} from 'react';import {Link,useLocation,useNavigate} from 'react-router-dom';import {useAuth} from '../context/AuthContext';import {useTheme} from '../context/ThemeContext';import Icon from './Icon';
+import {useState,useEffect} from 'react';import {Link,useLocation,useNavigate} from 'react-router-dom';import {useAuth} from '../context/AuthContext';import {useTheme} from '../context/ThemeContext';import Icon from './Icon';import ThemeToggle from './ThemeToggle';import CommandPalette from './CommandPalette';
 import {navGroupsForRole} from '../data/navItems';
+import {staffCan,STAFF_ROLE_LABEL} from '../data/staffAccess';
+import {PORTAL_PROFILE} from '../pages/Profile';
 import {notificationsApi} from '../API/notifications';
-import {searchApi} from '../API/search';
 
 // Longest href that matches the current path, so nested pages such as
 // /vendor/orders/123 still highlight "Orders". Dashboard roots (/vendor,
@@ -49,43 +50,36 @@ function GroupedNav({groups,pathname,onNavigate}){
 
 function Sidebar({admin,role,user,avatar,pathname,onNavigate,onLogout}){
   const platform=admin?'Admin':role==='supplier'?'Supplier':role==='affiliate'?'Affiliate':role==='delivery'?'Delivery':'Seller';
-  const accountLabel=admin?'Super Administrator':role==='supplier'?'Supplier account':role==='affiliate'?'Affiliate account':role==='delivery'?'Delivery partner':'Vendor account';
+  const accountLabel=admin?'Super Administrator':role==='supplier'?'Supplier account':role==='affiliate'?'Affiliate account':role==='delivery'?'Delivery partner':user?.isStaff?`${STAFF_ROLE_LABEL[user.staffRole]||'Staff'} · ${user.staffStoreName||'Store'}`:'Vendor account';
+  // Staff only see the menus their role gives access to.
+  const groups=navGroupsForRole(role,admin).map(g=>({...g,items:g.items.filter(([href])=>admin||staffCan(user,href))})).filter(g=>g.items.length);
   return <aside className="dashboard-sidebar sb">
     <div className="sb-brand">
       <Link to="/" className="sb-logo">MVEC</Link>
       <span className="sb-platform">{platform}</span>
     </div>
-    <Link to="/profile" className="sb-user" onClick={onNavigate}>
+    <Link to={admin?'/admin/profile':PORTAL_PROFILE[role]||'/profile'} className="sb-user" onClick={onNavigate}>
       <div className="dash-avatar sb-avatar">{avatar?<img src={avatar} alt="Profile"/>:(user?.fullName?.[0]||'M')}</div>
       <div className="sb-user-text"><b>{user?.fullName||'MVEC User'}</b><small>{accountLabel}</small></div>
     </Link>
-    <GroupedNav groups={navGroupsForRole(role,admin)} pathname={pathname} onNavigate={onNavigate}/>
+    <GroupedNav groups={groups} pathname={pathname} onNavigate={onNavigate}/>
     <div className="sb-footer">
+      <Link to={admin?'/admin/profile':PORTAL_PROFILE[role]||'/profile'} className={'sb-link'+(pathname.endsWith('/profile')?' active':'')} onClick={onNavigate}><Icon name="user" size={17}/><span>Account settings</span></Link>
       <Link to="/" className="sb-link"><Icon name="home" size={17}/><span>View marketplace</span></Link>
       <button type="button" className="sb-link sb-logout" onClick={onLogout}><Icon name="logout" size={17}/><span>Sign out</span></button>
     </div>
   </aside>;
 }
 
-export default function DashboardLayout({admin=false,children}){const {user,logout}=useAuth(),loc=useLocation(),navigate=useNavigate(),{theme,toggleTheme}=useTheme();const [open,setOpen]=useState(false);const [search,setSearch]=useState('');const avatar=localStorage.getItem('mvec_profile_image')||'';
+export default function DashboardLayout({admin=false,children}){const {user,logout}=useAuth(),loc=useLocation(),navigate=useNavigate(),{theme,toggleTheme}=useTheme();const [open,setOpen]=useState(false);const avatar=user?.avatarUrl||'';
 const [unread,setUnread]=useState(0);
 useEffect(()=>{let alive=true;const load=()=>notificationsApi.getAll({limit:1}).then(d=>{if(alive)setUnread(d.unreadCount||0)}).catch(()=>{});load();const t=setInterval(load,30000);return()=>{alive=false;clearInterval(t)}},[]);
 
-const [searchResults,setSearchResults]=useState([]);
-useEffect(()=>{
-  const term=search.trim();
-  if(term.length<2){ setSearchResults([]); return; }
-  let alive=true;
-  const t=setTimeout(()=>{
-    searchApi.getSuggestions(term).then(res=>{
-      if(!alive) return;
-      const s=res.suggestions||{};
-      const products=(s.products||[]).slice(0,4).map(p=>({id:p.id,name:p.name,sub:p.category?.name||'',kind:'product'}));
-      const vendorsList=(s.vendors||[]).slice(0,2).map(v=>({id:v.slug||v.id,name:v.businessName,sub:'Vendor',kind:'vendor'}));
-      setSearchResults([...products,...vendorsList]);
-    }).catch(()=>alive&&setSearchResults([]));
-  },250);
-  return ()=>{alive=false;clearTimeout(t)};
-},[search]);
+const [paletteOpen,setPaletteOpen]=useState(false);
+// ⌘K / Ctrl+K anywhere, or "/" when not typing, opens global search.
+useEffect(()=>{const onKey=e=>{const typing=/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)||e.target.isContentEditable;if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k'){e.preventDefault();setPaletteOpen(o=>!o)}else if(e.key==='/'&&!typing&&!paletteOpen){e.preventDefault();setPaletteOpen(true)}};document.addEventListener('keydown',onKey);return()=>document.removeEventListener('keydown',onKey)},[paletteOpen]);
+const isMac=typeof navigator!=='undefined'&&/Mac|iPhone|iPad/.test(navigator.platform||navigator.userAgent);
 
-const role=user?.role;const goGlobalSearch=()=>{if(search.trim())navigate(`/shop?q=${encodeURIComponent(search.trim())}`)};return <div className={'dashboard-shell '+(open?'sidebar-open':'')}><Sidebar admin={admin} role={role} user={user} avatar={avatar} pathname={loc.pathname} onNavigate={()=>setOpen(false)} onLogout={()=>{logout();navigate('/')}}/><section className="dashboard-main"><header className="dash-header"><button className="mobile-menu" onClick={()=>setOpen(v=>!v)}><Icon name="menu"/></button><div className="dash-search-wrap"><div className="dash-search"><Icon name="search"/><input value={search} onChange={e=>setSearch(e.target.value)} onKeyDown={e=>e.key==='Enter'&&goGlobalSearch()} placeholder="Search…"/></div>{search.trim().length>=2&&<div className="dash-global-results">{searchResults.map((r,i)=><Link key={`${r.kind}-${r.id}-${i}`} to={r.kind==='product'?`/product/${r.id}`:`/vendors/${r.id}`} onClick={()=>setSearch('')}><span>{r.name}</span><small>{r.sub}</small></Link>)}{!searchResults.length&&<div className="search-no-results">No matching results</div>}<button type="button" className="search-view-all" onClick={goGlobalSearch}>View all results</button></div>}</div><div className="dash-header-actions"><button className="theme-toggle" onClick={toggleTheme} title="Toggle theme"><Icon name={theme==='dark'?'sun':'moon'} size={18}/></button><Link className="dashboard-bell" to={admin?'/admin/notifications':role==='supplier'?'/supplier/notifications':role==='affiliate'?'/affiliate/notifications':role==='vendor'||role==='super_admin'?'/vendor/notifications':'/'}><Icon name="bell"/>{unread>0&&<span className="bell-badge">{unread>9?'9+':unread}</span>}</Link><Link to="/profile"><div className="mini-avatar">{avatar?<img src={avatar} alt="Profile"/>:(user?.fullName?.[0]||'M')}</div></Link></div></header><div className="dash-content">{children}</div></section></div>}
+const role=user?.role;return <div className={'dashboard-shell '+(open?'sidebar-open':'')}><Sidebar admin={admin} role={role} user={user} avatar={avatar} pathname={loc.pathname} onNavigate={()=>setOpen(false)} onLogout={()=>{logout();navigate('/')}}/><section className="dashboard-main"><header className="dash-header"><button className="mobile-menu" onClick={()=>setOpen(v=>!v)}><Icon name="menu"/></button><button type="button" className="dash-search-trigger" onClick={()=>setPaletteOpen(true)} aria-label="Search (Ctrl+K)"><Icon name="search" size={17}/><span>{role==='vendor'&&!admin?'Search orders, products, customers…':admin?'Search users, sellers, orders…':'Search…'}</span><kbd>{isMac?'⌘':'Ctrl'} K</kbd></button><div className="dash-header-actions"><ThemeToggle/><Link className="dashboard-bell" to={admin?'/admin/notifications':role==='supplier'?'/supplier/notifications':role==='affiliate'?'/affiliate/notifications':role==='vendor'||role==='super_admin'?'/vendor/notifications':'/'}><Icon name="bell"/>{unread>0&&<span className="bell-badge">{unread>9?'9+':unread}</span>}</Link><Link to={admin?'/admin/profile':PORTAL_PROFILE[role]||'/profile'} title="Account settings"><div className="mini-avatar">{avatar?<img src={avatar} alt="Profile"/>:(user?.fullName?.[0]||'M')}</div></Link></div></header><CommandPalette open={paletteOpen} onClose={()=>setPaletteOpen(false)} admin={admin} user={user} onLogout={()=>{logout();navigate('/')}}/><div className="dash-content">{!admin&&!staffCan(user,loc.pathname)
+  ?<div className="data-card empty-state staff-no-access"><Icon name="shield" size={28}/><h3>You don't have access to this page</h3><p>Your role ({STAFF_ROLE_LABEL[user?.staffRole]||'Staff'}) doesn't include it. Ask the store owner if you need access.</p><Link className="outline-btn" to="/vendor">Back to dashboard</Link></div>
+  :children}</div></section></div>}

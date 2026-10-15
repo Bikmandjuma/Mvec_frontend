@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import Pagination from "./Pagination";
+import useUrlQuery from "./useUrlQuery";
 
 const FILTER_KEYS = ["status","category","role","payment","settlement","type","state","stage","risk","method","range","period","date"];
 const labelFor = key => key ? key.replace(/([A-Z])/g," $1").replace(/^./,s=>s.toUpperCase()) : "Filter";
@@ -14,6 +15,7 @@ const plainValue = (row,col) => {
 export default function SmartTable({ columns, rows=[], rowKey, pageSize=6, searchPlaceholder="Search…", empty="No records found.", actions, enableTools=true, exportName="mvec-records" }) {
   const [q,setQ]=useState("");
   const [page,setPage]=useState(1);
+  useUrlQuery(v=>{setQ(v);setPage(1)});
   const filterKey=useMemo(()=>FILTER_KEYS.find(key=>rows.some(row=>row?.[key]!==undefined && row?.[key]!==null && String(row[key]).trim()!=="")),[rows]);
   const filterOptions=useMemo(()=>filterKey?[...new Set(rows.map(row=>String(row?.[filterKey]??"")).filter(Boolean))].sort():[],[rows,filterKey]);
   const [filterValue,setFilterValue]=useState("");

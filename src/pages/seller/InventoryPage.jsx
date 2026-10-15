@@ -5,6 +5,7 @@ import Pagination from '../../components/Pagination';
 import { productsApi } from '../../API/products';
 import { storesApi } from '../../API/stores';
 import { PageHead, Loading, EmptyState, Metric, FormModal, money, matches, personName, useLoader, useNotice } from './shared';
+import useUrlQuery from '../../components/useUrlQuery';
 
 const PER_PAGE = 10;
 const idOf = v => String(v?._id || v?.id || v || '');
@@ -52,6 +53,7 @@ export default function InventoryPage() {
 
   const [storeTab, setStoreTab] = useState('');
   const [q, setQ] = useState('');
+  useUrlQuery(setQ);
   const [stateFilter, setStateFilter] = useState('');
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState(() => new Set());

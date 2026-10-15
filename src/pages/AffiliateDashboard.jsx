@@ -253,34 +253,12 @@ function Withdrawals() {
   </>;
 }
 
-function Profile() {
-  const { user } = useAuth();
-  return <>
-    <div className="dash-page-head"><div><span className="eyebrow">AFFILIATE PROFILE</span><h1>Profile</h1><p>Your affiliate account details.</p></div></div>
-    <div className="profile-grid">
-      <div className="data-card">
-        <div className="profile-avatar-wrap"><div className="profile-avatar">{user?.fullName?.charAt(0) || "A"}</div></div>
-        <h2>{user?.fullName || "Affiliate"}</h2>
-        <p className="muted">Affiliate marketer, MVEC account</p>
-        <span className="role-chip">Affiliate</span>
-      </div>
-      <div className="data-card"><h3>Account details</h3>
-        <label className="field"><span>Full name</span><input defaultValue={user?.fullName || ""} disabled /></label>
-        <label className="field"><span>Phone number</span><input defaultValue={user?.phone || ""} disabled /></label>
-        <label className="field"><span>Email</span><input defaultValue={user?.email || ""} disabled /></label>
-        <p className="tiny">Update your name, phone or email from your account settings.</p>
-      </div>
-    </div>
-  </>;
-}
-
 function AffiliateDashboard() {
   const path = useLocation().pathname;
   let page = path.includes("/products") ? <Products />
     : path.includes("/links") ? <Links />
     : path.includes("/withdrawals") ? <Withdrawals />
     : path.includes("/wallet") ? <Wallet />
-    : path.includes("/profile") ? <Profile />
     : <Overview />;
   return <DashboardLayout>{page}</DashboardLayout>;
 }

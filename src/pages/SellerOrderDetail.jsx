@@ -6,7 +6,7 @@ import { ordersApi } from '../API/orders';
 import { payoutsApi } from '../API/payouts';
 import { extractErrorMessage } from '../API/client';
 import { useAuth } from '../context/AuthContext';
-import { money, dateDMY, personName, titleCase, parsePercent, sellerNextStatuses, ORDER_FLOW, StatusPill } from './seller/shared';
+import { money, dateDMY, personName, titleCase, parsePercent, sellerNextStatuses, canRecordCash, STEP_LABEL, ORDER_FLOW, StatusPill, FormModal } from './seller/shared';
 
 const idOf = v => String(v?._id || v?.id || v || '');
 
@@ -32,11 +32,13 @@ export default function SellerOrderDetail() {
     if (!isAdmin) payoutsApi.getBalance().then(b => setCommission(parsePercent(b?.commissionRate))).catch(() => {});
   }, [isAdmin]);
 
-  const updateStatus = async status => {
-    if (status === 'CANCELLED' && !window.confirm(`Cancel order ${order.orderNumber}?`)) return;
+  const [cancelling, setCancelling] = useState(false);
+  const [done, setDone] = useState('');
+  const updateStatus = async (body) => {
     setUpdating(true);
     setError('');
-    try { await ordersApi.updateVendorOrderStatus({ orderId: order._id, status }); await load(); }
+    setDone('');
+    try { const res = await ordersApi.updateVendorOrderStatus({ orderId: order._id, ...body }); setDone(res.message || 'Order updated.'); await load(); }
     catch (err) { setError(extractErrorMessage(err)); }
     finally { setUpdating(false); }
   };
@@ -50,7 +52,10 @@ export default function SellerOrderDetail() {
 
   // Sellers only see, and are paid for, their own items in a multi-vendor order.
   const items = isAdmin ? order.items || [] : (order.items || []).filter(it => idOf(it.vendor) === idOf(user));
-  const subtotal = items.reduce((s, it) => s + Number(it.price || 0) * Number(it.quantity || 0), 0);
+  const gross = items.reduce((s, it) => s + Number(it.price || 0) * Number(it.quantity || 0), 0);
+  // Coupon discounts on this seller's lines are paid by the seller.
+  const couponDiscount = items.reduce((s, it) => s + Number(it.discount || 0), 0);
+  const subtotal = gross - couponDiscount;
   const fee = (subtotal * commission) / 100;
   // Delivery fees for this seller's parcels are paid in full, with no commission.
   const parcels = isAdmin ? order.shippingBreakdown || [] : (order.shippingBreakdown || []).filter(p => idOf(p.vendor) === idOf(user));
@@ -58,7 +63,8 @@ export default function SellerOrderDetail() {
   const address = order.shippingAddress || {};
   const flowIndex = ORDER_FLOW.indexOf(order.orderStatus);
   const offFlow = flowIndex === -1;
-  const next = isAdmin ? [] : sellerNextStatuses(order.orderStatus);
+  const allNext = isAdmin ? [] : sellerNextStatuses(order);
+  const next = allNext.filter(s => s !== 'CANCELLED');
 
   return (
     <DashboardLayout admin={isAdmin}>
@@ -67,6 +73,7 @@ export default function SellerOrderDetail() {
         <Link className="outline-btn" to={isAdmin ? '/admin/orders' : '/vendor/orders'}>← Orders</Link>
       </div>
       {error && <div className="form-error">{error}</div>}
+      {done && <div className="form-alert success">{done}</div>}
       <div className="detail-grid">
         <section className="data-card">
           <div className="data-card-head"><div><h3>{isAdmin ? 'Order items' : 'Your items'}</h3><span>{items.length} item{items.length === 1 ? '' : 's'}</span></div><StatusPill value={order.orderStatus} /></div>
@@ -77,9 +84,10 @@ export default function SellerOrderDetail() {
             </div>
           ))}
           <div className="order-summary-lines">
-            <span>Subtotal <b>{money(subtotal)}</b></span>
+            <span>Subtotal <b>{money(gross)}</b></span>
+            {couponDiscount > 0 && <span>Coupon {order.coupon?.code} <b>-{money(couponDiscount)}</b></span>}
             <span>MVEC platform fee ({commission}%) <b>-{money(fee)}</b></span>
-            <span>Delivery{parcels[0]?.method ? ` · ${titleCase(parcels[0].method)}` : ''}{parcels[0]?.zoneName ? ` · ${parcels[0].zoneName}` : ''} <b>{delivery ? `+${money(delivery)}` : 'Free'}</b></span>
+            <span>Delivery{parcels[0]?.method ? ` · ${titleCase(parcels[0].method)}` : ''}{parcels[0]?.zoneName ? ` · ${parcels[0].zoneName}` : ''} <b>{delivery ? `+${money(delivery)}` : parcels.some(p => p.originalFee > 0) ? `Free (coupon, ${money(parcels.reduce((s, p) => s + Number(p.originalFee || 0), 0))} waived)` : 'Free'}</b></span>
             <span className="grand">{isAdmin ? 'Vendor settlement' : 'You receive'} <b>{money(Math.max(0, subtotal - fee) + delivery)}</b></span>
           </div>
           {!isAdmin && order.items?.length > items.length && <p className="tiny">This order also contains items from other sellers, which are not shown.</p>}
@@ -103,15 +111,18 @@ export default function SellerOrderDetail() {
           {order.sellerNote && <><h3 className="subhead">Note</h3><p className="tiny">{order.sellerNote}</p></>}
           {!isAdmin && <>
             <h3 className="subhead">Next step</h3>
-            {next.length
-              ? <div className="seller-next-actions">{next.map(s => s === 'CANCELLED'
-                  ? <button type="button" key={s} className="seller-next-cancel" disabled={updating} onClick={() => updateStatus(s)}>Cancel order</button>
-                  : <button type="button" key={s} className="gradient-btn seller-next-primary" disabled={updating} onClick={() => updateStatus(s)}>
-                      <Icon name={s === 'SHIPPED' || s === 'READY_FOR_SHIPMENT' ? 'box' : 'check'} size={17} />
-                      {updating ? 'Updating…' : `Mark as ${titleCase(s).toLowerCase()}`}
-                      <Icon name="arrow" size={16} />
-                    </button>)}</div>
-              : <p className="tiny">{order.orderStatus === 'SHIPPED' ? 'Delivery is confirmed when the courier verifies the buyer’s OTP. Funds are released to you then.' : 'No further action needed.'}</p>}
+            {(next.length || canRecordCash(order) || allNext.includes('CANCELLED'))
+              ? <div className="seller-next-actions">
+                  {next.map(s => <button type="button" key={s} className="gradient-btn seller-next-primary" disabled={updating} onClick={() => updateStatus({ status: s })}>
+                    <Icon name={s === 'SHIPPED' || s === 'READY_FOR_SHIPMENT' ? 'box' : 'check'} size={17} />
+                    {updating ? 'Updating…' : STEP_LABEL[s] || titleCase(s)}
+                    <Icon name="arrow" size={16} />
+                  </button>)}
+                  {canRecordCash(order) && <button type="button" className="outline-btn" disabled={updating} onClick={() => updateStatus({ paymentStatus: 'PAID' })}>Cash received</button>}
+                  {allNext.includes('CANCELLED') && <button type="button" className="seller-next-cancel" disabled={updating} onClick={() => setCancelling(true)}>Cancel order</button>}
+                </div>
+              : <p className="tiny">{['SHIPPED', 'OUT_FOR_DELIVERY'].includes(order.orderStatus) ? 'Delivery is confirmed when the courier verifies the buyer’s delivery code. Your funds are released then.' : 'No further action needed.'}</p>}
+            {order.cancellationReason && order.orderStatus === 'CANCELLED' && <p className="tiny">Cancelled: {order.cancellationReason}</p>}
           </>}
         </section>
       </div>
@@ -126,6 +137,14 @@ export default function SellerOrderDetail() {
           ))}
         </div>
       </section>
+      {cancelling && <FormModal title={`Cancel ${order.orderNumber}?`}
+        subtitle={order.paymentStatus === 'PAID' && !order.paidOffline ? 'The buyer paid through MVEC: they get a full refund, and your items go back into stock.' : 'Your items go back into stock.'}
+        fields={[
+          { name: 'reason', label: 'Reason', type: 'select', required: true, options: ['Out of stock', 'Customer asked to cancel', 'Cannot deliver to this address', 'Pricing error', 'Other'].map(r => [r, r]) },
+          { name: 'note', label: 'Note for the customer', placeholder: 'Optional' },
+        ]}
+        initial={{ reason: 'Out of stock', note: '' }} submitLabel="Cancel order" onClose={() => setCancelling(false)}
+        onSubmit={async (form) => { setCancelling(false); await updateStatus({ status: 'CANCELLED', reason: form.note ? `${form.reason}: ${form.note}` : form.reason }); }} />}
     </DashboardLayout>
   );
 }

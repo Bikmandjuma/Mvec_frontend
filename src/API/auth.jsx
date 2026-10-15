@@ -28,6 +28,17 @@ export const authApi = {
     client.get("/auth/me").then((r) => mapUser(r.data.user)),
   changePassword: (payload) =>
     client.post("/auth/change-password", payload).then((r) => r.data),
+  updateProfile: (payload) =>
+    client.patch("/auth/profile", payload).then((r) => ({ ...r.data, user: mapUser(r.data.user) })),
+  uploadAvatar: (file) => {
+    const formData = new FormData();
+    formData.append("avatar", file);
+    return client.post("/uploads/avatar", formData).then((r) => r.data);
+  },
+  removeAvatar: () =>
+    client.delete("/auth/avatar").then((r) => r.data),
+  logoutAll: () =>
+    client.post("/auth/logout-all").then((r) => r.data),
   forgotPassword: (payload) =>
     client.post("/auth/forgot-password", payload).then((r) => r.data),
   verifyResetOtp: (payload) =>

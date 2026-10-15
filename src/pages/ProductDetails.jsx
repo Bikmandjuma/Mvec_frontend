@@ -82,8 +82,9 @@ export default function ProductDetails() {
           {reviews.length === 0 && <p className="tiny">No reviews yet. Be the first to buy and review this product.</p>}
           {reviews.map(r => (
             <div className="message-bubble theirs" key={r.id}>
-              <p>{'★'.repeat(r.rating)} {r.reviewText}</p>
-              <small>{r.user?.fullName || 'Verified buyer'} · {new Date(r.createdAt).toLocaleDateString('en-GB')}</small>
+              <p>{'★'.repeat(r.rating)}{'☆'.repeat(Math.max(0, 5 - r.rating))} {r.comment || r.review || r.reviewText}</p>
+              <small>{(typeof r.user === 'string' ? r.user : r.user?.fullName) || 'Verified buyer'}{r.isVerifiedPurchase ? ' · Verified purchase' : ''} · {new Date(r.date || r.createdAt).toLocaleDateString('en-GB')}</small>
+              {r.vendorReply && <div className="review-seller-reply"><b>Seller reply</b><p>{r.vendorReply}</p></div>}
             </div>
           ))}
           <p className="tiny" style={{ marginTop: 12 }}>Bought this product? <Link to="/orders">Leave a review from your order</Link> after it's delivered.</p>
