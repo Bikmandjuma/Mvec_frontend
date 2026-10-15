@@ -47,6 +47,10 @@ export function AuthProvider({ children }) {
 
   function logout() {
     localStorage.removeItem('huska_token');
+    // Personal data that must not be left behind for the next person using
+    // this browser. The server-side cart stays on the account.
+    sessionStorage.removeItem('mvec_checkout_form');
+    localStorage.removeItem('mvec_profile_image');
     disconnectSocket();
     setUser(null);
   }

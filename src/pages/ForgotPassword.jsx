@@ -5,6 +5,12 @@ import FormField from '../components/FormField';
 import { authApi } from '../API/auth';
 import { extractErrorMessage } from '../API/client';
 
+// The account can be found by email or by phone number.
+const identityPayload = (value) => {
+  const v = value.trim();
+  return v.includes('@') ? { email: v } : { phone: v };
+};
+
 export default function ForgotPassword() {
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
@@ -24,17 +30,17 @@ export default function ForgotPassword() {
     setMessage('');
 
     if (!email.trim()) {
-      setError('Please enter the email linked to your MVEC account.');
+      setError('Enter the email or phone number on your MVEC account.');
       return;
     }
 
     setBusy(true);
     try {
-      const res = await authApi.forgotPassword({ email: email.trim() });
+      const res = await authApi.forgotPassword(identityPayload(email));
       setDevCode(res.devCode || '');
       setOtp(['', '', '', '', '', '']);
       setStep(2);
-      setMessage(`If an account exists for ${email.trim()}, a verification code has been emailed to it.`);
+      setMessage(res.message || `If an account uses ${email.trim()}, we sent it a 6-digit code.`);
     } catch (err) {
       setError(extractErrorMessage(err));
     } finally {
@@ -72,7 +78,7 @@ export default function ForgotPassword() {
 
     setBusy(true);
     try {
-      const res = await authApi.verifyResetOtp({ email: email.trim(), code: entered });
+      const res = await authApi.verifyResetOtp({ ...identityPayload(email), code: entered });
       setResetToken(res.resetToken);
       setStep(3);
       setMessage('Code verified. Choose your new password.');
@@ -91,8 +97,8 @@ export default function ForgotPassword() {
     setError('');
     setMessage('');
 
-    if (password.length < 6) {
-      setError('Your new password must contain at least 6 characters.');
+    if (password.length < 8) {
+      setError('Your new password must contain at least 8 characters.');
       return;
     }
     if (password !== confirmPassword) {
@@ -103,7 +109,7 @@ export default function ForgotPassword() {
     setBusy(true);
     try {
       await authApi.resetPassword(resetToken, password);
-      setMessage('Password reset complete. You can now log in with your new password.');
+      setMessage('Password reset. You were signed out on other devices. Log in with your new password.');
       setTimeout(() => navigate('/login'), 1600);
     } catch (err) {
       setError(extractErrorMessage(err));
@@ -116,10 +122,10 @@ export default function ForgotPassword() {
     setError('');
     setBusy(true);
     try {
-      const res = await authApi.forgotPassword({ email: email.trim() });
+      const res = await authApi.forgotPassword(identityPayload(email));
       setDevCode(res.devCode || '');
       setOtp(['', '', '', '', '', '']);
-      setMessage(`A new verification code has been emailed to ${email.trim()}.`);
+      setMessage(`A new code was sent to ${email.trim()}.`);
       document.getElementById('otp-0')?.focus();
     } catch (err) {
       setError(extractErrorMessage(err));
@@ -139,19 +145,19 @@ export default function ForgotPassword() {
       }
       subtitle={
         step === 1
-          ? 'Enter the email linked to your MVEC account to reset your password.'
+          ? 'Enter the email or phone number on your MVEC account. We will send you a 6-digit code.'
           : step === 2
-            ? `Enter the 6-digit code emailed to ${email}.`
+            ? `Enter the 6-digit code we sent to ${email}.`
             : 'Choose a strong password that you have not used before.'
       }
     >
       <div className="reset-steps">
         <div className={`reset-step ${step >= 1 ? 'active' : ''}`}>
-          <span>1</span><small>Email</small>
+          <span>1</span><small>Account</small>
         </div>
         <div className={`reset-line ${step >= 2 ? 'active' : ''}`} />
         <div className={`reset-step ${step >= 2 ? 'active' : ''}`}>
-          <span>2</span><small>OTP</small>
+          <span>2</span><small>Code</small>
         </div>
         <div className={`reset-line ${step >= 3 ? 'active' : ''}`} />
         <div className={`reset-step ${step >= 3 ? 'active' : ''}`}>
@@ -165,19 +171,19 @@ export default function ForgotPassword() {
       {step === 1 && (
         <form onSubmit={sendOtp} className="auth-form">
           <FormField
-            label="Email"
-            name="email"
-            type="email"
-            placeholder="you@example.com"
+            label="Email or phone number"
+            name="identity"
+            placeholder="you@example.com or 0788 123 456"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
+            autoComplete="username"
           />
 
           <div className="security-note">
             <div className="security-icon">✉</div>
             <div>
               <strong>Why do we need verification?</strong>
-              <p>MVEC emails a one-time verification code to make sure you own the account before allowing a password change.</p>
+              <p>MVEC sends a one-time code to your email or phone to make sure you own the account before you change the password. The code expires after 15 minutes.</p>
             </div>
           </div>
 
@@ -217,7 +223,7 @@ export default function ForgotPassword() {
           </button>
 
           <button type="button" className="back-step" onClick={() => { setStep(1); setError(''); setMessage(''); }}>
-            ← Change email address
+            ← Use a different email or phone
           </button>
         </form>
       )}
@@ -244,7 +250,7 @@ export default function ForgotPassword() {
 
           <div className="password-rules">
             <strong>Password requirements</strong>
-            <span>• At least 6 characters</span>
+            <span>• At least 8 characters</span>
             <span>• Use a mix of letters and numbers</span>
             <span>• Avoid using an old password</span>
           </div>

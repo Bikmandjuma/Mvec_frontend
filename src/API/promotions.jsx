@@ -3,6 +3,9 @@ import { client } from "./client";
 export const promotionsApi = {
   getAll: (params) =>
     client.get("/promotions", { params }).then((r) => r.data),
+  // Kept for older callers.
+  getMine: () =>
+    client.get("/promotions").then((r) => r.data),
   create: (payload) =>
     client.post("/promotions", payload).then((r) => r.data),
   update: (id, payload) =>
