@@ -1,11 +1,13 @@
 import { productsApi, categoriesApi, vendorsApi } from '../API';
-import {
-  products as mockProducts,
-  categories as mockCategories,
-  vendors as mockVendors,
-} from '../data';
+import { resolveImageUrl } from '../utils/imageUrl';
 
+// The storefront catalogue is shared by the header search, home, shop and
+// product pages. It is cached briefly so pages do not refetch on every
+// navigation, but prices and stock are refreshed every few minutes and right
+// after an order is placed (clearCatalogCache).
+const CACHE_TTL_MS = 5 * 60 * 1000;
 let cached = null;
+let cachedAt = 0;
 let inflight = null;
 
 const PLACEHOLDER_IMG =
@@ -18,14 +20,20 @@ export function mapBackendProduct(p) {
   const rawPrice = Number(p.price || 0);
   const discountPrice = Number(p.discountPrice || 0);
   const activePrice = discountPrice > 0 && discountPrice < rawPrice ? discountPrice : rawPrice;
-  const mainImage = p.mainImage || (Array.isArray(p.gallery) ? p.gallery[0] : null) || PLACEHOLDER_IMG;
+  const media = p.media || {};
+  const productAttributes = p.attributes || {};
+  const gallery = Array.isArray(media.gallery) ? media.gallery : Array.isArray(p.gallery) ? p.gallery : [];
+  const mainImage = resolveImageUrl(media.mainImage || p.mainImage || gallery[0]) || PLACEHOLDER_IMG;
   return {
-    id: p.id || p.publicId,
+    // API mutations and reviews use Mongo's ObjectId. publicId is a display
+    // identifier and is not accepted by Product.findById().
+    id: p._id || p.id || p.publicId,
+    publicId: p.publicId || "",
     name: p.name || '',
     category: category.name || (typeof p.category === 'string' ? p.category : 'Uncategorized'),
     brand: p.brand || '',
-    vendor: vendor.companyName || vendor.fullName || 'MVEC Seller',
-    vendorId: vendor.id || p.vendorId || '',
+    vendor: vendor.companyName || vendor.Fullname || vendor.fullName || 'MVEC Seller',
+    vendorId: String(vendor._id || vendor.id || (typeof p.vendor === 'string' ? p.vendor : '') || p.vendorId || ''),
     price: activePrice,
     oldPrice: discountPrice > 0 && discountPrice < rawPrice ? rawPrice : 0,
     rating: Number(p.averageRating) || 0,
@@ -33,17 +41,17 @@ export function mapBackendProduct(p) {
     stock: Number(p.stockQuantity || 0),
     sku: p.sku || '',
     image: mainImage,
-    gallery: Array.isArray(p.gallery) ? p.gallery : [],
+    gallery: gallery.map(resolveImageUrl),
     description: p.description || p.shortDescription || '',
     status: p.status || 'ACTIVE',
     slug: p.slug || '',
     attributes: {
-      Color: p.color || '',
-      Size: p.size || '',
-      Material: p.material || '',
-      Weight: p.weight || '',
-      Capacity: p.capacity || '',
-      Model: p.model || '',
+      Color: productAttributes.color || p.color || '',
+      Size: productAttributes.size || p.size || '',
+      Material: productAttributes.material || p.material || '',
+      Weight: productAttributes.weight || p.weight || '',
+      Capacity: productAttributes.capacity || p.capacity || '',
+      Model: productAttributes.model || p.model || '',
     },
   };
 }
@@ -51,9 +59,12 @@ export function mapBackendProduct(p) {
 export function mapBackendVendor(v) {
   if (!v) return null;
   return {
-    id: v.id || v.userId,
+    // `id` is the store id used in /vendors/:id; `userId` is the vendor's
+    // account id, which is what products reference.
+    id: String(v.id || v._id || ''),
+    userId: String(v.userId || v.user || ''),
     name: v.businessName || 'Vendor',
-    category: 'Marketplace vendor',
+    category: v.category || '',
     products: 0,
     rating: Number(v.ratingAvg) || 0,
     slug: v.slug || '',
@@ -74,44 +85,46 @@ export function mapBackendCategory(c) {
   };
 }
 
-const toCache = (result) => ({
-  ...result,
-  products: result.backendProducts || [],
-  categories: result.backendCategories || [],
-  vendors: result.backendVendors || [],
-});
+// Count each vendor's live products and use their most common category when
+// the store has not set one, so the home page shows real numbers.
+function withVendorStats(vendors, products) {
+  return vendors.map((v) => {
+    const own = products.filter((p) => p.vendorId && p.vendorId === v.userId);
+    const counts = own.reduce((acc, p) => ({ ...acc, [p.category]: (acc[p.category] || 0) + 1 }), {});
+    const topCategory = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] || '';
+    return { ...v, products: own.length, category: v.category || topCategory || 'Marketplace store' };
+  });
+}
 
 export function loadCatalog(force = false) {
-  if (cached && !force) return Promise.resolve(cached);
+  if (cached && !force && Date.now() - cachedAt < CACHE_TTL_MS) return Promise.resolve(cached);
   if (inflight) return inflight;
 
   inflight = (async () => {
     const [pRes, cRes, vRes] = await Promise.allSettled([
       productsApi.getAll(),
       categoriesApi.getAll(),
-      vendorsApi.getAll(),
+      vendorsApi.getAll({ pageSize: 100 }),
     ]);
 
-    const backendProducts = pRes.status === 'fulfilled'
-      ? (pRes.value.products || []).map(mapBackendProduct).filter(Boolean)
+    const products = pRes.status === 'fulfilled'
+      ? (pRes.value.products || []).map(mapBackendProduct).filter((p) => p && p.id)
       : [];
-
-    const backendCategories = cRes.status === 'fulfilled'
-      ? (cRes.value.categories || []).map(mapBackendCategory).filter(Boolean)
+    const categories = cRes.status === 'fulfilled'
+      ? (cRes.value.categories || []).map(mapBackendCategory).filter((c) => c && c.name)
       : [];
+    const rawVendors = vRes.status === 'fulfilled' ? (vRes.value.data || vRes.value.vendors || []) : [];
+    const vendors = withVendorStats(rawVendors.map(mapBackendVendor).filter((v) => v && v.id), products);
 
-    const rawVendors = vRes.status === 'fulfilled'
-      ? (vRes.value.data || vRes.value.vendors || [])
-      : [];
-    const backendVendors = rawVendors.map(mapBackendVendor).filter(Boolean);
-
-    cached = toCache({ backendProducts, backendCategories, backendVendors });
-    return cached;
+    const result = { products, categories, vendors, error: pRes.status === 'rejected' };
+    // Never cache a failed load: the next page visit should try again.
+    if (!result.error) {
+      cached = result;
+      cachedAt = Date.now();
+    }
+    return result;
   })()
-    .catch(() => {
-      cached = toCache({ backendProducts: [], backendCategories: [], backendVendors: [] });
-      return cached;
-    })
+    .catch(() => ({ products: [], categories: [], vendors: [], error: true }))
     .finally(() => {
       inflight = null;
     });
@@ -121,10 +134,10 @@ export function loadCatalog(force = false) {
 
 export function clearCatalogCache() {
   cached = null;
+  cachedAt = 0;
 }
 
 export function getProductById(productsList, id) {
   return (productsList || []).find((x) => String(x.id) === String(id)) || null;
 }
 
-export { mockProducts, mockCategories, mockVendors };

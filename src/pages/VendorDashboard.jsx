@@ -13,6 +13,10 @@ import { uploadsApi } from '../API/uploads';
 import { storesApi } from '../API/stores';
 import { ordersApi } from '../API/orders';
 import { extractErrorMessage } from '../API/client';
+import { clearCatalogCache } from '../services/catalogApi';
+import RestrictedOverview from '../components/dashboard/RestrictedOverview';
+import ProductImage from '../components/ProductImage';
+import SmartTable from '../components/SmartTable';
 import { useAuth } from '../context/AuthContext';
 import { STAFF_ROLE_LABEL } from '../data/staffAccess';
 import { money, matches, personName, sellerNextStatuses, StatusPill, titleCase, FormModal } from './seller/shared';
@@ -157,7 +161,7 @@ function ProductForm({product,stores=[],onSave,onCancel,saving}){
     const discountProblem=discountError(form.price,form.discountType,form.discountValue);
     if(discountProblem){ setError(discountProblem); return; }
     const {store:_populatedStore,discountPrice:_derived,...rest}=form;
-    onSave({
+    Promise.resolve(onSave({
       ...rest,
       storeId:form.storeId||'',
       price:Number(form.price),
@@ -168,7 +172,7 @@ function ProductForm({product,stores=[],onSave,onCancel,saving}){
       costPrice:form.costPrice===''?null:Number(form.costPrice),
       stockQuantity:Number(form.stockQuantity),
       lowStockThreshold:Number(form.lowStockThreshold||5),
-    });
+    })).catch(err=>setError(extractErrorMessage(err)));
   };
 
   return <div className="product-editor"><div className="editor-head"><div><span className="eyebrow">PRODUCT CATALOG</span><h2>{product?'Edit product':'Add product'}</h2><p>Complete product information before publishing it to the MVEC marketplace.</p></div><button className="outline-btn" type="button" onClick={onCancel}>Cancel</button></div>
@@ -280,24 +284,32 @@ function ProductModule(){
     setError('');
     try{
       if(editing?.mode==='create') await productsApi.create(payload);
-      else await productsApi.update(editing.product.id,payload);
+      else {
+        const productId=editing?.product?.id||editing?.product?._id;
+        if(!productId) throw new Error('This product no longer exists. Refresh the page.');
+        await productsApi.update(productId,payload);
+      }
+      clearCatalogCache(); // the marketplace shows the change straight away
       setEditing(null);
       load();
       navigate('/vendor/products',{replace:true});
-    }catch(err){ setError(extractErrorMessage(err)); }
+    }catch(err){
+      throw err; // shown inside the product form
+    }
     finally{ setSaving(false); }
   };
 
   const toggleArchive=async(p)=>{
     try{
-      await productsApi.update(p.id,{status:p.status==='INACTIVE'?'ACTIVE':'INACTIVE'});
+      await productsApi.update(p.id||p._id,{status:p.status==='INACTIVE'?'ACTIVE':'INACTIVE'});
+      clearCatalogCache();
       load();
     }catch(err){ setError(extractErrorMessage(err)); }
   };
 
   const removeProduct=async(p)=>{
     if(!window.confirm(`Delete ${p.name}?`)) return;
-    try{ await productsApi.delete(p.id); load(); }
+    try{ await productsApi.delete(p.id||p._id); clearCatalogCache(); load(); }
     catch(err){ setError(extractErrorMessage(err)); }
   };
 
@@ -319,7 +331,7 @@ function ProductModule(){
       {!loading && shown.length===0 && <div className="empty-state"><h3>No products yet</h3><p>Add your first product to start selling.</p></div>}
       {!loading && <div className="product-admin-list">
         {shown.map(p=><div className="product-admin-row" key={p.id}>
-          <div className="admin-product-main">{p.mainImage?<img src={p.mainImage} alt=""/>:<div className="product-placeholder"><Icon name="box"/></div>}<div><b>{p.name}</b><small>{p.sku} · {p.brand||'No brand'} · {p.category?.name||''}{stores.length>1&&storeName(p)?` · ${storeName(p)}`:''}</small></div></div>
+          <div className="admin-product-main">{(p.media?.mainImage||p.mainImage)?<ProductImage src={p.media?.mainImage||p.mainImage} alt=""/>:<div className="product-placeholder"><Icon name="box"/></div>}<div><b>{p.name}</b><small>{p.sku} · {p.brand||'No brand'} · {p.category?.name||''}{stores.length>1&&storeName(p)?` · ${storeName(p)}`:''}</small></div></div>
           <div>{p.discountPrice&&p.discountPrice<p.price?<><b>{money(p.discountPrice)}</b><small><s>{money(p.price)}</s> <em className="seller-discount-badge">{p.discountType==='PERCENT'?`-${p.discountValue}%`:`-${money(p.price-p.discountPrice)}`}</em></small></>:<b>{money(p.price)}</b>}<small>Stock: {p.stockQuantity}</small></div>
           <em className={'status '+(p.status==='ACTIVE'?'active':'warning')}>{p.status}</em>
           <div className="row-actions"><button type="button" title="Edit product" onClick={()=>setEditing({mode:'edit',product:p})}><Icon name="edit"/></button><button type="button" title={p.status==='INACTIVE'?'Restore product':'Archive product'} onClick={()=>toggleArchive(p)}><Icon name={p.status==='INACTIVE'?'check':'box'}/></button><button type="button" title="Delete product" onClick={()=>removeProduct(p)}><Icon name="trash"/></button></div>
@@ -350,6 +362,7 @@ export default function VendorDashboard(){
   if(section==='delivery')return <DashboardLayout><DeliveryTracking role="vendor"/></DashboardLayout>;
   if(section==='notifications')return <DashboardLayout><NotificationPanel/></DashboardLayout>;
   const Page=SELLER_PAGES[section];
-  if(!section||!Page)return <DashboardLayout><SellerOverview/></DashboardLayout>;
+  // Sellers who have not finished onboarding see what is still needed.
+  if(!section||!Page)return <DashboardLayout><RestrictedOverview><SellerOverview/></RestrictedOverview></DashboardLayout>;
   return <DashboardLayout><Page/></DashboardLayout>;
 }

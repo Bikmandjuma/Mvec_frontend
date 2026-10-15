@@ -1,6 +1,8 @@
 import { client } from "./client";
 
 export const reviewsApi = {
+  getVendorReviews: () =>
+    client.get("/reviews/vendor/mine").then((r) => r.data),
   create: (payload) =>
     client.post("/reviews", payload).then((r) => r.data),
   getForProduct: (productId, params) =>
@@ -9,8 +11,6 @@ export const reviewsApi = {
     client.patch(`/reviews/${id}`, payload).then((r) => r.data),
   remove: (id) =>
     client.delete(`/reviews/${id}`).then((r) => r.data),
-  getVendorReviews: () =>
-    client.get("/reviews/vendor/mine").then((r) => r.data),
   reply: (id, reply) =>
     client.post(`/reviews/${id}/reply`, { reply }).then((r) => r.data),
 };

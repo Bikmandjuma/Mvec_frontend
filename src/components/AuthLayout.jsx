@@ -1,8 +1,6 @@
-import { Link } from 'react-router-dom';import {useTheme} from '../context/ThemeContext';
-import ThemeToggle from './ThemeToggle';
+import { Link } from 'react-router-dom';import ThemeToggle from './ThemeToggle';
 
 export default function AuthLayout({ title, subtitle, children }) {
-  const {theme,toggleTheme}=useTheme();
   return (
     <main className="alibaba-auth-page">
       <header className="alibaba-header">

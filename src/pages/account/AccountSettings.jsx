@@ -112,7 +112,7 @@ function ProfileTab({ notice }) {
       const payload = { Fullname: form.fullName, gender: form.gender, email: form.email, phone: form.phone };
       if (ownerSeller) payload.companyName = form.companyName;
       if (identityChanged) payload.currentPassword = password;
-      const res = await authApi.updateProfile(payload);
+      const res = await authApi.updateAccount(payload);
       updateUser(res.user);
       setPassword('');
       notice.success(res.message);
@@ -277,7 +277,7 @@ function PreferencesTab({ notice }) {
     const next = { ...prefs, ...patch, notifications: { ...prefs.notifications, ...(patch.notifications || {}) } };
     updateUser({ preferences: next });
     setBusy(true);
-    try { const res = await authApi.updateProfile({ preferences: patch }); updateUser({ preferences: res.user.preferences }); notice.success(message); }
+    try { const res = await authApi.updateAccount({ preferences: patch }); updateUser({ preferences: res.user.preferences }); notice.success(message); }
     catch (err) { updateUser({ preferences: prefs }); notice.fail(err); }
     finally { setBusy(false); }
   };

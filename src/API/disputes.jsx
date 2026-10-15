@@ -4,7 +4,7 @@ export const disputesApi = {
   // All marketplace disputes (super_admin only).
   getAll: (params) =>
     client.get("/disputes", { params }).then((r) => r.data),
-  // Disputes the current user raised, or that were raised against them as a vendor.
+  // Disputes the signed-in user raised (buyers) or is involved in.
   getMine: () =>
     client.get("/disputes/mine").then((r) => r.data),
   open: (payload) =>

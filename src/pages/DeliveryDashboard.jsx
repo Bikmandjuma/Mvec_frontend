@@ -9,12 +9,12 @@ function Overview() {
         <div>
           <span className="eyebrow">DELIVERY</span>
           <h1>Delivery dashboard</h1>
-          <p>Confirm deliveries with the buyer OTP and keep the delivery record accurate.</p>
+          <p>Pick up assigned parcels, deliver them and confirm with the buyer's code.</p>
         </div>
       </div>
       <div className="verified-box">
         <b>Delivery confirmation</b>
-        <p>When you reach the buyer, ask for the six-digit OTP shown on their order. Entering the correct OTP marks the order as delivered and releases the protected settlement to the seller.</p>
+        <p>When you hand the items to the buyer, ask for the 6-digit code shown on their order and sent to them by SMS. The correct code completes the delivery and releases the seller's payment. Five wrong codes lock the delivery for MVEC support.</p>
       </div>
       <DeliveryTracking role="delivery" />
     </>
@@ -25,7 +25,7 @@ export default function DeliveryDashboard() {
   const path = useLocation().pathname;
   return (
     <DashboardLayout>
-      {path.includes("/deliveries") ? <DeliveryTracking role="delivery" /> : <Overview />}
+      {path.includes("/deliveries") ? <DeliveryTracking role="delivery" /> : path.includes("/history") ? <DeliveryTracking role="delivery" initialTab="done" /> : <Overview />}
     </DashboardLayout>
   );
 }

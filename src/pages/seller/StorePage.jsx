@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import CategorySelect from '../../components/CategorySelect';
 import Icon from '../../components/Icon';
 import SmartTable from '../../components/SmartTable';
 import { storesApi } from '../../API/stores';
@@ -70,7 +71,7 @@ function StoreFormModal({ store, onClose, onSaved }) {
         </label>
         <div className="seller-store-name seller-form-grid">
           <label className="field"><span>Store name *</span><input name="storeName" value={form.storeName} onChange={update} required placeholder="e.g. Kigali Tech Store" /></label>
-          <label className="field half"><span>Business category</span><input name="businessCategory" value={form.businessCategory} onChange={update} placeholder="Electronics" /></label>
+          <CategorySelect className="field half" valueKey="name" label="Business category" name="businessCategory" value={form.businessCategory} onChange={value => setForm(f => ({ ...f, businessCategory: value }))} />
           <label className="field half"><span>City</span><input name="city" value={form.city} onChange={update} placeholder="Kigali" /></label>
         </div>
       </div>

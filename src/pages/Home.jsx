@@ -1,84 +1,83 @@
 import { Link } from "react-router-dom";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Pagination from "../components/Pagination";
 import SponsoredProducts from "../components/SponsoredProducts";
-import { loadCatalog } from "../services/catalogApi";
+import { loadCatalog, mapBackendProduct } from "../services/catalogApi";
+import { advertisementsApi } from "../API/advertisements";
 import Storefront from "../components/Storefront";
 import Icon from "../components/Icon";
+import ProductImage from "../components/ProductImage";
+import ProductCard from "../components/ProductCard";
 import { useAuth } from "../context/AuthContext";
-import { useMarketplace } from "../context/MarketplaceContext";
-const money = (n) => new Intl.NumberFormat("en-RW").format(n) + " RWF";
-function ProductCard({ p }) {
-  const { user } = useAuth();
-  const { toggleWishlist, isWishlisted } = useMarketplace();
-  const wished = isWishlisted(p.id);
-  const save = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (!user) {
-      window.location.href = "/login";
-      return;
-    }
-    toggleWishlist(p);
-  };
+import { money, ratingLabel } from "../utils/format";
+
+const PRODUCTS_PER_PAGE = 8;
+const VENDORS_PER_PAGE = 4;
+const CATEGORY_ICONS = ["▦", "▣", "▤", "◉", "⌂", "✦", "◈", "◍"];
+
+function SkeletonGrid({ count = 4 }) {
   return (
-    <div className="product-card">
-      <Link to={`/product/${p.id}`} className="product-img">
-        <img src={p.image} alt={p.name} />
-        <button
-          className={"quick-heart " + (wished ? "wish-active" : "")}
-          onClick={save}
-          aria-label={wished ? "Remove from wishlist" : "Add to wishlist"}
-        >
-          <Icon name="heart" size={17} />
-        </button>
-        {p.oldPrice && <span className="sale-badge">SALE</span>}
-      </Link>
-      <div className="product-info">
-        <small>{p.category}</small>
-        <Link to={`/product/${p.id}`} className="product-name">
-          {p.name}
-        </Link>
-        <div className="rating">
-          ★ {p.rating} <span>({p.reviews})</span>
-        </div>
-        <div>
-          <b>{money(p.price)}</b> <del>{money(p.oldPrice)}</del>
-        </div>
-      </div>
+    <div className="product-grid" aria-hidden="true">
+      {Array.from({ length: count }, (_, i) => <div className="product-card skeleton-card" key={i} />)}
     </div>
   );
 }
+
 export default function Home() {
+  const { user } = useAuth();
   const [productPage, setProductPage] = useState(1);
   const [vendorPage, setVendorPage] = useState(1);
-  const pp = 8,
-    vp = 4;
-  const [products, setProducts] = useState([]);
-  const [categories, setCategories] = useState([]);
-  const [vendors, setVendors] = useState([]);
-  const [catalogLoading, setCatalogLoading] = useState(true);
+  const [catalog, setCatalog] = useState({ products: [], categories: [], vendors: [] });
+  const [status, setStatus] = useState("loading"); // loading | ready | error
+
+  const load = useCallback((force = false) => {
+    setStatus("loading");
+    return loadCatalog(force).then((cat) => {
+      setCatalog(cat);
+      setStatus(cat.error ? "error" : "ready");
+    });
+  }, []);
+
+  // Paid placements: the hero and the scrolling strip only ever show
+  // products whose ad campaign an MVEC admin approved and that is live now.
+  // Newly added products appear in their category, Popular, Deals and Shop.
+  const [heroAds, setHeroAds] = useState([]);
+  const [featuredAds, setFeaturedAds] = useState([]);
+  useEffect(() => {
+    let mounted = true;
+    const toProducts = (ads) => ads.map((ad) => mapBackendProduct(ad.product)).filter((p) => p && p.id);
+    advertisementsApi.getLive("HOMEPAGE_HERO", 6).then((ads) => mounted && setHeroAds(toProducts(ads))).catch(() => {});
+    advertisementsApi.getLive("FEATURED", 12).then((ads) => mounted && setFeaturedAds(toProducts(ads))).catch(() => {});
+    return () => { mounted = false; };
+  }, []);
 
   useEffect(() => {
     let mounted = true;
     loadCatalog().then((cat) => {
       if (!mounted) return;
-      setProducts(cat.products || []);
-      const cats = (cat.categories || [])
-        .map((c) => (typeof c === "string" ? c : c.name))
-        .filter(Boolean);
-      setCategories(cats);
-      setVendors(cat.vendors || []);
-    }).finally(() => mounted && setCatalogLoading(false));
+      setCatalog(cat);
+      setStatus(cat.error ? "error" : "ready");
+    });
     return () => { mounted = false; };
   }, []);
 
-  const shownProducts = products.slice(
-    (productPage - 1) * pp,
-    productPage * pp,
-  );
-  const shownVendors = vendors.slice((vendorPage - 1) * vp, vendorPage * vp);
-  const heroProducts = products.slice(0, 6);
+  const { products, vendors } = catalog;
+  // Popular = best rated with the most reviews; ties keep newest first.
+  const popular = [...products].sort((a, b) => (b.rating * Math.log1p(b.reviews)) - (a.rating * Math.log1p(a.reviews)));
+  const shownProducts = popular.slice((productPage - 1) * PRODUCTS_PER_PAGE, productPage * PRODUCTS_PER_PAGE);
+  const shownVendors = vendors.slice((vendorPage - 1) * VENDORS_PER_PAGE, vendorPage * VENDORS_PER_PAGE);
+  const heroProducts = heroAds.slice(0, 6);
+  const deals = products.filter((p) => p.oldPrice > p.price && p.stock > 0);
+  const bannerProducts = (deals.length ? deals : products).slice(0, 4);
+  // Only categories that actually have products get a home-page section.
+  const categoryNames = catalog.categories.map((c) => (typeof c === "string" ? c : c.name)).filter(Boolean);
+  const populatedCategories = categoryNames.filter((c) => products.some((p) => p.category === c));
+  const loading = status === "loading";
+  // Vendors go straight to campaigns; guests sign up as a vendor; anyone
+  // else signed in can ask MVEC support about advertising.
+  const advertiseLink = user?.role === "vendor" ? "/vendor/advertisements" : user ? "/buyer/support" : "/signup";
+  const sellerHome = { vendor: "/vendor", supplier: "/supplier", affiliate: "/affiliate", super_admin: "/admin" }[user?.role];
+
   return (
     <Storefront>
       <main className="home-page">
@@ -89,45 +88,71 @@ export default function Home() {
               <span>Shop.</span> <span>Sell.</span>
               <br />
               <em>Grow together.</em>
-              <i className="hero-title-spark spark-one">✦</i>
-              <i className="hero-title-spark spark-two">✦</i>
+              <i className="hero-title-spark spark-one" aria-hidden="true">✦</i>
+              <i className="hero-title-spark spark-two" aria-hidden="true">✦</i>
             </h1>
             <p>Products from trusted sellers across Rwanda.</p>
             <div className="hero-buttons">
               <Link to="/shop" className="gradient-btn">
                 Shop now <Icon name="arrow" size={17} />
               </Link>
-              <Link to="/signup" className="outline-btn">
-                Start selling
+              <Link to={sellerHome || "/signup"} state={sellerHome ? undefined : { role: "vendor" }} className="outline-btn">
+                {sellerHome ? "Go to dashboard" : "Start selling"}
               </Link>
             </div>
             <div className="trust-row">
-              <span>✓ Verified sellers</span>
-              <span>✓ Secure checkout</span>
-              <span>✓ Local delivery</span>
+              <span>✓ Local sellers</span>
+              <span>✓ Payment held until delivery</span>
+              <span>✓ Mobile money</span>
             </div>
           </div>
           <div className="hero-visual dynamic-product-stage hero-enter-right">
             <div className="visual-glow" />
             {heroProducts.map((p, i) => (
-              <Link
-                key={p.id}
-                to={`/product/${p.id}`}
-                className={`hero-product-card hero-product-${i}`}
-              >
-                <img src={p.image} alt={p.name} />
+              <Link key={p.id} to={`/product/${p.id}`} className={`hero-product-card hero-product-${i}`}>
+                <span className="sponsored-tag">Sponsored</span>
+                <ProductImage src={p.image} alt={p.name} />
                 <span>{p.name}</span>
                 <b>{money(p.price)}</b>
               </Link>
             ))}
+            {heroProducts.length === 0 && (
+              // No paid campaign right now: a stand-in photo keeps the slot.
+              // Products only appear here when a seller advertises them.
+              <div className="hero-standin">
+                <img src="/hero-standin.jpg" alt="Shopping bags" loading="eager" />
+                <span className="hero-standin-note">
+                  <b>Your products here</b>
+                  <small>Sponsored products appear in this space</small>
+                </span>
+                <Link to={advertiseLink} state={user ? undefined : { role: "vendor" }} className="ad-slot-cta">
+                  Advertise here <Icon name="arrow" size={15} />
+                </Link>
+              </div>
+            )}
           </div>
         </section>
-        {products.length > 0 && (
-          <section className="moving-products">
+
+        {status === "error" && (
+          <div className="form-alert error home-alert" role="alert">
+            We could not load the marketplace right now. Check your connection and try again.{" "}
+            <button type="button" className="text-btn" onClick={() => load(true)}>Retry</button>
+          </div>
+        )}
+
+        {featuredAds.length > 0 && (
+          <section className="moving-products" aria-label="Featured products">
             <div className="moving-track">
-              {[...products, ...products].map((p, i) => (
-                <Link to={`/product/${p.id}`} key={i} className="moving-product">
-                  <img src={p.image} alt="" />
+              {[...featuredAds, ...featuredAds].map((p, i) => (
+                <Link
+                  to={`/product/${p.id}`}
+                  key={`${p.id}-${i}`}
+                  className="moving-product"
+                  // The second copy only exists for the seamless scroll effect.
+                  aria-hidden={i >= featuredAds.length ? "true" : undefined}
+                  tabIndex={i >= featuredAds.length ? -1 : undefined}
+                >
+                  <ProductImage src={p.image} alt="" />
                   <span>{p.name}</span>
                   <b>{money(p.price)}</b>
                 </Link>
@@ -135,6 +160,7 @@ export default function Home() {
             </div>
           </section>
         )}
+
         <section className="category-strip">
           <div className="section-heading">
             <div>
@@ -144,24 +170,22 @@ export default function Home() {
             <Link to="/shop">View all →</Link>
           </div>
           <div className="category-grid">
-            {categories.map((c, i) => (
-              <Link
-                key={c}
-                to={`/shop?category=${encodeURIComponent(c)}`}
-                className="category-tile"
-              >
-                <span className="cat-icon">
-                  {["▦", "▣", "▤", "◉", "⌂", "✦", "◈", "◍"][i % 8]}
-                </span>
-                <b>{c}</b>
-                <small>Explore products</small>
-              </Link>
-            ))}
-            {categories.length === 0 && !catalogLoading && (
+            {categoryNames.map((c, i) => {
+              const count = products.filter((p) => p.category === c).length;
+              return (
+                <Link key={c} to={`/shop?category=${encodeURIComponent(c)}`} className="category-tile">
+                  <span className="cat-icon" aria-hidden="true">{CATEGORY_ICONS[i % CATEGORY_ICONS.length]}</span>
+                  <b>{c}</b>
+                  <small>{count ? `${count} product${count === 1 ? "" : "s"}` : "Coming soon"}</small>
+                </Link>
+              );
+            })}
+            {categoryNames.length === 0 && !loading && (
               <p className="tiny">Categories will appear here once they're added to the marketplace.</p>
             )}
           </div>
         </section>
+
         <section className="product-section">
           <div className="section-heading">
             <div>
@@ -171,99 +195,91 @@ export default function Home() {
             <Link to="/shop">View all products →</Link>
           </div>
           <SponsoredProducts surface="home" catalog={products} limit={4} title="Featured by sellers" />
-          <div className="product-grid">
-            {shownProducts.map((p) => (
-              <ProductCard key={p.id} p={p} />
-            ))}
-          </div>
-          <Pagination
-            page={productPage}
-            setPage={setProductPage}
-            total={products.length}
-            perPage={pp}
-          />
-        </section>
-        {categories.map((category) => {
-          const categoryProducts = products
-            .filter((p) => p.category === category)
-            .slice(0, 4);
-          return (
-            <section
-              className="product-section category-products-section"
-              key={category}
-            >
-              <div className="section-heading">
-                <div>
-                  <span className="eyebrow">{category.toUpperCase()}</span>
-                  <h2>{category}</h2>
-                </div>
-                <Link to={`/shop?category=${encodeURIComponent(category)}`}>
-                  More {category} →
-                </Link>
-              </div>
+          {loading ? <SkeletonGrid count={8} /> : (
+            <>
               <div className="product-grid">
-                {categoryProducts.map((p) => (
-                  <ProductCard key={p.id} p={p} />
-                ))}
+                {shownProducts.map((p) => <ProductCard key={p.id} p={p} />)}
               </div>
-            </section>
-          );
-        })}
-        <section className="visual-banner">
-          <div>
-            <span className="eyebrow">MVEC DEAL DAYS</span>
-            <h2>
-              More products.
-              <br />
-              Less searching.
-            </h2>
-            <p>Explore deals from verified sellers.</p>
-            <Link to="/shop?deal=true" className="gradient-btn">
-              Shop deals
-            </Link>
-          </div>
-          <div className="banner-image-stack">
-            {products.slice(1, 5).map((p, i) => (
-              <Link
-                key={p.id}
-                to={`/product/${p.id}`}
-                className={`banner-product banner-${i}`}
-              >
-                <img src={p.image} alt={p.name} />
-              </Link>
-            ))}
-          </div>
+              {products.length === 0 && status === "ready" && (
+                <div className="empty-state"><h3>No products yet</h3><p>Sellers are setting up their stores. Check back soon.</p></div>
+              )}
+              {products.length > PRODUCTS_PER_PAGE && (
+                <Pagination page={productPage} setPage={setProductPage} total={products.length} perPage={PRODUCTS_PER_PAGE} />
+              )}
+            </>
+          )}
         </section>
-        <section className="product-section">
-          <div className="section-heading">
-            <div>
-              <span className="eyebrow">TOP STORES</span>
-              <h2>Trusted vendors</h2>
+
+        {populatedCategories.map((category) => (
+          <section className="product-section category-products-section" key={category}>
+            <div className="section-heading">
+              <div>
+                <span className="eyebrow">{category.toUpperCase()}</span>
+                <h2>{category}</h2>
+              </div>
+              <Link to={`/shop?category=${encodeURIComponent(category)}`}>More {category} →</Link>
             </div>
-            <Link to="/vendors">View all stores →</Link>
-          </div>
-          <div className="vendor-grid">
-            {shownVendors.map((v) => (
-              <Link to={`/vendors/${v.id}`} className="vendor-card" key={v.id}>
-                <div className="vendor-avatar">{v.name.charAt(0)}</div>
-                <div>
-                  <b>{v.name}</b>
-                  <small>{v.category}</small>
-                  <span>
-                    ★ {v.rating} · {v.products} products
-                  </span>
-                </div>
-                <Icon name="arrow" size={17} />
+            <div className="product-grid">
+              {products.filter((p) => p.category === category).slice(0, 4).map((p) => <ProductCard key={p.id} p={p} />)}
+            </div>
+          </section>
+        ))}
+
+        {bannerProducts.length > 0 && (
+          <section className="visual-banner">
+            <div>
+              <span className="eyebrow">MVEC DEAL DAYS</span>
+              <h2>
+                More products.
+                <br />
+                Less searching.
+              </h2>
+              <p>{deals.length ? `${deals.length} product${deals.length === 1 ? " is" : "s are"} on sale right now.` : "Explore products from sellers across Rwanda."}</p>
+              <Link to={deals.length ? "/shop?deal=true" : "/shop"} className="gradient-btn">
+                {deals.length ? "Shop deals" : "Browse the shop"}
               </Link>
-            ))}
-          </div>
-          <Pagination
-            page={vendorPage}
-            setPage={setVendorPage}
-            total={vendors.length}
-            perPage={vp}
-          />
-        </section>
+            </div>
+            <div className="banner-image-stack">
+              {bannerProducts.map((p, i) => (
+                <Link key={p.id} to={`/product/${p.id}`} className={`banner-product banner-${i}`} aria-label={p.name}>
+                  <ProductImage src={p.image} alt={p.name} />
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {vendors.length > 0 && (
+          <section className="product-section">
+            <div className="section-heading">
+              <div>
+                <span className="eyebrow">TOP STORES</span>
+                <h2>Trusted vendors</h2>
+              </div>
+              <Link to="/vendors">View all stores →</Link>
+            </div>
+            <div className="vendor-grid">
+              {shownVendors.map((v) => (
+                <Link to={`/vendors/${v.id}`} className="vendor-card" key={v.id}>
+                  {v.logoUrl
+                    ? <ProductImage className="vendor-avatar" src={v.logoUrl} alt="" />
+                    : <div className="vendor-avatar" aria-hidden="true">{(v.name || "V").charAt(0)}</div>}
+                  <div>
+                    <b>{v.name}</b>
+                    <small>{v.category}</small>
+                    <span>
+                      ★ {ratingLabel(v.rating)} · {v.products} product{v.products === 1 ? "" : "s"}
+                    </span>
+                  </div>
+                  <Icon name="arrow" size={17} />
+                </Link>
+              ))}
+            </div>
+            {vendors.length > VENDORS_PER_PAGE && (
+              <Pagination page={vendorPage} setPage={setVendorPage} total={vendors.length} perPage={VENDORS_PER_PAGE} />
+            )}
+          </section>
+        )}
       </main>
     </Storefront>
   );
