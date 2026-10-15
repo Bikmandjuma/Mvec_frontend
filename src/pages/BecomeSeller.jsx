@@ -60,7 +60,7 @@ export default function BecomeSeller() {
               <p>Your vendor storefront is active. Jump into your seller dashboard to manage products, orders and payouts.</p>
             </div>
           </div>
-          <button className="primary-btn" onClick={() => navigate('/vendor')}>
+          <button className="gradient-btn" onClick={() => navigate('/vendor')}>
             <Icon name="grid" /> Go to my Seller Dashboard
           </button>
         </div>
@@ -75,7 +75,7 @@ export default function BecomeSeller() {
               <span>Short description (optional)</span>
               <textarea name="description" rows={3} placeholder="What will you sell on MVEC?" value={form.description} onChange={update} />
             </label>
-            <button className="primary-btn" type="submit" disabled={busy}>
+            <button className="gradient-btn" type="submit" disabled={busy}>
               {busy ? 'Setting up your store…' : 'Activate Seller Mode'}
             </button>
           </form>

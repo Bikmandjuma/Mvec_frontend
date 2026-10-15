@@ -24,23 +24,21 @@ import VendorNetwork from "./pages/VendorNetwork";
 import VendorAffiliate from "./pages/VendorAffiliate";
 import AdminDashboard from "./pages/AdminDashboard";
 import BecomeSeller from "./pages/BecomeSeller";
-import Transactions from "./pages/Transactions";
 import SellerOrderDetail from "./pages/SellerOrderDetail";
 import RequireAuth from "./components/RequireAuth";
 import DeliveryTracking from "./components/DeliveryTracking";
 import DashboardLayout from "./components/DashboardLayout";
 import NotificationPanel from "./components/NotificationPanel";
 import MobileBottomNav from "./components/MobileBottomNav";
-import FeaturePages from "./pages/FeaturePages";
+import FeaturePages, { AdminDisputesPage } from "./pages/FeaturePages";
+import AffiliateRedirect from "./components/AffiliateRedirect";
+import AdminTransfers from "./pages/AdminTransfers";
+import { VendorQuotes } from "./pages/Wholesale";
 import {
-  CommissionRules,
-  FinancialLedger,
-  AdminAnalytics,
-  CommunicationPage,
-  AcquisitionPage,
-  RiskManagement,
-  LanguageSettings,
-} from "./pages/ExtendedModules";
+  AdminVendors, AdminSuppliers, AdminPaymentsPage, AdminEarnings, AdminLedgerPage, AdminAnalyticsPage,
+  AdminRisk, AdminTrust, AdminSubscriptionsPage, AdminPlatform, AdminAuditLog, AdminCommissionRules, AdminSupportInbox,
+} from "./pages/AdminOps";
+import { CommunicationPage } from "./pages/ExtendedModules";
 function DashboardDelivery({ role }) {
   return (
     <DashboardLayout admin={role === "admin"}>
@@ -70,7 +68,14 @@ export default function App() {
         }
       />
       <Route path="/checkout" element={<Checkout />} />
-      <Route path="/payment/:id" element={<Payment />} />
+      <Route
+        path="/payment/:id"
+        element={
+          <RequireAuth>
+            <Payment />
+          </RequireAuth>
+        }
+      />
       <Route
         path="/profile"
         element={
@@ -87,13 +92,27 @@ export default function App() {
           </RequireAuth>
         }
       />
-      <Route path="/orders/:id" element={<OrderDetails />} />
+      <Route
+        path="/orders/:id"
+        element={
+          <RequireAuth>
+            <OrderDetails />
+          </RequireAuth>
+        }
+      />
       <Route path="/buyer/compare" element={<FeaturePages role="buyer" />} />
       <Route
         path="/buyer/recommendations"
         element={<FeaturePages role="buyer" />}
       />
-      <Route path="/buyer/refunds" element={<FeaturePages role="buyer" />} />
+      <Route
+        path="/buyer/refunds"
+        element={
+          <RequireAuth>
+            <FeaturePages role="buyer" />
+          </RequireAuth>
+        }
+      />
       <Route path="/buyer/support" element={<FeaturePages role="buyer" />} />
       <Route
         path="/buyer/messages"
@@ -113,7 +132,11 @@ export default function App() {
       />
       <Route
         path="/buyer/subscription"
-        element={<FeaturePages role="buyer" />}
+        element={
+          <RequireAuth roles={["buyer"]}>
+            <FeaturePages role="buyer" />
+          </RequireAuth>
+        }
       />
       <Route
         path="/vendor/support"
@@ -151,7 +174,7 @@ export default function App() {
         path="/admin/support"
         element={
           <RequireAuth roles={["super_admin"]}>
-            <FeaturePages role="admin" />
+            <AdminSupportInbox />
           </RequireAuth>
         }
       />
@@ -168,6 +191,14 @@ export default function App() {
         element={
           <RequireAuth roles={["vendor"]}>
             <FeaturePages role="vendor" />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/vendor/quotes"
+        element={
+          <RequireAuth roles={["vendor"]}>
+            <DashboardLayout><VendorQuotes /></DashboardLayout>
           </RequireAuth>
         }
       />
@@ -230,9 +261,7 @@ export default function App() {
       <Route
         path="/supplier/supply-requests"
         element={
-          <RequireAuth roles={["supplier"]}>
-            <FeaturePages role="supplier" />
-          </RequireAuth>
+          <Navigate to="/supplier/quotes" replace />
         }
       />
       <Route
@@ -262,9 +291,7 @@ export default function App() {
       <Route
         path="/supplier/delivery"
         element={
-          <RequireAuth roles={["supplier"]}>
-            <DashboardDelivery role="supplier" />
-          </RequireAuth>
+          <Navigate to="/supplier/orders" replace />
         }
       />
       <Route
@@ -289,14 +316,6 @@ export default function App() {
         }
       />
       <Route
-        path="/affiliate/fraud"
-        element={
-          <RequireAuth roles={["affiliate"]}>
-            <FeaturePages role="affiliate" />
-          </RequireAuth>
-        }
-      />
-      <Route
         path="/affiliate/messages"
         element={
           <RequireAuth roles={["affiliate"]}>
@@ -312,11 +331,20 @@ export default function App() {
           </RequireAuth>
         }
       />
+      <Route path="/track/:code" element={<AffiliateRedirect />} />
       <Route
         path="/delivery/messages"
         element={
           <RequireAuth roles={["delivery"]}>
             <CommunicationPage role="delivery" />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/delivery/support"
+        element={
+          <RequireAuth roles={["delivery"]}>
+            <FeaturePages role="delivery" />
           </RequireAuth>
         }
       />
@@ -332,16 +360,14 @@ export default function App() {
         path="/admin/payments"
         element={
           <RequireAuth roles={["super_admin"]}>
-            <FeaturePages role="admin" />
+            <AdminPaymentsPage />
           </RequireAuth>
         }
       />
       <Route
         path="/admin/refunds"
         element={
-          <RequireAuth roles={["super_admin"]}>
-            <FeaturePages role="admin" />
-          </RequireAuth>
+          <Navigate to="/admin/disputes" replace />
         }
       />
       <Route
@@ -356,39 +382,33 @@ export default function App() {
         path="/admin/subscriptions"
         element={
           <RequireAuth roles={["super_admin"]}>
-            <FeaturePages role="admin" />
+            <AdminSubscriptionsPage />
           </RequireAuth>
         }
       />
       <Route
         path="/admin/languages"
         element={
-          <RequireAuth roles={["super_admin"]}>
-            <LanguageSettings />
-          </RequireAuth>
+          <Navigate to="/admin/settings" replace />
         }
       />
       <Route
         path="/admin/locations"
         element={
-          <RequireAuth roles={["super_admin"]}>
-            <FeaturePages role="admin" />
-          </RequireAuth>
+          <Navigate to="/admin/settings" replace />
         }
       />
       <Route
         path="/admin/security"
         element={
-          <RequireAuth roles={["super_admin"]}>
-            <FeaturePages role="admin" />
-          </RequireAuth>
+          <Navigate to="/admin/settings" replace />
         }
       />
       <Route
         path="/admin/audit-logs"
         element={
           <RequireAuth roles={["super_admin"]}>
-            <FeaturePages role="admin" />
+            <AdminAuditLog />
           </RequireAuth>
         }
       />
@@ -403,41 +423,41 @@ export default function App() {
       <Route
         path="/admin/recommendations"
         element={
-          <RequireAuth roles={["super_admin"]}>
-            <FeaturePages role="admin" />
-          </RequireAuth>
+          <Navigate to="/admin/analytics" replace />
         }
       />
       <Route
         path="/admin/matching"
         element={
-          <RequireAuth roles={["super_admin"]}>
-            <FeaturePages role="admin" />
-          </RequireAuth>
+          <Navigate to="/admin/suppliers" replace />
         }
       />
       <Route
         path="/admin/trust"
         element={
           <RequireAuth roles={["super_admin"]}>
-            <FeaturePages role="admin" />
+            <AdminTrust />
           </RequireAuth>
         }
       />
       <Route
         path="/admin/system"
         element={
+          <Navigate to="/admin/settings" replace />
+        }
+      />
+      <Route
+        path="/admin/transfers"
+        element={
           <RequireAuth roles={["super_admin"]}>
-            <FeaturePages role="admin" />
+            <AdminTransfers />
           </RequireAuth>
         }
       />
       <Route
         path="/admin/transactions"
         element={
-          <RequireAuth roles={["super_admin"]}>
-            <Transactions />
-          </RequireAuth>
+          <Navigate to="/admin/payments" replace />
         }
       />
       <Route
@@ -452,7 +472,7 @@ export default function App() {
         path="/admin/suppliers"
         element={
           <RequireAuth roles={["super_admin"]}>
-            <PlatformOperations type="suppliers" />
+            <AdminSuppliers />
           </RequireAuth>
         }
       />
@@ -476,7 +496,7 @@ export default function App() {
         path="/admin/disputes"
         element={
           <RequireAuth roles={["super_admin"]}>
-            <PlatformOperations type="disputes" />
+            <AdminDisputesPage />
           </RequireAuth>
         }
       />
@@ -484,7 +504,7 @@ export default function App() {
         path="/admin/commissions"
         element={
           <RequireAuth roles={["super_admin"]}>
-            <PlatformOperations type="commissions" />
+            <AdminEarnings />
           </RequireAuth>
         }
       />
@@ -492,7 +512,7 @@ export default function App() {
         path="/admin/analytics"
         element={
           <RequireAuth roles={["super_admin"]}>
-            <AdminAnalytics />
+            <AdminAnalyticsPage />
           </RequireAuth>
         }
       />
@@ -500,7 +520,7 @@ export default function App() {
         path="/admin/ledger"
         element={
           <RequireAuth roles={["super_admin"]}>
-            <FinancialLedger />
+            <AdminLedgerPage />
           </RequireAuth>
         }
       />
@@ -508,7 +528,7 @@ export default function App() {
         path="/admin/commission-rules"
         element={
           <RequireAuth roles={["super_admin"]}>
-            <CommissionRules />
+            <AdminCommissionRules />
           </RequireAuth>
         }
       />
@@ -516,24 +536,42 @@ export default function App() {
         path="/admin/risk"
         element={
           <RequireAuth roles={["super_admin"]}>
-            <RiskManagement />
+            <AdminRisk />
           </RequireAuth>
         }
       />
       <Route
         path="/admin/supplier-acquisition"
         element={
-          <RequireAuth roles={["super_admin"]}>
-            <AcquisitionPage type="supplier" />
-          </RequireAuth>
+          <Navigate to="/admin/suppliers" replace />
         }
       />
       <Route
         path="/admin/vendor-acquisition"
         element={
+          <Navigate to="/admin/vendors" replace />
+        }
+      />
+      <Route
+        path="/admin/vendors"
+        element={
           <RequireAuth roles={["super_admin"]}>
-            <AcquisitionPage type="vendor" />
+            <AdminVendors />
           </RequireAuth>
+        }
+      />
+      <Route
+        path="/admin/settings"
+        element={
+          <RequireAuth roles={["super_admin"]}>
+            <AdminPlatform />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/admin/reports"
+        element={
+          <Navigate to="/admin/analytics" replace />
         }
       />
       <Route

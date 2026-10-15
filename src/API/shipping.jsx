@@ -3,6 +3,9 @@ import { client } from "./client";
 export const shippingApi = {
   getMyZones: () =>
     client.get("/shipping/zones/mine").then((r) => r.data),
+  // Kept for older callers.
+  getMine: () =>
+    client.get("/shipping/zones/mine").then((r) => r.data),
   createZone: (payload) =>
     client.post("/shipping/zones", payload).then((r) => r.data),
   updateZone: (id, payload) =>

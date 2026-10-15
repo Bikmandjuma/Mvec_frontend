@@ -239,6 +239,7 @@ export default function Messages() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search people to message…"
+              aria-label="Search people to message"
             />
           </div>
 
@@ -345,9 +346,10 @@ export default function Messages() {
                   value={text}
                   onChange={onInputChange}
                   placeholder="Write a message…"
+                  aria-label="Message"
                   onKeyDown={(e) => e.key === "Enter" && send()}
                 />
-                <button className="gradient-btn" onClick={send} disabled={!text.trim()}>
+                <button className="gradient-btn" onClick={send} disabled={!text.trim()} aria-label="Send message" title="Send">
                   <Icon name="arrow" size={16} />
                 </button>
               </div>

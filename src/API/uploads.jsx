@@ -11,4 +11,10 @@ export const uploadsApi = {
     // server and is what was causing upload requests to fail.
     return client.post("/uploads/images", formData).then((r) => r.data);
   },
+  // Profile photo for the signed-in account. Returns { avatarUrl }.
+  uploadAvatar: (file) => {
+    const formData = new FormData();
+    formData.append("avatar", file);
+    return client.post("/uploads/avatar", formData).then((r) => r.data);
+  },
 };

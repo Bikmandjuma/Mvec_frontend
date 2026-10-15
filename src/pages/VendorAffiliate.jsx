@@ -1,32 +1,131 @@
-import { Link } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
 import DashboardLayout from "../components/DashboardLayout";
-import { PageHead } from "./seller/shared";
+import ProductImage from "../components/ProductImage";
+import { PageHead, money } from "./seller/shared";
+import { client, extractErrorMessage } from "../API/client";
+import { productsApi } from "../API/products";
 
 const STEPS = [
-  ["Affiliates choose your products", "Approved affiliates pick products from the MVEC catalog to promote."],
-  ["They share tracked links", "Each affiliate gets a unique link, so every sale is attributed correctly."],
-  ["A buyer purchases", "The order is placed and paid through MVEC as usual."],
-  ["Delivery is confirmed", "Commission is only earned once the buyer's delivery OTP is verified."],
-  ["Commission is settled", "MVEC settles the affiliate commission according to platform rules."],
+  ["You open your products", "Turn the program on for all your products or only the ones you choose, and set the commission you add."],
+  ["Affiliates share tracked links", "Each affiliate gets a unique link. A visitor who clicks it is remembered for 30 days (the last link clicked wins)."],
+  ["A buyer orders and pays", "The affiliate's commission is recorded as pending. Nothing is taken from you yet."],
+  ["The buyer confirms delivery", "Only then is the commission earned: your share is deducted from that sale, together with MVEC's fee."],
+  ["Refunds reverse it", "If the order is cancelled or refunded, the affiliate's commission is taken back."],
 ];
 
-// Vendor-side affiliate controls (opt-in, custom rates, per-affiliate stats)
-// are not exposed by the API yet, so this page explains the programme rather
-// than showing figures.
 export default function VendorAffiliate() {
+  const [program, setProgram] = useState(null);
+  const [stats, setStats] = useState(null);
+  const [maxRate, setMaxRate] = useState(30);
+  const [products, setProducts] = useState([]);
+  const [form, setForm] = useState({ enabled: false, ratePercent: 0, scope: "ALL", productIds: [] });
+  const [q, setQ] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+
+  const load = async () => {
+    setError("");
+    try {
+      const [p, list] = await Promise.all([client.get("/vendors/me/affiliate-program").then((r) => r.data), productsApi.getVendorProducts()]);
+      setProgram(p.program);
+      setStats(p.stats);
+      setMaxRate(p.maxRatePercent || 30);
+      setForm({ enabled: p.program.enabled, ratePercent: p.program.ratePercent, scope: p.program.scope, productIds: p.program.selectedProductIds || [] });
+      setProducts((list.products || []).filter((x) => ["ACTIVE", "OUT_OF_STOCK"].includes(x.status)));
+    } catch (err) {
+      setError(extractErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  };
+  useEffect(() => { load(); }, []);
+
+  const platformPercent = program?.platformPercent ?? 0.5;
+  const rate = Math.max(0, Number(form.ratePercent) || 0);
+  const total = Math.round((platformPercent + rate) * 100) / 100;
+  const shown = useMemo(() => products.filter((p) => !q.trim() || p.name.toLowerCase().includes(q.trim().toLowerCase())), [products, q]);
+  const toggleProduct = (id) => setForm((f) => ({ ...f, productIds: f.productIds.includes(id) ? f.productIds.filter((x) => x !== id) : [...f.productIds, id] }));
+
+  const save = async (e) => {
+    e?.preventDefault();
+    setError(""); setNotice("");
+    if (rate > maxRate) { setError(`Choose a commission between 0% and ${maxRate}%.`); return; }
+    if (form.enabled && form.scope === "SELECTED" && form.productIds.length === 0) { setError("Choose at least one product, or open all your products to affiliates."); return; }
+    setSaving(true);
+    try {
+      const res = await client.put("/vendors/me/affiliate-program", { enabled: form.enabled, ratePercent: rate, scope: form.scope, productIds: form.scope === "SELECTED" ? form.productIds : undefined }).then((r) => r.data);
+      setNotice(res.message);
+      await load();
+    } catch (err) {
+      setError(extractErrorMessage(err));
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return <DashboardLayout>
-    <PageHead eyebrow="MARKETING" title="Affiliate marketing"
-      desc="MVEC affiliates and influencers can promote your active products and earn a commission on sales they bring in."
-      action={<Link className="outline-btn" to="/vendor/products">Review my products</Link>} />
-    <div className="verified-box">
-      <b>Coming soon: affiliate reports for sellers</b>
-      <p>Per-affiliate sales, commission settings and opt-out controls will appear here once they are available. Until then, affiliate-driven orders show up in your regular Orders and Transactions.</p>
-    </div>
-    <div className="data-card">
-      <div className="data-card-head"><div><h3>How it works</h3><span>Commission is earned only on delivered orders</span></div></div>
-      <div className="timeline">
-        {STEPS.map(([title, text], i) => <div className="timeline-item done" key={title}><i /><div><b>{i + 1}. {title}</b><small>{text}</small></div></div>)}
+    <PageHead eyebrow="MARKETING" title="Affiliate program"
+      desc="Let affiliates and influencers promote your products for a commission. It is off until you turn it on, and you choose which products and how much you add." />
+    {error && <div className="form-alert error" role="alert">{error}</div>}
+    {notice && <div className="form-alert success" role="status">{notice}</div>}
+    {loading ? <div className="empty-state"><h3>Loading…</h3></div> : program && <>
+      <form className="data-card affiliate-program-card" onSubmit={save}>
+        <div className="data-card-head"><div><h3>Program settings</h3><span>{program.enabled ? `On · affiliates earn ${program.totalPercent}%` : "Off · affiliates cannot promote your products"}</span></div></div>
+
+        <label className="program-switch">
+          <input type="checkbox" role="switch" checked={form.enabled} onChange={(e) => setForm({ ...form, enabled: e.target.checked })} />
+          <span><b>Let affiliates promote my products</b><small>When off, your products are not offered to affiliates and existing links stop earning. Orders already placed keep their commission.</small></span>
+        </label>
+
+        <fieldset className="program-section" disabled={!form.enabled}>
+          <legend>Commission you add</legend>
+          <div className="program-rate">
+            <label className="field"><span>Your commission (%)</span>
+              <input type="number" min="0" max={maxRate} step="0.5" value={form.ratePercent} onChange={(e) => setForm({ ...form, ratePercent: e.target.value })} />
+            </label>
+            <div className="program-example">
+              <b>Affiliates earn {total}% per delivered sale</b>
+              <small>MVEC pays {platformPercent}% from its fee; you pay {rate}% from your earnings on that sale.</small>
+              <small>Example: on a {money(100000)} sale the affiliate earns {money(1000 * total)}; you pay {money(1000 * rate)}.</small>
+            </div>
+          </div>
+        </fieldset>
+
+        <fieldset className="program-section" disabled={!form.enabled}>
+          <legend>Which products</legend>
+          <label className="filter-check"><input type="radio" name="scope" checked={form.scope === "ALL"} onChange={() => setForm({ ...form, scope: "ALL" })} /> All my products (including new ones)</label>
+          <label className="filter-check"><input type="radio" name="scope" checked={form.scope === "SELECTED"} onChange={() => setForm({ ...form, scope: "SELECTED" })} /> Only the products I choose</label>
+          {form.scope === "SELECTED" && <div className="program-products">
+            <div className="dash-filter"><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search your products…" aria-label="Search your products" /></div>
+            {shown.length === 0 && <p className="tiny">No products for sale yet.</p>}
+            {shown.map((p) => {
+              const id = String(p.id || p._id);
+              return <label key={id} className={`program-product ${form.productIds.includes(id) ? "selected" : ""}`}>
+                <input type="checkbox" checked={form.productIds.includes(id)} onChange={() => toggleProduct(id)} />
+                <ProductImage src={p.media?.mainImage || p.mainImage} alt="" />
+                <span><b>{p.name}</b><small>{money(p.discountPrice || p.price)} · affiliate earns {money(((Number(p.discountPrice || p.price) || 0) * total) / 100)}</small></span>
+              </label>;
+            })}
+            <small className="tiny">{form.productIds.length} product{form.productIds.length === 1 ? "" : "s"} chosen</small>
+          </div>}
+        </fieldset>
+
+        <button className="gradient-btn" type="submit" disabled={saving}>{saving ? "Saving…" : "Save program"}</button>
+      </form>
+
+      {stats && <div className="metric-grid">
+        {[["Active links", stats.activeLinks, `${stats.affiliates} affiliate${stats.affiliates === 1 ? "" : "s"}`], ["Clicks", stats.clicks, "Visits from affiliate links"], ["Affiliate orders", stats.orders, money(stats.sales) + " in sales"], ["Commission", money(stats.commission), `${money(stats.paidByYou)} paid by you`]].map(([label, value, sub]) =>
+          <div className="metric" key={label}><div><span>{label}</span><strong>{value}</strong><small>{sub}</small></div></div>)}
+      </div>}
+
+      <div className="data-card">
+        <div className="data-card-head"><div><h3>How it works</h3><span>Commission is only earned on delivered orders</span></div></div>
+        <div className="timeline">
+          {STEPS.map(([title, text], i) => <div className="timeline-item done" key={title}><i /><div><b>{i + 1}. {title}</b><small>{text}</small></div></div>)}
+        </div>
       </div>
-    </div>
+    </>}
   </DashboardLayout>;
 }
