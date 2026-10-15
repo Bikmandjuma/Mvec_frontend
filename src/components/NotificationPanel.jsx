@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import Icon from "./Icon";
 import { notificationsApi } from "../API/notifications";
 import { extractErrorMessage } from "../API/client";
@@ -6,6 +7,8 @@ import { extractErrorMessage } from "../API/client";
 const ICON_BY_TYPE = {
   ORDER: "cart",
   PAYMENT: "wallet",
+  PAYOUT: "wallet",
+  ADMIN: "shield",
   DELIVERY: "box",
   REFUND: "wallet",
   PROMOTION: "tag",
@@ -29,6 +32,7 @@ function timeAgo(date) {
 }
 
 export default function NotificationPanel() {
+  const navigate = useNavigate();
   const [items, setItems] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -129,9 +133,14 @@ export default function NotificationPanel() {
                 {n.message && <p>{n.message}</p>}
                 <small title={new Date(n.createdAt).toLocaleString("en-GB")}>{timeAgo(n.createdAt)}</small>
               </div>
-              {!n.isRead && (
-                <button className="outline-btn" onClick={() => markRead(n.id)}>Mark read</button>
-              )}
+              <div className="notification-actions">
+                {n.link && n.link.startsWith("/") && (
+                  <button className="gradient-btn" onClick={() => { if (!n.isRead) markRead(n.id); navigate(n.link); }}>View</button>
+                )}
+                {!n.isRead && (
+                  <button className="outline-btn" onClick={() => markRead(n.id)}>Mark read</button>
+                )}
+              </div>
             </div>
           ))}
       </div>

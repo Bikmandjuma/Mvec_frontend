@@ -12,7 +12,13 @@ import { uploadsApi } from '../API/uploads';
 import { storesApi } from '../API/stores';
 import { ordersApi } from '../API/orders';
 import { payoutsApi } from '../API/payouts';
+import { suppliersApi } from '../API/suppliers';
+import { wholesaleApi } from '../API/wholesale';
 import { extractErrorMessage } from '../API/client';
+import { clearCatalogCache } from '../services/catalogApi';
+import RestrictedOverview from '../components/dashboard/RestrictedOverview';
+import ProductImage from '../components/ProductImage';
+import SmartTable from '../components/SmartTable';
 import { useAuth } from '../context/AuthContext';
 import { money, matches, personName, sellerNextStatuses, StatusPill, titleCase, FormModal } from './seller/shared';
 import StorePage from './seller/StorePage';
@@ -153,7 +159,7 @@ function ProductForm({product,stores=[],onSave,onCancel,saving}){
     const discountProblem=discountError(form.price,form.discountType,form.discountValue);
     if(discountProblem){ setError(discountProblem); return; }
     const {store:_populatedStore,discountPrice:_derived,...rest}=form;
-    onSave({
+    Promise.resolve(onSave({
       ...rest,
       storeId:form.storeId||'',
       price:Number(form.price),
@@ -164,7 +170,7 @@ function ProductForm({product,stores=[],onSave,onCancel,saving}){
       costPrice:form.costPrice===''?null:Number(form.costPrice),
       stockQuantity:Number(form.stockQuantity),
       lowStockThreshold:Number(form.lowStockThreshold||5),
-    });
+    })).catch(err=>setError(extractErrorMessage(err)));
   };
 
   return <div className="product-editor"><div className="editor-head"><div><span className="eyebrow">PRODUCT CATALOG</span><h2>{product?'Edit product':'Add product'}</h2><p>Complete product information before publishing it to the MVEC marketplace.</p></div><button className="outline-btn" type="button" onClick={onCancel}>Cancel</button></div>
@@ -275,24 +281,32 @@ function ProductModule(){
     setError('');
     try{
       if(editing?.mode==='create') await productsApi.create(payload);
-      else await productsApi.update(editing.product.id,payload);
+      else {
+        const productId=editing?.product?.id||editing?.product?._id;
+        if(!productId) throw new Error('This product no longer exists. Refresh the page.');
+        await productsApi.update(productId,payload);
+      }
+      clearCatalogCache(); // the marketplace shows the change straight away
       setEditing(null);
       load();
       navigate('/vendor/products',{replace:true});
-    }catch(err){ setError(extractErrorMessage(err)); }
+    }catch(err){
+      throw err; // shown inside the product form
+    }
     finally{ setSaving(false); }
   };
 
   const toggleArchive=async(p)=>{
     try{
-      await productsApi.update(p.id,{status:p.status==='INACTIVE'?'ACTIVE':'INACTIVE'});
+      await productsApi.update(p.id||p._id,{status:p.status==='INACTIVE'?'ACTIVE':'INACTIVE'});
+      clearCatalogCache();
       load();
     }catch(err){ setError(extractErrorMessage(err)); }
   };
 
   const removeProduct=async(p)=>{
     if(!window.confirm(`Delete ${p.name}?`)) return;
-    try{ await productsApi.delete(p.id); load(); }
+    try{ await productsApi.delete(p.id||p._id); clearCatalogCache(); load(); }
     catch(err){ setError(extractErrorMessage(err)); }
   };
 
@@ -314,7 +328,7 @@ function ProductModule(){
       {!loading && shown.length===0 && <div className="empty-state"><h3>No products yet</h3><p>Add your first product to start selling.</p></div>}
       {!loading && <div className="product-admin-list">
         {shown.map(p=><div className="product-admin-row" key={p.id}>
-          <div className="admin-product-main">{p.mainImage?<img src={p.mainImage} alt=""/>:<div className="product-placeholder"><Icon name="box"/></div>}<div><b>{p.name}</b><small>{p.sku} · {p.brand||'No brand'} · {p.category?.name||''}{stores.length>1&&storeName(p)?` · ${storeName(p)}`:''}</small></div></div>
+          <div className="admin-product-main">{(p.media?.mainImage||p.mainImage)?<ProductImage src={p.media?.mainImage||p.mainImage} alt=""/>:<div className="product-placeholder"><Icon name="box"/></div>}<div><b>{p.name}</b><small>{p.sku} · {p.brand||'No brand'} · {p.category?.name||''}{stores.length>1&&storeName(p)?` · ${storeName(p)}`:''}</small></div></div>
           <div>{p.discountPrice&&p.discountPrice<p.price?<><b>{money(p.discountPrice)}</b><small><s>{money(p.price)}</s> <em className="seller-discount-badge">{p.discountType==='PERCENT'?`-${p.discountValue}%`:`-${money(p.price-p.discountPrice)}`}</em></small></>:<b>{money(p.price)}</b>}<small>Stock: {p.stockQuantity}</small></div>
           <em className={'status '+(p.status==='ACTIVE'?'active':'warning')}>{p.status}</em>
           <div className="row-actions"><button type="button" title="Edit product" onClick={()=>setEditing({mode:'edit',product:p})}><Icon name="edit"/></button><button type="button" title={p.status==='INACTIVE'?'Restore product':'Archive product'} onClick={()=>toggleArchive(p)}><Icon name={p.status==='INACTIVE'?'check':'box'}/></button><button type="button" title="Delete product" onClick={()=>removeProduct(p)}><Icon name="trash"/></button></div>
@@ -358,7 +372,7 @@ function VendorOrders(){
   const shown=filtered.slice((page-1)*per,page*per);
 
   const updateStatus=async(order,status)=>{
-    if(status==='CANCELLED'&&!window.confirm(`Cancel order ${order.orderNumber}?`)) return;
+    if(status==='CANCELLED'&&!window.confirm(`Cancel order ${order.orderNumber}?${order.paymentStatus==='PAID'&&!order.paidOffline?' The buyer gets a full refund.':''}`)) return;
     setError('');
     setUpdating(order._id);
     try{
@@ -378,13 +392,13 @@ function VendorOrders(){
       {!loading && shown.length===0 && <div className="empty-state"><h3>No orders yet</h3><p>Orders containing your products will appear here.</p></div>}
       {!loading && <div className="data-table">
         <div className="data-row module-row"><span className="table-label">Order</span><span className="table-label">Buyer</span><span className="table-label">Total</span><span className="table-label">Payment</span><span className="table-label">Status</span><span className="table-label">Next step</span></div>
-        {shown.map(o=>{const next=sellerNextStatuses(o.orderStatus);return <div className="data-row module-row" key={o._id}>
+        {shown.map(o=>{const movable=o.paymentStatus==='PAID'||(o.paymentMethod==='CASH_ON_DELIVERY'&&o.paymentStatus==='PENDING'&&o.orderStatus!=='PENDING');const next=sellerNextStatuses(o.orderStatus).filter(st=>st==='CANCELLED'?['PENDING','PAID'].includes(o.paymentStatus):movable);return <div className="data-row module-row" key={o._id}>
           <span><Link to={`/vendor/orders/${o._id}`}><b>{o.orderNumber}</b></Link>{o.source==='MANUAL'&&<em className="seller-manual-tag">Manual</em>}</span>
           <span>{buyerOf(o)}{o.customer?.phone&&<small className="tiny seller-block">{o.customer.phone}</small>}</span>
           <span>{money(o.vendorSubtotal)}</span>
           <span><StatusPill value={o.paymentStatus}/></span>
           <span><StatusPill value={o.orderStatus}/></span>
-          <span>{next.length?<select className="inline-table-input" value="" disabled={updating===o._id} onChange={e=>e.target.value&&updateStatus(o,e.target.value)} aria-label={`Update ${o.orderNumber}`}><option value="">{updating===o._id?'Updating…':'Move to…'}</option>{next.map(s=><option key={s} value={s}>{titleCase(s)}</option>)}</select>:<small className="tiny">{o.orderStatus==='SHIPPED'?'Awaiting delivery OTP':'No action'}</small>}</span>
+          <span>{next.length?<select className="inline-table-input" value="" disabled={updating===o._id} onChange={e=>e.target.value&&updateStatus(o,e.target.value)} aria-label={`Update ${o.orderNumber}`}><option value="">{updating===o._id?'Updating…':'Move to…'}</option>{next.map(s=><option key={s} value={s}>{titleCase(s)}</option>)}</select>:<small className="tiny">{o.paymentStatus==='PENDING'&&o.orderStatus==='PENDING'?'Waiting for the buyer to pay':['SHIPPED','OUT_FOR_DELIVERY'].includes(o.orderStatus)?'Waiting for the buyer\'s delivery code':o.paymentStatus==='DISPUTED'?'Under dispute review':'No action needed'}</small>}</span>
         </div>;})}
       </div>}
       <Pagination page={page} setPage={setPage} total={filtered.length} perPage={per}/>
@@ -456,11 +470,23 @@ function VendorPayouts(){
   </>;
 }
 
+function WholesalePurchases(){
+  const navigate=useNavigate();
+  const [orders,setOrders]=useState([]); const [suppliers,setSuppliers]=useState([]); const [loading,setLoading]=useState(true); const [error,setError]=useState('');
+  useEffect(()=>{let alive=true;(async()=>{try{
+    const [orderRes,supplierRes]=await Promise.all([wholesaleApi.getMine(),suppliersApi.getAll({pageSize:100})]);
+    const available=(supplierRes.data||[]).slice(0,12);
+    const catalog=await Promise.all(available.map(async s=>{try{return {...s,products:(await suppliersApi.getProducts(s._id||s.id)).products||[]};}catch{return {...s,products:[]};}}));
+    if(alive){setOrders(orderRes.orders||[]);setSuppliers(catalog);}
+  }catch(err){if(alive)setError(extractErrorMessage(err));}finally{if(alive)setLoading(false);}})();return()=>{alive=false};},[]);
+  return <><div className="dash-page-head"><div><span className="eyebrow">WHOLESALE SOURCING</span><h1>Purchases</h1><p>Review supply orders or browse verified suppliers when you need wholesale stock.</p></div><button className="outline-btn" onClick={()=>navigate('/vendor/suppliers')}>Find suppliers</button></div>{error&&<div className="form-error">{error}</div>}{loading?<div className="empty-state"><h3>Loading supplier catalog…</h3></div>:<>{orders.length>0&&<div className="data-card"><div className="data-card-head"><div><h3>Your wholesale orders</h3><span>{orders.length} database order{orders.length===1?'':'s'}</span></div></div><SmartTable columns={[{key:'orderNumber',label:'Order'},{key:'supplier',label:'Supplier',render:r=>r.supplier?.businessName||r.supplier?.companyName||r.supplier?.Fullname||'Supplier'},{key:'totalAmount',label:'Total',render:r=>money(r.totalAmount)},{key:'status',label:'Status'}]} rows={orders} rowKey={r=>r._id}/></div>}{!orders.length&&<div className="verified-box"><b>No wholesale purchases yet</b><p>You can optionally choose a supplier below to browse wholesale products. Nothing is added until you place a supply order.</p></div>}<div className="section-heading"><div><span className="eyebrow">AVAILABLE SUPPLIERS</span><h2>Browse wholesale catalogs</h2></div><span>{suppliers.length} verified suppliers</span></div>{!suppliers.length?<div className="empty-state"><h3>No verified suppliers available yet</h3><p>Check back after suppliers are approved.</p></div>:<div className="dash-grid supplier-search-grid">{suppliers.map(s=><div className="data-card" key={s._id||s.id}><div className="data-card-head"><div><h3>{s.businessName}</h3><span>{s.category||'Wholesale supplier'} · {s.products.length} products</span></div><em className="status active">Verified</em></div>{s.products.slice(0,3).map(p=><div className="activity-row" key={p._id}><div><b>{p.name}</b><small>{p.stockQuantity} in stock · MOQ {p.moq||1}</small></div><strong>{money(p.wholesalePrice)}</strong></div>)}{!s.products.length&&<p className="tiny">No active products listed yet.</p>}<button className="gradient-btn" onClick={()=>navigate('/vendor/suppliers')}>View supplier</button></div>)}</div>}</>}</>;
+}
+
 const SELLER_PAGES={
   stores:StorePage, categories:CategoriesPage, customers:CustomersPage, analytics:AnalyticsPage, reports:ReportsPage,
   transactions:TransactionsPage, promotions:PromotionsPage, shipping:ShippingPage, reviews:ReviewsPage,
   team:TeamPage, settings:SettingsPage, advertisements:AdvertisementsPage, subscription:SubscriptionPage,
-  products:ProductModule, inventory:InventoryPage, orders:VendorOrders, payouts:VendorPayouts,
+  products:ProductModule, inventory:InventoryPage, orders:VendorOrders, payouts:VendorPayouts, purchases:WholesalePurchases,
 };
 
 export default function VendorDashboard(){
@@ -468,6 +494,7 @@ export default function VendorDashboard(){
   if(section==='delivery')return <DashboardLayout><DeliveryTracking role="vendor"/></DashboardLayout>;
   if(section==='notifications')return <DashboardLayout><NotificationPanel/></DashboardLayout>;
   const Page=SELLER_PAGES[section];
-  if(!section||!Page)return <DashboardLayout><SellerOverview/></DashboardLayout>;
+  // Sellers who have not finished onboarding see what is still needed.
+  if(!section||!Page)return <DashboardLayout><RestrictedOverview><SellerOverview/></RestrictedOverview></DashboardLayout>;
   return <DashboardLayout><Page/></DashboardLayout>;
 }
