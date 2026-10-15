@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import DashboardLayout from "../components/DashboardLayout";
 import ProductImage from "../components/ProductImage";
-import { PageHead, money } from "./seller/shared";
+import SmartTable from "../components/SmartTable";
+import { affiliatesApi } from "../API/affiliates";
+import { PageHead, StatusPill, money, dateDMY } from "./seller/shared";
 import { client, extractErrorMessage } from "../API/client";
 import { productsApi } from "../API/products";
 
@@ -12,6 +15,49 @@ const STEPS = [
   ["The buyer confirms delivery", "Only then is the commission earned: your share is deducted from that sale, together with MVEC's fee."],
   ["Refunds reverse it", "If the order is cancelled or refunded, the affiliate's commission is taken back."],
 ];
+
+// Who brings you buyers: affiliates, promoted products and referred orders.
+// Hidden when the summary endpoint is not available on this server.
+function ReferredSales() {
+  const [data, setData] = useState(null);
+  useEffect(() => { affiliatesApi.getVendorSummary().then(setData).catch(() => setData(null)); }, []);
+  if (!data) return null;
+
+  const affiliateCols = [
+    { key: "name", label: "Affiliate", render: r => <b>{r.name}</b> },
+    { key: "links", label: "Links", render: r => r.links || "—" },
+    { key: "clicks", label: "Clicks", render: r => Number(r.clicks || 0).toLocaleString() },
+    { key: "orders", label: "Orders", render: r => r.orders },
+    { key: "sales", label: "Your sales", render: r => <b>{money(r.sales)}</b> },
+    { key: "lastOrderAt", label: "Last order", render: r => dateDMY(r.lastOrderAt) },
+  ];
+  const productCols = [
+    { key: "name", label: "Product", render: r => <Link to={`/product/${r.productId}`}><b>{r.name}</b></Link> },
+    { key: "links", label: "Affiliate links", render: r => r.links || "—" },
+    { key: "clicks", label: "Clicks", render: r => Number(r.clicks || 0).toLocaleString() },
+    { key: "units", label: "Units sold", render: r => r.units || 0 },
+    { key: "sales", label: "Sales", render: r => <b>{money(r.sales)}</b> },
+  ];
+  const orderCols = [
+    { key: "date", label: "Date", render: r => dateDMY(r.date) },
+    { key: "orderNumber", label: "Order", render: r => <Link to={`/vendor/orders/${r.orderId}`}>{r.orderNumber}</Link> },
+    { key: "affiliate", label: "Referred by", render: r => <span>{r.affiliate}<small className="tiny seller-block">{r.code}</small></span> },
+    { key: "sales", label: "Your items", render: r => money(r.sales) },
+    { key: "status", label: "Status", render: r => <StatusPill value={r.paymentStatus === "PAID" ? r.orderStatus : r.paymentStatus} /> },
+  ];
+
+  return <>
+    {data.affiliates?.length > 0 && <div className="data-card"><div className="data-card-head"><div><h3>Top affiliates</h3><span>Who brings you buyers</span></div></div>
+      <SmartTable columns={affiliateCols} rows={data.affiliates} rowKey={r => r.affiliateId} searchPlaceholder="Search affiliates…" exportName="mvec-affiliates" />
+    </div>}
+    {data.products?.length > 0 && <div className="data-card"><div className="data-card-head"><div><h3>Products affiliates promote</h3><span>Links, clicks and sales per product</span></div></div>
+      <SmartTable columns={productCols} rows={data.products} rowKey={r => r.productId} pageSize={5} searchPlaceholder="Search products…" exportName="mvec-affiliate-products" />
+    </div>}
+    {data.recent?.length > 0 && <div className="data-card"><div className="data-card-head"><div><h3>Recent referred orders</h3><span>Latest 20</span></div></div>
+      <SmartTable columns={orderCols} rows={data.recent} rowKey={r => r.orderId} searchPlaceholder="Search orders…" exportName="mvec-affiliate-orders" />
+    </div>}
+  </>;
+}
 
 export default function VendorAffiliate() {
   const [program, setProgram] = useState(null);
@@ -119,6 +165,8 @@ export default function VendorAffiliate() {
         {[["Active links", stats.activeLinks, `${stats.affiliates} affiliate${stats.affiliates === 1 ? "" : "s"}`], ["Clicks", stats.clicks, "Visits from affiliate links"], ["Affiliate orders", stats.orders, money(stats.sales) + " in sales"], ["Commission", money(stats.commission), `${money(stats.paidByYou)} paid by you`]].map(([label, value, sub]) =>
           <div className="metric" key={label}><div><span>{label}</span><strong>{value}</strong><small>{sub}</small></div></div>)}
       </div>}
+
+      <ReferredSales />
 
       <div className="data-card">
         <div className="data-card-head"><div><h3>How it works</h3><span>Commission is only earned on delivered orders</span></div></div>

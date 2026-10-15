@@ -37,6 +37,18 @@ export const authApi = {
       }
       return r.data;
     }),
+  // Portal account settings (name, phone, avatar, preferences).
+  updateAccount: (payload) =>
+    client.patch("/auth/profile", payload).then((r) => ({ ...r.data, user: mapUser(r.data.user) })),
+  uploadAvatar: (file) => {
+    const formData = new FormData();
+    formData.append("avatar", file);
+    return client.post("/uploads/avatar", formData).then((r) => r.data);
+  },
+  removeAvatar: () =>
+    client.delete("/auth/avatar").then((r) => r.data),
+  logoutAll: () =>
+    client.post("/auth/logout-all").then((r) => r.data),
   forgotPassword: (payload) =>
     client.post("/auth/forgot-password", payload).then((r) => r.data),
   verifyResetOtp: (payload) =>

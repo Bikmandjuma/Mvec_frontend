@@ -8,7 +8,7 @@ const withOrderId = (order) => (order ? { ...order, id: order.id || order._id } 
 // where and to whom. `recipient` is who receives the parcel. `visitorId` lets
 // the server credit the affiliate whose link the buyer clicked (the server
 // resolves the attribution itself; nothing affiliate-related is trusted here).
-const checkoutBody = ({ shippingAddress = {}, recipient = {}, deliveryMethod = "standard", paymentMethod = "MOMO" }) => ({
+const checkoutBody = ({ shippingAddress = {}, recipient = {}, deliveryMethod = "standard", paymentMethod = "MOMO", couponCode }) => ({
   shippingAddress: {
     street: shippingAddress.street || "",
     district: shippingAddress.district || "",
@@ -24,6 +24,8 @@ const checkoutBody = ({ shippingAddress = {}, recipient = {}, deliveryMethod = "
   deliveryMethod,
   paymentMethod,
   visitorId: getVisitorId() || undefined,
+  // Seller coupon; the server validates and prices it.
+  couponCode: couponCode || undefined,
 });
 
 // city = district and state = province, as the backend Order model expects.

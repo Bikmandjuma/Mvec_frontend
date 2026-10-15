@@ -4,6 +4,7 @@ import Storefront from '../components/Storefront';
 import { loadCatalog } from '../services/catalogApi';
 import Icon from '../components/Icon';
 import Pagination from '../components/Pagination';
+import SponsoredProducts from '../components/SponsoredProducts';
 import ProductCard from '../components/ProductCard';
 
 const PER_PAGE = 12;
@@ -133,6 +134,7 @@ export default function Shop() {
             <option value="price-high">Price: high to low</option>
           </select>
         </div>
+        {!loading && page === 1 && <SponsoredProducts surface={q ? 'search' : cat ? 'category' : 'shop'} q={q} category={cat} catalog={catalog} limit={4} title={q ? `Sponsored results for “${q}”` : cat ? `Sponsored in ${cat}` : 'Sponsored products'} />}
         {loadError && <div className="form-alert error">We could not load products right now. Please refresh the page.</div>}
         {loading && <div className="empty-state"><h3>Loading products…</h3></div>}
         {!loading && (

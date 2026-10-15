@@ -4,6 +4,6 @@ export function ThemeProvider({children}){
   const [theme,setTheme]=useState(()=>localStorage.getItem('mvec_theme')||'light');
   useEffect(()=>{document.documentElement.dataset.theme=theme;localStorage.setItem('mvec_theme',theme)},[theme]);
   const toggleTheme=()=>setTheme(t=>t==='dark'?'light':'dark');
-  return <ThemeContext.Provider value={{theme,toggleTheme}}>{children}</ThemeContext.Provider>
+  return <ThemeContext.Provider value={{theme,toggleTheme,setTheme}}>{children}</ThemeContext.Provider>
 }
 export const useTheme=()=>useContext(ThemeContext);

@@ -61,8 +61,13 @@ export function AuthProvider({ children }) {
     return me;
   }
 
+  // Account settings: merge profile changes, or swap in a fresh token after a
+  // password change / "sign out everywhere".
+  const updateUser = (patch) => setUser(u => (u ? { ...u, ...patch } : u));
+  const replaceToken = (token) => { if (token) localStorage.setItem('huska_token', token); };
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout, refresh, setUser }}>
+    <AuthContext.Provider value={{ user, loading, login, register, logout, refresh, setUser, updateUser, replaceToken }}>
       {children}
     </AuthContext.Provider>
   );

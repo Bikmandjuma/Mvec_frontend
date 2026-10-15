@@ -10,6 +10,9 @@ export const promotionsApi = {
     client.post("/promotions", payload).then((r) => r.data),
   update: (id, payload) =>
     client.patch(`/promotions/${id}`, payload).then((r) => r.data),
+  // Buyer checkout: check a coupon against the basket.
+  validate: (payload) =>
+    client.post("/promotions/validate", payload).then((r) => r.data),
   remove: (id) =>
     client.delete(`/promotions/${id}`).then((r) => r.data),
 };

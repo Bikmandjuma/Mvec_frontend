@@ -139,9 +139,9 @@ export default function ProductDetails() {
           {reviews.length === 0 && <p className="tiny">No reviews yet.</p>}
           {reviews.map((r) => (
             <div className="message-bubble theirs" key={r.id}>
-              <p><Stars value={r.rating} /> {r.review || r.comment}</p>
-              <small>{r.reviewer || 'Verified buyer'} · {formatDate(r.date)}</small>
-              {r.vendorReply && <p className="tiny"><b>Seller reply:</b> {r.vendorReply}</p>}
+              <p><Stars value={r.rating} /> {r.review || r.comment || r.reviewText}</p>
+              <small>{r.reviewer || (typeof r.user === 'string' ? r.user : r.user?.fullName) || 'Verified buyer'}{r.isVerifiedPurchase ? ' · Verified purchase' : ''} · {formatDate(r.date || r.createdAt)}</small>
+              {r.vendorReply && <div className="review-seller-reply"><b>Seller reply</b><p>{r.vendorReply}</p></div>}
             </div>
           ))}
           <p className="tiny" style={{ marginTop: 12 }}>Bought this product? <Link to="/orders">Leave a review from your order</Link> after it&apos;s delivered.</p>
