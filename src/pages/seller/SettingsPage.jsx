@@ -13,7 +13,7 @@ const SHORTCUTS = [
   ['/vendor/payouts', 'Payouts', 'Balance and mobile money withdrawals', 'wallet'],
   ['/vendor/team', 'Team & permissions', 'Staff accounts and their access', 'users'],
   ['/vendor/notifications', 'Notifications', 'Order, stock and payout alerts', 'bell'],
-  ['/profile', 'Account & security', 'Your personal profile and password', 'shield'],
+  ['/vendor/profile', 'Account & security', 'Your personal profile and password', 'shield'],
 ];
 
 export default function SettingsPage() {

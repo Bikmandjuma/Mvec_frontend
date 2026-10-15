@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { useState, useEffect, useCallback } from "react";
 import Pagination from "../components/Pagination";
+import SponsoredProducts from "../components/SponsoredProducts";
 import { loadCatalog, mapBackendProduct } from "../services/catalogApi";
 import { advertisementsApi } from "../API/advertisements";
 import Storefront from "../components/Storefront";
@@ -193,6 +194,7 @@ export default function Home() {
             </div>
             <Link to="/shop">View all products →</Link>
           </div>
+          <SponsoredProducts surface="home" catalog={products} limit={4} title="Featured by sellers" />
           {loading ? <SkeletonGrid count={8} /> : (
             <>
               <div className="product-grid">

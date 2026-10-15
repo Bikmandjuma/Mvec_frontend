@@ -5,7 +5,7 @@ export default function AuthLayout({ title, subtitle, children }) {
     <main className="alibaba-auth-page">
       <header className="alibaba-header">
         <Link to="/" className="mvec-logo">MVEC</Link>
-        <ThemeToggle className="auth-theme-toggle" />
+        <ThemeToggle className="auth-theme-toggle"/>
       </header>
 
       <section className="alibaba-auth-content">

@@ -1,11 +1,12 @@
 // Seller pages derived from the vendor's own orders, products and payouts:
-// Customers, Analytics, Reports and Transactions.
+// Analytics and Reports.
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import SmartTable from '../../components/SmartTable';
 import { ordersApi } from '../../API/orders';
 import { productsApi } from '../../API/products';
 import { payoutsApi } from '../../API/payouts';
+import { vendorServicesApi } from '../../API/vendorServices';
 import {
   PageHead, Loading, Metric, StatusPill, BarChart, money, dateDMY, titleCase, personName,
   parsePercent, summarizeOrders, monthlyRevenue, isRevenueOrder, useLoader,
@@ -17,49 +18,32 @@ const loadVendorData = () => Promise.all([
   payoutsApi.getBalance().catch(() => null),
 ]).then(([orders, products, balance]) => ({ orders, products, commission: parsePercent(balance?.commissionRate), balance: balance?.balance }));
 
-export function CustomersPage() {
-  const { data: orders, loading, error } = useLoader(() => ordersApi.getVendorOrders().then(r => r.orders || []));
-
-  const rows = useMemo(() => {
-    const map = {};
-    (orders || []).filter(isRevenueOrder).forEach(o => {
-      const id = o.user?._id || o.user?.id || personName(o.user);
-      const row = map[id] || (map[id] = { id, name: personName(o.user), email: o.user?.email || '', city: o.shippingAddress?.city || '', orders: 0, spent: 0, last: null });
-      row.orders += 1;
-      row.spent += Number(o.vendorSubtotal || 0);
-      if (!row.last || new Date(o.createdAt) > new Date(row.last)) row.last = o.createdAt;
-    });
-    return Object.values(map).sort((a, b) => b.spent - a.spent);
-  }, [orders]);
-
-  const repeat = rows.filter(r => r.orders > 1).length;
-  const columns = [
-    { key: 'name', label: 'Customer', render: r => <div><b>{r.name}</b><small className="tiny seller-block">{r.email}</small></div> },
-    { key: 'city', label: 'City', render: r => r.city || '—' },
-    { key: 'orders', label: 'Orders' },
-    { key: 'spent', label: 'Total spent', render: r => money(r.spent) },
-    { key: 'last', label: 'Last purchase', render: r => dateDMY(r.last) },
-  ];
-
-  return <>
-    <PageHead title="Customers" desc="Buyers who have ordered your products, ranked by what they spent with you." />
-    {loading && <Loading />}
-    {error && <div className="form-error">{error}</div>}
-    {orders && <>
-      <div className="metric-grid">
-        <Metric label="Customers" value={rows.length} icon="users" sub="Unique buyers" />
-        <Metric label="Repeat customers" value={repeat} icon="heart" sub={rows.length ? `${Math.round((repeat / rows.length) * 100)}% came back` : 'No buyers yet'} />
-        <Metric label="Top customer" value={rows[0] ? money(rows[0].spent) : '—'} icon="wallet" sub={rows[0]?.name || ''} />
-      </div>
-      <div className="data-card">
-        <SmartTable columns={columns} rows={rows} rowKey={r => r.id} searchPlaceholder="Search customers…" exportName="mvec-customers" empty="No customers yet. Buyers appear here after their first order." />
-      </div>
-    </>}
-  </>;
-}
+// Where each counted order came from. An order can carry both a coupon and
+// an affiliate referral; affiliate wins so channels add up to the total.
+const CHANNELS = [['AFFILIATE', 'Affiliate referral'], ['COUPON', 'Coupon code'], ['MANUAL', 'Manual order'], ['ONLINE', 'Direct online']];
+const channelOf = o => (o.affiliateCode ? 'AFFILIATE' : o.coupon?.code ? 'COUPON' : o.source === 'MANUAL' ? 'MANUAL' : 'ONLINE');
 
 export function AnalyticsPage() {
-  const { data, loading, error } = useLoader(loadVendorData);
+  const { data, loading, error } = useLoader(() => Promise.all([
+    loadVendorData(),
+    vendorServicesApi.getAdvertisements().then(r => r.data || []).catch(() => []),
+  ]).then(([vendor, ads]) => ({ ...vendor, ads })));
+  const channels = useMemo(() => {
+    if (!data) return [];
+    const counted = data.orders.filter(isRevenueOrder);
+    const total = counted.reduce((t, o) => t + Number(o.vendorSubtotal || 0), 0);
+    return CHANNELS.map(([k, label]) => {
+      const list = counted.filter(o => channelOf(o) === k);
+      const sales = list.reduce((t, o) => t + Number(o.vendorSubtotal || 0), 0);
+      return { k, label, orders: list.length, sales, share: total ? (sales / total) * 100 : 0 };
+    });
+  }, [data]);
+  const growth = useMemo(() => data && {
+    discount: data.orders.filter(isRevenueOrder).reduce((t, o) => t + Number(o.vendorDiscount || 0), 0),
+    adSpend: data.ads.reduce((t, a) => t + Number(a.spent || 0), 0),
+    adClicks: data.ads.reduce((t, a) => t + Number(a.clicks || 0), 0),
+    liveAds: data.ads.filter(a => a.statusKey === 'ACTIVE').length,
+  }, [data]);
   const stats = useMemo(() => data && summarizeOrders(data.orders, data.commission), [data]);
   const months = useMemo(() => data ? monthlyRevenue(data.orders, 6) : [], [data]);
   const lowStock = data ? data.products.filter(p => Number(p.stockQuantity) <= Number(p.lowStockThreshold || 5)).length : 0;
@@ -85,6 +69,19 @@ export function AnalyticsPage() {
           {Object.keys(stats.byStatus).length === 0 && <p className="tiny">No orders yet.</p>}
           {Object.entries(stats.byStatus).sort((a, b) => b[1] - a[1]).map(([status, count]) =>
             <div className="progress-row" key={status}><span>{titleCase(status)}</span><div><i style={{ width: `${(count / stats.orders) * 100}%` }} /></div><b>{count}</b></div>)}
+        </div>
+      </div>
+      <div className="dash-grid">
+        <div className="data-card">
+          <div className="data-card-head"><div><h3>Sales by channel</h3><span>Where your orders come from</span></div></div>
+          {channels.map(c => <div className="progress-row" key={c.k} title={`${c.orders} orders`}><span>{c.label}</span><div><i style={{ width: `${c.share}%` }} /></div><b>{Math.round(c.share)}%</b></div>)}
+          <p className="tiny">{channels.map(c => `${c.label}: ${money(c.sales)} (${c.orders})`).join(' · ')}</p>
+        </div>
+        <div className="data-card">
+          <div className="data-card-head"><div><h3>Growth spend</h3><span>What marketing cost you</span></div><Link to="/vendor/advertisements">Advertisements</Link></div>
+          <div className="activity-row"><div><b>Coupon discounts</b><small>Given on your items</small></div><strong>{money(growth.discount)}</strong></div>
+          <div className="activity-row"><div><b>Ad spend</b><small>{growth.adClicks.toLocaleString()} clicks · {growth.liveAds} live campaign{growth.liveAds === 1 ? '' : 's'}</small></div><strong>{money(growth.adSpend)}</strong></div>
+          <div className="activity-row"><div><b>Affiliate commission</b><small>Paid by MVEC, not you</small></div><strong>{money(0)}</strong></div>
         </div>
       </div>
       <div className="data-card">
@@ -142,57 +139,3 @@ export function ReportsPage() {
   </>;
 }
 
-export function TransactionsPage() {
-  const { data, loading, error } = useLoader(() => Promise.all([
-    loadVendorData(),
-    payoutsApi.getHistory().then(r => r.payouts || []).catch(() => []),
-  ]).then(([vendor, payouts]) => ({ ...vendor, payouts })));
-
-  const rows = useMemo(() => {
-    if (!data) return [];
-    const rate = data.commission / 100;
-    const sales = data.orders.filter(o => o.paymentStatus === 'PAID' && isRevenueOrder(o)).map(o => {
-      const gross = Number(o.vendorSubtotal || 0);
-      const delivery = Number(o.vendorShippingFee || 0); // paid in full, no commission
-      return {
-        id: `sale-${o._id}`, date: o.createdAt, type: 'Sale', reference: o.orderNumber, orderId: o._id,
-        gross: gross + delivery, fee: gross * rate, net: gross - gross * rate + delivery, delivery,
-        status: o.orderStatus === 'DELIVERED' || o.orderStatus === 'COMPLETED' ? 'RELEASED' : 'HELD',
-      };
-    });
-    const payouts = data.payouts.map(p => ({
-      id: `payout-${p._id || p.id}`, date: p.createdAt, type: 'Payout', reference: p.payoutNumber,
-      gross: -Number(p.amount || 0), fee: 0, net: -Number(p.amount || 0), status: p.status,
-      detail: p.payoutDetails?.bankName,
-    }));
-    return [...sales, ...payouts].sort((a, b) => new Date(b.date) - new Date(a.date));
-  }, [data]);
-
-  const columns = [
-    { key: 'date', label: 'Date', render: r => dateDMY(r.date) },
-    { key: 'type', label: 'Type', render: r => <b>{r.type}</b> },
-    { key: 'reference', label: 'Reference', render: r => r.orderId ? <Link to={`/vendor/orders/${r.orderId}`}>{r.reference}</Link> : <span>{r.reference}{r.detail && <small className="tiny seller-block">{r.detail}</small>}</span> },
-    { key: 'gross', label: 'Amount', render: r => <span className={r.gross < 0 ? 'seller-negative' : ''}>{money(r.gross)}{r.delivery > 0 && <small className="tiny seller-block">incl. {money(r.delivery)} delivery</small>}</span> },
-    { key: 'fee', label: 'Fee', render: r => r.fee ? `-${money(r.fee)}` : '—' },
-    { key: 'net', label: 'Net', render: r => <b className={r.net < 0 ? 'seller-negative' : ''}>{money(r.net)}</b> },
-    { key: 'status', label: 'Status', render: r => <StatusPill value={r.status} /> },
-  ];
-
-  const balance = data?.balance;
-  return <>
-    <PageHead title="Transactions" desc="Every paid sale, platform fee and payout on your account."
-      action={<Link className="outline-btn" to="/vendor/payouts">Request payout</Link>} />
-    {loading && <Loading />}
-    {error && <div className="form-error">{error}</div>}
-    {data && <>
-      <div className="metric-grid">
-        <Metric label="Available" value={money(balance?.availableBalance)} icon="wallet" sub="Ready to withdraw" />
-        <Metric label="Held" value={money(balance?.pendingBalance)} icon="shield" sub="Released after delivery OTP" />
-        <Metric label="Fees paid" value={money(balance?.commissionPaid)} icon="tag" sub={`${data.commission}% per sale`} />
-      </div>
-      <div className="data-card">
-        <SmartTable columns={columns} rows={rows} rowKey={r => r.id} searchPlaceholder="Search transactions…" exportName="mvec-transactions" empty="No transactions yet." />
-      </div>
-    </>}
-  </>;
-}

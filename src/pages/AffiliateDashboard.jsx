@@ -626,7 +626,6 @@ function AffiliateDashboard() {
     : path.includes("/commissions") ? <Commissions />
     : path.includes("/withdrawals") ? <Withdrawals />
     : path.includes("/wallet") ? <Wallet />
-    : path.includes("/profile") ? <Profile />
     : <Overview />;
   return <DashboardLayout>{page}</DashboardLayout>;
 }

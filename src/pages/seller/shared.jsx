@@ -24,8 +24,10 @@ export const parsePercent = value => {
   return Number.isFinite(n) ? n : DEFAULT_COMMISSION_PERCENT;
 };
 
-// Statuses a seller may move an order to. DELIVERED is set only by the buyer's
-// delivery OTP, which is what releases the held funds.
+// Seller order flow — mirrors updateVendorOrderStatus in the backend.
+// DELIVERED on MVEC-paid orders is confirmed with the buyer's delivery OTP
+// (that releases the held funds); sellers close only orders whose payment
+// they collect themselves (manual cash-on-delivery / paid-offline orders).
 export const ORDER_FLOW = ['PENDING', 'CONFIRMED', 'PROCESSING', 'READY_FOR_SHIPMENT', 'SHIPPED', 'DELIVERED'];
 const SELLER_NEXT = {
   PENDING: ['CONFIRMED', 'CANCELLED'],
@@ -33,8 +35,33 @@ const SELLER_NEXT = {
   PROCESSING: ['READY_FOR_SHIPMENT', 'CANCELLED'],
   READY_FOR_SHIPMENT: ['SHIPPED', 'CANCELLED'],
   SHIPPED: ['OUT_FOR_DELIVERY'],
+  OUT_FOR_DELIVERY: [],
 };
-export const sellerNextStatuses = status => SELLER_NEXT[status] || [];
+export const sellerCollectsPayment = (o) => o?.source === 'MANUAL' && (o.paidOffline || o.paymentMethod === 'CASH_ON_DELIVERY');
+// Accepts an order (preferred) or a bare status string.
+export const sellerNextStatuses = (orderOrStatus) => {
+  const order = typeof orderOrStatus === 'string' ? { orderStatus: orderOrStatus } : orderOrStatus || {};
+  const next = [...(SELLER_NEXT[order.orderStatus] || [])];
+  if (sellerCollectsPayment(order)) {
+    const from = order.shippingMethod === 'PICKUP' ? ['CONFIRMED', 'PROCESSING', 'READY_FOR_SHIPMENT'] : ['READY_FOR_SHIPMENT', 'SHIPPED', 'OUT_FOR_DELIVERY'];
+    if (from.includes(order.orderStatus)) next.push('DELIVERED');
+  }
+  return [...new Set(next)];
+};
+// Cash-on-delivery manual orders: the seller records the cash they received.
+export const canRecordCash = (o) => o?.source === 'MANUAL' && o.paymentMethod === 'CASH_ON_DELIVERY' && o.paymentStatus !== 'PAID' && !['CANCELLED', 'REFUNDED'].includes(o.orderStatus);
+export const STEP_LABEL = {
+  CONFIRMED: 'Accept order', PROCESSING: 'Start preparing', READY_FOR_SHIPMENT: 'Ready to ship', SHIPPED: 'Mark shipped',
+  OUT_FOR_DELIVERY: 'Out for delivery', DELIVERED: 'Mark delivered', CANCELLED: 'Cancel order',
+};
+export const ORDER_TABS = [
+  ['all', 'All', null],
+  ['new', 'New', ['PENDING', 'CONFIRMED']],
+  ['preparing', 'Preparing', ['PROCESSING', 'READY_FOR_SHIPMENT']],
+  ['shipping', 'On the way', ['SHIPPED', 'OUT_FOR_DELIVERY']],
+  ['done', 'Completed', ['DELIVERED', 'COMPLETED']],
+  ['closed', 'Cancelled', ['CANCELLED', 'REFUNDED', 'RETURNED', 'FAILED']],
+];
 
 const COUNTED_OUT = ['CANCELLED', 'REFUNDED', 'FAILED', 'RETURNED'];
 export const isRevenueOrder = o => !COUNTED_OUT.includes(o.orderStatus);

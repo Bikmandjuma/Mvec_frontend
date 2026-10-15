@@ -8,6 +8,7 @@ import { productsApi } from "../API/products";
 import { ordersApi } from "../API/orders";
 import { addressesApi } from "../API/addresses";
 import { shippingApi } from "../API/shipping";
+import { promotionsApi } from "../API/promotions";
 import { RWANDA_LOCATIONS, PROVINCES } from "../data/rwandaLocations";
 import { extractErrorMessage } from "../API/client";
 import { mapBackendProduct, clearCatalogCache } from "../services/catalogApi";
@@ -128,9 +129,15 @@ export default function Checkout() {
   const [quoteError, setQuoteError] = useState("");
   const quote = quotes[form.method];
   const delivery = quote?.shippingFee ?? 0;
-  const total = subtotal + delivery;
   const undeliverable = Boolean(quote && !quote.deliverable);
   const undeliverableMessage = undeliverable ? quote.groups.filter((g) => !g.deliverable).map((g) => g.message).join(" ") : "";
+  // Seller coupon: previewed here, applied for real when the order is created.
+  const [couponInput, setCouponInput] = useState("");
+  const [coupon, setCoupon] = useState(null);
+  const [couponError, setCouponError] = useState("");
+  const [couponBusy, setCouponBusy] = useState(false);
+  const discount = coupon ? Math.min(coupon.discount, subtotal + delivery) : 0;
+  const total = subtotal + delivery - discount;
 
   const quoteItems = useMemo(() => items.map((x) => ({ productId: x.id || x._id, qty: x.qty || 1 })), [items]);
   const quoteKey = JSON.stringify([form.province, form.district, quoteItems]);
@@ -150,6 +157,29 @@ export default function Checkout() {
     return () => { alive = false; clearTimeout(t); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [quoteKey, user]);
+
+  const checkCoupon = async (code, silent = false) => {
+    if (!code.trim()) return;
+    if (!user) { setCouponError("Sign in to use a coupon."); return; }
+    setCouponBusy(true);
+    if (!silent) setCouponError("");
+    try {
+      const res = await promotionsApi.validate({
+        code: code.trim(), items: quoteItems, shippingMethod: form.method,
+        shippingAddress: form.district ? { province: form.province, district: form.district } : undefined,
+      });
+      setCoupon(res);
+      setCouponError("");
+    } catch (err) {
+      setCoupon(null);
+      setCouponError(extractErrorMessage(err));
+    } finally { setCouponBusy(false); }
+  };
+  // The discount depends on the basket and delivery, so re-check when they change.
+  useEffect(() => {
+    if (coupon) checkCoupon(coupon.code, true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [quoteKey, form.method]);
 
   const feeLabel = (method) => {
     const q = quotes[method];
@@ -202,6 +232,7 @@ export default function Checkout() {
         recipient: { name: form.name.trim(), phone: form.phone.trim(), email: form.email.trim() },
         deliveryMethod: form.method,
         shippingMethod: form.method.toUpperCase(),
+        couponCode: coupon?.code,
       };
       const res = pid
         ? await ordersApi.directCheckout({ ...payload, items: items.map((x) => ({ productId: x.id, quantity: x.qty })) })
@@ -313,6 +344,17 @@ export default function Checkout() {
     <aside className="summary-card"><h2>Order summary</h2>
       <div><span>Products</span><b>{money(subtotal)}</b></div>
       <div><span>Delivery{quote?.groups?.length > 1 ? ` (${quote.groups.length} parcels)` : ""}</span><b>{!user ? "Shown after sign-in" : quoting && !quote ? "…" : undeliverable ? "—" : !quote ? "—" : delivery === 0 ? "FREE" : money(delivery)}</b></div>
+      {discount > 0 && <div><span>Coupon {coupon.code}</span><b>−{money(discount)}</b></div>}
+      <div className="checkout-coupon">
+        {coupon
+          ? <p className="tiny"><b>{coupon.code}</b> · {coupon.message} <button type="button" className="link-btn" onClick={() => { setCoupon(null); setCouponInput(""); }}>Remove</button></p>
+          : <div className="checkout-coupon-row">
+              <input value={couponInput} onChange={(e) => setCouponInput(e.target.value.toUpperCase())} placeholder="Coupon code" aria-label="Coupon code"
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); checkCoupon(couponInput); } }} />
+              <button type="button" className="outline-btn" disabled={couponBusy || !couponInput.trim()} onClick={() => checkCoupon(couponInput)}>{couponBusy ? "…" : "Apply"}</button>
+            </div>}
+        {couponError && <small className="checkout-coupon-error">{couponError}</small>}
+      </div>
       <hr />
       <div className="grand"><span>Total to pay</span><strong>{money(total)}</strong></div>
       <button className="gradient-btn full" type="submit" disabled={submitting || authLoading || unavailable.length > 0 || undeliverable}>

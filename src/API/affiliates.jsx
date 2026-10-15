@@ -63,6 +63,9 @@ export const affiliatesApi = {
     inflight.set(code, request);
     return request;
   },
+  // Seller: affiliate-referred sales of my products.
+  getVendorSummary: () =>
+    client.get("/affiliates/vendor/summary").then((r) => r.data),
   requestPayout: (payload) =>
     client.post("/affiliates/payouts/request", payload).then((r) => r.data),
 };

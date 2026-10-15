@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import Storefront from '../components/Storefront';
 import Icon from '../components/Icon';
 import ProductImage from '../components/ProductImage';
@@ -273,7 +273,13 @@ function Addresses() {
   );
 }
 
+// Portal users manage their account inside their own portal.
+export const PORTAL_PROFILE = { vendor: '/vendor/profile', super_admin: '/admin/profile', supplier: '/supplier/profile', affiliate: '/affiliate/profile', delivery: '/delivery/profile' };
+
 export default function Profile() {
+  const { user } = useAuth();
+  const portal = PORTAL_PROFILE[user?.role];
+  if (portal) return <Navigate to={`${portal}${window.location.hash}`} replace />;
   return <Storefront><main className="account-page">
     <div className="page-title"><span className="eyebrow">MY ACCOUNT</span><h1>Profile &amp; addresses</h1><p>Manage your account details, delivery addresses and password.</p></div>
     <div className="profile-grid">
