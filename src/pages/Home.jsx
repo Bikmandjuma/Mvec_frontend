@@ -13,7 +13,6 @@ import { money, ratingLabel } from "../utils/format";
 
 const PRODUCTS_PER_PAGE = 8;
 const VENDORS_PER_PAGE = 4;
-const CATEGORY_ICONS = ["▦", "▣", "▤", "◉", "⌂", "✦", "◈", "◍"];
 
 function SkeletonGrid({ count = 4 }) {
   return (
@@ -161,31 +160,6 @@ export default function Home() {
           </section>
         )}
 
-        <section className="category-strip">
-          <div className="section-heading">
-            <div>
-              <span className="eyebrow">SHOP BY CATEGORY</span>
-              <h2>Find what you need</h2>
-            </div>
-            <Link to="/shop">View all →</Link>
-          </div>
-          <div className="category-grid">
-            {categoryNames.map((c, i) => {
-              const count = products.filter((p) => p.category === c).length;
-              return (
-                <Link key={c} to={`/shop?category=${encodeURIComponent(c)}`} className="category-tile">
-                  <span className="cat-icon" aria-hidden="true">{CATEGORY_ICONS[i % CATEGORY_ICONS.length]}</span>
-                  <b>{c}</b>
-                  <small>{count ? `${count} product${count === 1 ? "" : "s"}` : "Coming soon"}</small>
-                </Link>
-              );
-            })}
-            {categoryNames.length === 0 && !loading && (
-              <p className="tiny">Categories will appear here once they're added to the marketplace.</p>
-            )}
-          </div>
-        </section>
-
         <section className="product-section">
           <div className="section-heading">
             <div>
@@ -210,6 +184,7 @@ export default function Home() {
           )}
         </section>
 
+        {/* Per-category sections hidden for now.
         {populatedCategories.map((category) => (
           <section className="product-section category-products-section" key={category}>
             <div className="section-heading">
@@ -224,6 +199,7 @@ export default function Home() {
             </div>
           </section>
         ))}
+        */}
 
         {bannerProducts.length > 0 && (
           <section className="visual-banner">
