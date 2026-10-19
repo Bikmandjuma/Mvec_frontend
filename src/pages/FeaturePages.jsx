@@ -1,5 +1,6 @@
 import {useEffect,useState} from 'react';
 import {Link,useLocation,useSearchParams} from 'react-router-dom';
+import DisputeCase from '../components/DisputeCase';
 import Icon from '../components/Icon';
 import SmartTable from '../components/SmartTable';
 import DashboardLayout from '../components/DashboardLayout';import Storefront from '../components/Storefront';import NotificationPanel from '../components/NotificationPanel';
@@ -67,7 +68,7 @@ function SupplierLiveModule({type}){
 
 
 const DISPUTE_REASON={ITEM_NOT_RECEIVED:'Item not received',DAMAGED_GOODS:'Damaged goods',WRONG_ITEM:'Wrong item',INCOMPLETE_ORDER:'Incomplete order',SLA_BREACH:'Late delivery',OTHER:'Other'};
-const DISPUTE_STATUS={OPEN:['Open','warning'],UNDER_REVIEW:['Under review','pending'],EVIDENCE_SUBMITTED:['Evidence submitted','pending'],RESOLVED_BUYER_REFUNDED:['Refunded to buyer','danger'],RESOLVED_VENDOR_RELEASED:['Released to seller','active'],RESOLVED_SPLIT:['Split settlement','active'],REJECTED:['Rejected','danger']};
+const DISPUTE_STATUS={OPEN:['Waiting for seller','warning'],EVIDENCE_SUBMITTED:['Seller responded','pending'],UNDER_REVIEW:['MVEC deciding','pending'],RESOLVED_BUYER_REFUNDED:['Buyer refunded','danger'],RESOLVED_VENDOR_RELEASED:['Seller paid','active'],RESOLVED_SPLIT:['Split','active'],REJECTED:['Rejected','danger'],WITHDRAWN:['Withdrawn by buyer','active']};
 const disputeOpen=s=>['OPEN','UNDER_REVIEW','EVIDENCE_SUBMITTED'].includes(s);
 function DisputeStatus({value}){const s=DISPUTE_STATUS[value];return <em className={'status '+(s?.[1]||'warning')}>{s?.[0]||value}</em>}
 
@@ -77,6 +78,8 @@ function DisputesList({role}){
  const [open,setOpen]=useState(null);const [reply,setReply]=useState('');const [sending,setSending]=useState(false);const [notice,setNotice]=useState('');
  const load=()=>(admin?disputesApi.getAll({pageSize:100}):disputesApi.getMine()).then(res=>{setRows(res.data||[]);setError('')}).catch(err=>setError(extractErrorMessage(err))).finally(()=>setLoading(false));
  useEffect(()=>{load()},[]);// eslint-disable-line react-hooks/exhaustive-deps
+ const caseParam=new URLSearchParams(useLocation().search).get('case');
+ useEffect(()=>{if(caseParam&&rows.length&&!open){const hit=rows.find(r=>String(r._id||r.id)===caseParam);if(hit)setOpen(hit)}},[caseParam,rows]);// eslint-disable-line react-hooks/exhaustive-deps
  const active=rows.filter(r=>disputeOpen(r.status));
  const atStake=active.reduce((n,r)=>n+(Number(r.disputedAmount)||0),0);
  const needsReply=active.filter(r=>r.status==='OPEN').length;
@@ -94,7 +97,7 @@ function DisputesList({role}){
   {key:'status',label:'Status',render:r=><DisputeStatus value={r.status}/>}
  ];
  const actions=r=><span className="row-actions">
-  {!admin&&disputeOpen(r.status)&&<button type="button" className="table-action-btn primary" onClick={()=>{setOpen(r);setReply('')}}>Respond</button>}
+  {disputeOpen(r.status)&&<button type="button" className="table-action-btn primary" onClick={()=>{setOpen(r);setReply('')}}>{admin?(r.status==='UNDER_REVIEW'?'Decide':'Open case'):'Respond'}</button>}
   <button type="button" title="View case" onClick={()=>{setOpen(r);setReply('')}}><Icon name="eye" size={16}/></button>
  </span>;
  return <><Header eyebrow={`${role.toUpperCase()} · REFUNDS`} title="Refunds & disputes" desc={admin?'Review reported problems, evidence and their resolution.':'Problems buyers reported with your orders. Respond with your side so MVEC can resolve them fairly.'}/>
@@ -110,16 +113,9 @@ function DisputesList({role}){
    {!loading&&!error&&!rows.length&&<div className="empty-state"><h3>No refund requests</h3><p>{admin?'Disputes raised by buyers will appear here.':'Good news: no buyer has reported a problem with your orders.'}</p></div>}
    {!loading&&rows.length>0&&<SmartTable columns={columns} rows={rows} rowKey={r=>r._id||r.id} actions={actions} searchPlaceholder="Search cases…" empty="No cases match your search." exportName={`mvec-${role}-refunds`}/>}
   </div>
-  {open&&<div className="modal-backdrop" onMouseDown={()=>setOpen(null)}><div className="modal seller-modal" role="dialog" aria-label={`Case ${open.disputeNumber}`} onMouseDown={e=>e.stopPropagation()}>
+  {open&&<div className="modal-backdrop" onMouseDown={()=>setOpen(null)}><div className="modal seller-modal dispute-modal" role="dialog" aria-label={`Case ${open.disputeNumber}`} onMouseDown={e=>e.stopPropagation()}>
    <button type="button" className="modal-close" onClick={()=>setOpen(null)} aria-label="Close">×</button>
-   <h2>{open.disputeNumber}</h2>
-   <p>Order <b>{open.order?.orderNumber||'—'}</b> · {DISPUTE_REASON[open.reason]||open.reason} · {money(open.disputedAmount)}</p>
-   <div className="purchase-status-note"><DisputeStatus value={open.status}/><span>Opened {dateDMY(open.createdAt)}</span></div>
-   {open.description&&<div className="case-quote"><small>Buyer's description</small><p>{open.description}</p></div>}
-   {open.arbitrationDecision?.decision&&<div className="case-quote"><small>MVEC decision</small><p>{titleCaseText(open.arbitrationDecision.decision)}{open.arbitrationDecision.notes?` · ${open.arbitrationDecision.notes}`:''}</p></div>}
-   {!admin&&disputeOpen(open.status)&&<label className="field"><span>Your response</span><textarea rows="4" value={reply} onChange={e=>setReply(e.target.value)} placeholder="Explain what happened: delivery proof, photos you have, or how you want to resolve it."/></label>}
-   <div className="modal-actions"><button type="button" className="outline-btn" onClick={()=>setOpen(null)}>Close</button>
-    {!admin&&disputeOpen(open.status)&&<button type="button" className="gradient-btn" disabled={!reply.trim()||sending} onClick={respond}>{sending?'Sending…':'Send response'}</button>}</div>
+   <DisputeCase caseId={open._id||open.id} onChanged={load}/>
   </div></div>}
  </>;
 }
@@ -340,11 +336,12 @@ function BuyerSubscription(){
    <SettingCard title="Free" desc="Free forever · ads are shown">
     {current==='FREE'||!premiumActive?<span className="role-chip">Your plan</span>:<button className="outline-btn" disabled={busy} onClick={cancel}>Switch to Free</button>}
    </SettingCard>
-   <SettingCard title={premium?.plan||'Buyer Ad Removal'} desc={`${money(premium?.price||5000)} · ${premium?.billing||'Monthly'} · no ads anywhere on MVEC`}>
+   <SettingCard title={premium?.plan||'Buyer Ad Removal'} desc={`${money(data?.plans?.buyerPremiumPrice||premium?.price||5000)} · ${premium?.billing||'Monthly'} · no ads anywhere on MVEC`}>
     {premiumActive?<>
      <span className="role-chip">Your plan</span>
      <p className="tiny">Active until {data.subscription.renewal}. Pay again any time to add 30 more days.</p>
     </>:null}
+    {data?.plans&&!data.plans.programActive&&!premiumActive?<><button type="button" className="outline-btn" disabled>Coming soon</button><p className="tiny">Ad-free shopping isn't available yet. We'll let you know when it starts.</p></>:
     <form onSubmit={subscribe} className="subscription-pay">
      <div role="radiogroup" aria-label="Payment method">
       <label className={`payment-option ${method==='momo'?'selected':''}`}><input type="radio" name="sub-method" checked={method==='momo'} onChange={()=>setMethod('momo')} disabled={busy||waiting}/><span className="payment-logo" aria-hidden="true">📱</span><span><b>Mobile money</b><small>MTN MoMo or Airtel Money</small></span></label>
@@ -353,7 +350,7 @@ function BuyerSubscription(){
      {method==='momo'&&<label className="field"><span>Mobile money number</span><input type="tel" value={phone} onChange={e=>setPhone(e.target.value)} placeholder="07xx xxx xxx" autoComplete="tel" disabled={busy||waiting}/></label>}
      <button className="gradient-btn full" type="submit" disabled={busy||waiting}>{waiting?'Waiting for payment…':busy?'Starting…':`${premiumActive?'Add 30 days':'Subscribe'} · ${money(premium?.price||5000)}`}</button>
      {waiting&&method==='momo'&&<p className="tiny" role="status">Approve the prompt on your phone. This page updates automatically.</p>}
-    </form>
+    </form>}
    </SettingCard>
   </div>}
  </>;

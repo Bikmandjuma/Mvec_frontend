@@ -27,6 +27,11 @@ export const suppliersApi = {
     client.get("/suppliers/me/finance/ledger", { params }).then((r) => r.data),
   getPayouts: (params) =>
     client.get("/suppliers/me/finance/payouts", { params }).then((r) => r.data),
+  // Plans (Free / Premium), shared with sellers.
+  getSubscription: () =>
+    client.get("/suppliers/me/subscription").then((r) => r.data),
+  changeSubscription: (plan) =>
+    client.post("/suppliers/me/subscription", { plan }).then((r) => r.data),
   getAnalytics: (params) =>
     client.get("/suppliers/me/finance/analytics", { params }).then((r) => r.data),
   getDeliverySummary: () =>

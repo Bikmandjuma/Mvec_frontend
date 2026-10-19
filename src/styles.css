@@ -1555,3 +1555,71 @@ button.theme-switch.is-dark .theme-switch-icon.moon{opacity:1;transform:rotate(-
 [data-theme="dark"] .fulfilment-choice label{border-color:var(--line2)}
 [data-theme="dark"] .form-alert.info{background:#12313d;color:#bfe9f8}
 @media(max-width:640px){.fulfilment-choice{grid-template-columns:1fr}}
+
+/* ---- Admin display fixes ---- */
+/* Table action cells: keep buttons on one line and give text buttons room
+   for their icon (an older rule forced zero padding, so icons spilled out). */
+.smart-table td.row-actions{display:table-cell;width:1%;white-space:nowrap;text-align:right;vertical-align:middle}
+.smart-table td.row-actions>*{vertical-align:middle;margin-left:6px}
+.smart-table td.row-actions>*:first-child{margin-left:0}
+.smart-table td.row-actions .table-action-btn,.row-actions .table-action-btn{padding:6px 11px!important;min-width:0;gap:6px;display:inline-flex;align-items:center}
+/* Filters, pickers and searches in card headers were fixed at 82px and cut off. */
+.inline-table-input{width:auto;min-width:96px;max-width:100%}
+input.inline-table-input{min-width:200px}
+select.inline-table-input{min-width:150px}
+@media(max-width:640px){input.inline-table-input,select.inline-table-input{min-width:0;width:100%}}
+/* Seller / supplier review cards: logo, details, status, action. */
+.order-row.with-logo{grid-template-columns:44px minmax(0,1.6fr) minmax(0,1fr) auto}
+@media(max-width:760px){.order-row.with-logo{grid-template-columns:44px minmax(0,1fr)}.order-row.with-logo>.order-row-meta,.order-row.with-logo>.order-row-actions{grid-column:2}}
+/* Chat avatars stay round: the row's "fill the space" rule stretched them. */
+.conversation-item>.conv-avatar,.thread-head>.conv-avatar{flex:0 0 auto;width:40px;height:40px}
+.thread-head>.conv-avatar{width:44px;height:44px}
+/* Search box in admin tables on phones. */
+@media(max-width:640px){.smart-table-tools{flex-wrap:wrap}.smart-table-tools .dash-filter{flex:1 1 100%;max-width:none}}
+/* Financial ledger: balances */
+.ledger-balances{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px;margin:6px 0 10px}
+.ledger-balances>div{display:flex;justify-content:space-between;align-items:center;gap:12px;border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.ledger-balances span{font-weight:700;font-size:13px}.ledger-balances small{display:block;font-weight:400;color:var(--muted);font-size:11px;margin-top:2px}
+.ledger-balances b{white-space:nowrap}
+[data-theme="dark"] .ledger-balances>div{border-color:var(--line2)}
+/* Admin subscription program: Free vs Premium */
+.plan-compare{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:10px 0 14px}
+.plan-compare>div{border:1px solid var(--line);border-radius:12px;padding:14px}
+.plan-compare>div.recommended{border-color:var(--blue);box-shadow:0 0 0 2px rgba(37,173,219,.12)}
+.plan-compare h4{margin:0 0 4px;display:flex;gap:8px;align-items:center}.plan-compare h4 em{font-style:normal;font-size:10px;background:var(--soft);color:var(--blue-deep);padding:2px 8px;border-radius:20px}
+.plan-compare strong{display:block;font:800 20px Manrope}.plan-compare small{color:var(--muted)}
+.plan-compare ul{margin:10px 0 0;padding-left:18px;font-size:13px;line-height:1.6}
+[data-theme="dark"] .plan-compare>div{border-color:var(--line2)}
+@media(max-width:760px){.plan-compare{grid-template-columns:1fr}}
+.program-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:6px}
+.program-actions>button{min-height:42px;padding:10px 18px;width:auto;white-space:nowrap}
+/* Another tab changed the signed-in account */
+.account-switch-notice{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:300;max-width:min(560px,calc(100vw - 32px));background:#16252d;color:#fff;padding:12px 18px;border-radius:12px;box-shadow:0 12px 30px rgba(0,0,0,.25);font-size:14px}
+/* Problem-report case (buyer, seller and admin) */
+.dispute-modal{width:min(820px,94vw);max-height:90vh;overflow:auto}
+.dispute-case{display:grid;gap:14px}
+.dispute-head h3{margin:4px 0 2px;font:800 19px Manrope}.dispute-head small{color:var(--muted)}
+.dispute-steps{list-style:none;padding:0;margin:0;display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.dispute-steps li{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);border-top:3px solid var(--line);padding-top:8px}
+.dispute-steps li i{font-style:normal;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;background:var(--line);font-size:11px;font-weight:800;color:#556}
+.dispute-steps li.done{border-color:#22a06b;color:var(--text)}.dispute-steps li.done i{background:#22a06b;color:#fff}
+.dispute-steps li.now{border-color:var(--blue);color:var(--text);font-weight:700}.dispute-steps li.now i{background:var(--blue);color:#fff}
+.dispute-next{background:var(--soft);border-radius:12px;padding:12px 14px}.dispute-next p{margin:4px 0 0}
+.dispute-next.closed{background:#eafaf4}
+.dispute-offer{border:2px solid var(--blue);border-radius:12px;padding:12px 14px}.dispute-offer p{margin:4px 0 10px}
+.dispute-thread{display:grid;gap:8px;max-height:340px;overflow:auto;padding:4px}
+.dispute-msg{border:1px solid var(--line);border-radius:12px;padding:10px 12px;max-width:85%}
+.dispute-msg>div{display:flex;justify-content:space-between;gap:12px}.dispute-msg small{color:var(--muted)}.dispute-msg p{margin:4px 0 0;white-space:pre-wrap}
+.dispute-msg.buyer{justify-self:start;background:#fff}.dispute-msg.seller{justify-self:end;background:#f3fbfd}.dispute-msg.mvec{justify-self:center;background:#fff7e6;border-color:#f5d48a}
+.dispute-event{justify-self:center;text-align:center;font-size:12px;color:var(--muted);max-width:90%}.dispute-event small{display:block;font-size:10px}
+.dispute-reply{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end}.dispute-reply textarea{width:100%;border:1px solid var(--line);border-radius:10px;padding:10px;font:inherit}
+.dispute-actions{display:flex;flex-wrap:wrap;gap:8px}.dispute-actions>button{width:auto;min-height:40px;padding:9px 16px}
+.dispute-offer-form,.dispute-decide{border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:grid;gap:8px}
+.dispute-decide h4{margin:0}
+.dispute-choices{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.dispute-choices label{display:flex;gap:8px;border:1px solid var(--line);border-radius:10px;padding:10px;cursor:pointer}.dispute-choices label.selected{border-color:var(--blue)}
+.dispute-choices b,.dispute-choices small{display:block}.dispute-choices small{color:var(--muted);font-size:11px}
+[data-theme="dark"] .dispute-msg.buyer,[data-theme="dark"] .dispute-msg.seller{background:var(--surface-2)}[data-theme="dark"] .dispute-msg.mvec{background:#3a2f12}[data-theme="dark"] .dispute-next.closed{background:#123528}
+@media(max-width:640px){.dispute-steps{grid-template-columns:repeat(2,1fr)}.dispute-choices{grid-template-columns:1fr}.dispute-reply{grid-template-columns:1fr}.dispute-msg{max-width:100%}}
+
+.modal.seller-modal.dispute-modal,.modal.dispute-modal{width:min(860px,94vw);max-width:94vw}

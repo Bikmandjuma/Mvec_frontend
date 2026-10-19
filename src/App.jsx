@@ -55,6 +55,9 @@ const AdminCommissionRules = lazy(() => import("./pages/AdminOps").then((m) => (
 const AdminSupportInbox = lazy(() => import("./pages/AdminOps").then((m) => ({ default: m.AdminSupportInbox })));
 const CommunicationPage = lazy(() => import("./pages/ExtendedModules").then((m) => ({ default: m.CommunicationPage })));
 
+const SupplierSubscription = lazy(() => Promise.all([import("./pages/seller/GrowthPages"), import("./API/suppliers"), import("./components/DashboardLayout")])
+  .then(([pages, api, layout]) => ({ default: () => <layout.default><pages.SubscriptionPage api={api.suppliersApi} balanceLink="/supplier/payments" /></layout.default> })));
+
 function DashboardDelivery({ role }) {
   return (
     <DashboardLayout admin={role === "admin"}>
@@ -310,6 +313,14 @@ export default function App() {
         path="/supplier/delivery"
         element={
           <Navigate to="/supplier/orders" replace />
+        }
+      />
+      <Route
+        path="/supplier/subscription"
+        element={
+          <RequireAuth roles={["supplier"]}>
+            <SupplierSubscription />
+          </RequireAuth>
         }
       />
       <Route

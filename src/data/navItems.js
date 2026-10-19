@@ -87,7 +87,7 @@ export const sellerNavGroups = [
 export const supplierNavGroups = [
   { label: 'Overview', items: [['/supplier','Dashboard','grid']] },
   { label: 'Catalog & Orders', items: [['/supplier/products','Wholesale Products','box'],['/supplier/inventory','Inventory','grid'],['/supplier/orders','Orders','cart'],['/supplier/quotes','Quote Requests','receipt']] },
-  { label: 'Finance & Insights', items: [['/supplier/payments','Payments','wallet'],['/supplier/transactions','Transactions','wallet'],['/supplier/analytics','Analytics','chart'],['/supplier/reports','Reports','chart'],['/supplier/reviews','Reviews','heart']] },
+  { label: 'Finance & Insights', items: [['/supplier/payments','Payments','wallet'],['/supplier/transactions','Transactions','wallet'],['/supplier/analytics','Analytics','chart'],['/supplier/reports','Reports','chart'],['/supplier/reviews','Reviews','heart'],['/supplier/subscription','Subscription','tag']] },
   { label: 'Team & Settings', items: [['/supplier/team','Team / Staff','users'],['/supplier/settings','Settings','settings']] },
   { label: 'Support', items: [['/supplier/messages','Messages','users'],['/supplier/notifications','Notifications','bell'],['/supplier/support','MVEC Support','bell']] },
 ];

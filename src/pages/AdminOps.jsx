@@ -187,7 +187,7 @@ function VerificationList({ kind }) {
         ? <div className="empty-state"><h3>{tab === "PENDING" ? "Nobody is waiting" : "No profiles here"}</h3><p>{tab === "PENDING" ? "New profiles appear here, and you also get a notification." : ""}</p></div>
         : <div className="orders-list">{rows.map((p) => {
           const missing = checklist(p, kind).filter(([, v]) => !v).length;
-          return <div className="order-row" key={p._id || p.id}>
+          return <div className="order-row with-logo" key={p._id || p.id}>
             <ProductImage src={p.logoUrl} alt="" className="row-logo" />
             <div className="order-row-main"><b>{p.businessName}</b><small>{p.user?.Fullname} · {p.email} · {p.phone}</small>
               <small>{p.category || "No category"}{kind === "seller" ? ` · ${p.productCount || 0} products` : ""} · updated {formatDate(p.updatedAt)}</small>
@@ -374,7 +374,7 @@ function MvecWallet() {
     catch (err) { setNotice({ ok: false, text: extractErrorMessage(err) }); } finally { setBusy(false); }
   };
   return <div className="data-card">
-    <div className="data-card-head"><div><h3>MVEC wallet</h3><span>What MVEC keeps after sellers, suppliers, affiliates, the developer and provider fees.</span></div>
+    <div className="data-card-head"><div><h3>MVEC wallet</h3><span>What MVEC keeps after sellers, suppliers, affiliates and provider fees, plus ad and subscription income.</span></div>
       {w && Number(w.availableBalance) > 0 && <button type="button" className="outline-btn" onClick={() => setOpen(!open)}>Record a withdrawal</button>}</div>
     <Notice notice={notice} />
     {wallet.loading ? <Loading what="the wallet" /> : wallet.error ? <Failed error={wallet.error} retry={wallet.reload} /> : <div className="metric-grid">
@@ -406,10 +406,14 @@ export function AdminEarnings() {
         <Metric icon="chart" label="Sales" value={money(t.gross)} sub="Paid order lines, excluding refunds" />
         <Metric icon="wallet" label="MVEC commission" value={money(t.platformFee)} sub="From the commission rules" />
         <Metric icon="shop" label="MVEC keeps" value={money(t.mvecNet)} sub={`${money(t.released)} earned · ${money(t.held)} until delivery`} />
-        <Metric icon="users" label="Paid to sellers" value={money(t.sellers)} sub="After MVEC's fee and affiliate rates" />
+        <Metric icon="users" label="Sellers' share" value={money(t.sellers)} sub="After MVEC's fee; theirs to withdraw once delivered" />
       </div>
+      {(t.adRevenue > 0 || t.subscriptionRevenue > 0) && <div className="metric-grid">
+        <Metric icon="tag" label="Ad clicks" value={money(t.adRevenue)} sub="Sponsored products, MVEC income" />
+        <Metric icon="wallet" label="Subscriptions" value={money(t.subscriptionRevenue)} sub="Premium plans, MVEC income" />
+      </div>}
       <div className="data-card"><div className="data-card-head"><div><h3>Where MVEC's fee goes</h3><span>From {money(t.platformFee)} in fees</span></div></div>
-        {[["Developer", t.developer], ["Affiliates (paid by MVEC)", Math.max(0, t.affiliates - t.affiliatesPaidBySellers)], ["Payment provider fees", t.gatewayFees], ["MVEC keeps", t.mvecNet]].map(([label, v]) =>
+        {[["Affiliates (paid by MVEC)", Math.max(0, t.affiliates - t.affiliatesPaidBySellers)], ["Payment provider fees", t.gatewayFees], ["MVEC keeps", t.mvecNet]].map(([label, v]) =>
           <div className="progress-row" key={label}><span>{label}</span><div><i style={{ width: `${t.platformFee ? Math.round((v / t.platformFee) * 100) : 0}%` }} /></div><b>{money(v)}</b></div>)}
         {t.affiliatesPaidBySellers > 0 && <p className="tiny">Sellers also paid affiliates {money(t.affiliatesPaidBySellers)} from their own share.</p>}
       </div>
@@ -432,15 +436,33 @@ export function AdminEarnings() {
 }
 
 // ─── Ledger ────────────────────────────────────────────────────────────────
-const ENTRY = { PAYMENT_ESCROW_LOCK: "Payment held by MVEC", ESCROW_RELEASE_VENDOR: "Released to seller", PLATFORM_COMMISSION_DEDUCTION: "MVEC fee", COURIER_FEE_PAYOUT: "Courier fee", BUYER_REFUND: "Refund to buyer", ADMIN_MANUAL_ADJUSTMENT: "Manual adjustment", AFFILIATE_COMMISSION: "Affiliate commission" };
-const ACCOUNT = { ESCROW_HOLDING: "MVEC holding", PLATFORM_REVENUE: "MVEC revenue", VENDOR_PAYABLE: "Seller balance", SUPPLIER_PAYABLE: "Supplier balance", COURIER_PAYABLE: "Courier", BUYER_REFUND_HOLD: "Buyer refund", DEVELOPER_REVENUE: "Developer", ADMIN_REVENUE: "MVEC (admin)", AFFILIATE_COMMISSION: "Affiliates", GATEWAY_FEES: "Provider fees" };
+const ENTRY = { PAYMENT_RECEIVED: "Buyer payment received", PAYMENT_ESCROW_LOCK: "Buyer payment received", ESCROW_RELEASE_VENDOR: "Seller paid (delivery)", PLATFORM_COMMISSION_DEDUCTION: "MVEC commission", AFFILIATE_COMMISSION: "Affiliate commission", GATEWAY_FEE: "Payment provider fee", BUYER_REFUND: "Refund to buyer", PAYOUT_SENT: "Withdrawal sent", AD_BUDGET_RESERVED: "Ad budget reserved", AD_BUDGET_RETURNED: "Ad budget returned", AD_CLICK_REVENUE: "Ad click (MVEC income)", SUBSCRIPTION_FEE: "Subscription fee (MVEC income)", COURIER_FEE_PAYOUT: "Courier fee", ADMIN_MANUAL_ADJUSTMENT: "Correction" };
+const ACCOUNT = { BUYER_PAYMENTS: "Buyer payments", ESCROW_HOLDING: "MVEC holding", PLATFORM_REVENUE: "MVEC revenue", ADMIN_REVENUE: "MVEC revenue", DEVELOPER_REVENUE: "MVEC revenue", VENDOR_PAYABLE: "Seller balances", SUPPLIER_PAYABLE: "Supplier balances", COURIER_PAYABLE: "Courier balances", AFFILIATE_COMMISSION: "Affiliate commission", GATEWAY_FEES: "Provider fees", AD_BUDGETS: "Ad budgets", BUYER_REFUND_HOLD: "Refunded to buyers", PAID_OUT: "Paid out" };
+// What each balance means, in the order money flows.
+const BALANCE_ROWS = [
+  ["BUYER_PAYMENTS", "Total buyers have paid in (shown negative: it came from outside)"],
+  ["ESCROW_HOLDING", "Held by MVEC until delivery"],
+  ["VENDOR_PAYABLE", "Earned by sellers and suppliers, not yet withdrawn"],
+  ["PLATFORM_REVENUE", "Earned by MVEC, not yet withdrawn"],
+  ["AFFILIATE_COMMISSION", "Earned by affiliates, not yet withdrawn"],
+  ["GATEWAY_FEES", "Payment provider fees"],
+  ["AD_BUDGETS", "Ad budgets reserved, not yet spent"],
+  ["BUYER_REFUND_HOLD", "Refunded to buyers"],
+  ["PAID_OUT", "Sent out to sellers, suppliers, affiliates and MVEC"],
+];
 
 export function AdminLedgerPage() {
   const [type, setType] = useState("");
   const [page, setPage] = useState(1);
   const { loading, data, error, reload } = useLoad(() => adminApi.getLedger({ page, limit: 25, ...(type ? { entryType: type } : {}) }), [type, page]);
   return <DashboardLayout admin>
-    <Head eyebrow="ORDERS & PAYMENTS" title="Financial ledger" desc="Every movement of money is written here twice (from one account, to another), automatically. Nothing can be edited." />
+    <Head eyebrow="ORDERS & PAYMENTS" title="Financial ledger" desc="Every movement of money goes from one account to another and both balances change together, so the books always add up. Entries are written automatically and can't be edited." />
+    {data?.balances && <div className="data-card">
+      <div className="data-card-head"><div><h3>Where the money is</h3><span>Real money sits in MVEC's payment provider account; this says whose it is.</span></div>
+        <em className={"status " + (data.balanced ? "active" : "warning")}>{data.balanced ? "Books balance" : "Books do not balance"}</em></div>
+      <div className="ledger-balances">{BALANCE_ROWS.map(([k, label]) => <div key={k}><span>{ACCOUNT[k]}<small>{label}</small></span><b>{money(k === "PLATFORM_REVENUE" ? (data.balances.PLATFORM_REVENUE || 0) + (data.balances.ADMIN_REVENUE || 0) + (data.balances.DEVELOPER_REVENUE || 0) : k === "VENDOR_PAYABLE" ? (data.balances.VENDOR_PAYABLE || 0) + (data.balances.SUPPLIER_PAYABLE || 0) : data.balances[k] || 0)}</b></div>)}</div>
+      <p className="tiny">Should match your Paypack balance: buyer payments − refunds − money paid out.</p>
+    </div>}
     <div className="data-card">
       <div className="data-card-head"><div><h3>Entries</h3><span>{data?.total ?? 0} entries</span></div>
         <select className="inline-table-input" aria-label="Entry type" value={type} onChange={(e) => { setType(e.target.value); setPage(1); }}><option value="">All entries</option>{Object.entries(ENTRY).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></div>
@@ -484,12 +506,12 @@ export function AdminAnalyticsPage() {
         <Metric icon="chart" label="Sales" value={money(t.gmv)} sub={t.gmvChange === null ? "No sales in the period before" : `${t.gmvChange >= 0 ? "▲" : "▼"} ${Math.abs(t.gmvChange)}% vs the period before`} />
         <Metric icon="cart" label="Paid orders" value={t.paidOrders} sub={`${t.orders} placed · ${t.conversion}% paid`} />
         <Metric icon="wallet" label="Average order" value={money(t.averageOrder)} sub={`MVEC kept ${money(t.mvecEarned)}`} />
-        <Metric icon="users" label="New accounts" value={t.newUsers} sub={`Refund rate ${pct(t.refundRate)} · ${t.disputes} disputes`} />
+        <Metric icon="users" label="New accounts" value={t.newUsers} sub={`Refund rate ${pct(t.refundRate)} · ${t.disputes} dispute${t.disputes === 1 ? "" : "s"}`} />
       </div>
       <div className="data-card"><div className="data-card-head"><div><h3>Daily sales</h3><span>Hover a bar to see the day</span></div></div><Bars series={data.series} /></div>
       <div className="dash-grid">
         <Breakdown title="Top sellers" sub="By sales" entries={data.topSellers.map((v) => [v.name, v.sales])} format={money} />
-        <Breakdown title="Top products" sub="By sales" entries={data.topProducts.map((v) => [`${v.name} (${v.units})`, v.sales])} format={money} />
+        <Breakdown title="Top products" sub="Product sales, before delivery fees (units sold in brackets)" entries={data.topProducts.map((v) => [`${v.name} (${v.units})`, v.sales])} format={money} />
       </div>
       <div className="dash-grid">
         <Breakdown title="How buyers pay" entries={Object.entries(data.paymentMix)} format={money} />
@@ -554,6 +576,48 @@ export function AdminTrust() {
 }
 
 // ─── Subscriptions ─────────────────────────────────────────────────────────
+// The subscription program: off until MVEC has enough users. While off,
+// nobody is charged and every seller/supplier has every tool.
+function SubscriptionProgram() {
+  const ops = useLoad(() => Promise.all([adminApi.getOperationsSettings(), adminApi.getPlanInfo()]), []);
+  const [form, setForm] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState(null);
+  useEffect(() => { if (ops.data) { const s = ops.data[0].settings; setForm({ sellerPremiumPrice: s.sellerPremiumPrice, buyerPremiumPrice: s.buyerPremiumPrice, freeProductLimit: s.freeProductLimit }); } }, [ops.data]);
+  if (ops.loading || !form) return <div className="data-card"><Loading what="the subscription program" /></div>;
+  if (ops.error) return <div className="data-card"><Failed error={ops.error} retry={ops.reload} /></div>;
+  const on = Boolean(ops.data[0].settings.subscriptionsEnabled);
+  const info = ops.data[1];
+  const save = async (patch, confirmText) => {
+    if (confirmText && !window.confirm(confirmText)) return;
+    setBusy(true); setNotice(null);
+    try { const r = await adminApi.updateOperationsSettings(patch); setNotice({ ok: true, text: r.message }); ops.reload(); }
+    catch (err) { setNotice({ ok: false, text: extractErrorMessage(err) }); }
+    finally { setBusy(false); }
+  };
+  const field = (k, label, min, max) => <label className="field"><span>{label}</span><input type="number" min={min} max={max} step="1" value={form[k]} onChange={(e) => setForm({ ...form, [k]: e.target.value })} /></label>;
+  return <div className="data-card">
+    <div className="data-card-head"><div><h3>Subscription program</h3><span>{on ? "On: sellers and suppliers on Free have the Free limits; Premium is paid monthly from their balance." : "Off: nobody is charged and every seller and supplier has every tool for free."}</span></div>
+      <em className={"status " + (on ? "active" : "warning")}>{on ? "On" : "Off"}</em></div>
+    {notice && <div className={`form-alert ${notice.ok ? "success" : "error"}`}>{notice.text}</div>}
+    <div className="plan-compare">
+      <div><h4>Free Seller</h4><strong>RWF 0</strong><small>For new and small sellers and suppliers</small><ul>{info.freeIncludes.map((x) => <li key={x}>{x}{x.startsWith("List products") ? ` (${form.freeProductLimit})` : ""}</li>)}</ul></div>
+      <div className="recommended"><h4>Seller Premium <em>Recommended</em></h4><strong>{money(form.sellerPremiumPrice)}/month</strong><small>Paid from the seller's available balance</small><ul>{Object.values(info.premiumFeatures).map((x) => <li key={x}>{x}</li>)}</ul></div>
+    </div>
+    <div className="form-row">
+      {field("sellerPremiumPrice", "Seller Premium (RWF / month)", 1000, 100000)}
+      {field("buyerPremiumPrice", "Buyer ad-free (RWF / month)", 500, 100000)}
+      {field("freeProductLimit", "Free listing limit (products)", 1, 10000)}
+    </div>
+    <div className="program-actions">
+      <button type="button" className="outline-btn" disabled={busy} onClick={() => save({ sellerPremiumPrice: Number(form.sellerPremiumPrice), buyerPremiumPrice: Number(form.buyerPremiumPrice), freeProductLimit: Number(form.freeProductLimit) })}>{busy ? "Saving…" : "Save prices and limit"}</button>
+      {on
+        ? <button type="button" className="outline-btn" disabled={busy} onClick={() => save({ subscriptionsEnabled: false }, "Switch the subscription program off? Everyone gets every tool for free again and no renewals are charged. Active Premium plans keep their paid time.")}>Switch program off</button>
+        : <button type="button" className="gradient-btn" disabled={busy} onClick={() => save({ subscriptionsEnabled: true }, `Switch the subscription program on? Free sellers and suppliers become limited to ${form.freeProductLimit} products and Premium tools need a ${money(form.sellerPremiumPrice)}/month plan. Tell your sellers before doing this.`)}>Switch program on</button>}
+    </div>
+  </div>;
+}
+
 export function AdminSubscriptionsPage() {
   const { loading, data, error, reload } = useLoad(() => Promise.all([adminApi.getVendorSubscriptions({ limit: 200 }), adminApi.getBuyerSubscriptions({ limit: 200 })]), []);
   const [vendors, buyers] = data ? [data[0].data || [], data[1].data || []] : [[], []];
@@ -562,6 +626,7 @@ export function AdminSubscriptionsPage() {
   const cols = [{ key: "holder", label: "Account" }, { key: "plan", label: "Plan" }, { key: "price", label: "Price", render: (r) => (r.price ? money(r.price) : "Free") }, { key: "billing", label: "Billing" }, { key: "renewal", label: "Renews" }, { key: "status", label: "Status", render: (r) => <Status value={r.status === "Active" ? "ACTIVE" : r.status} label={r.status} /> }];
   return <DashboardLayout admin>
     <Head eyebrow="GROWTH" title="Subscriptions" desc="Paid seller Premium and buyer ad-free plans. Plans renew and expire automatically." />
+    <SubscriptionProgram />
     {loading ? <Loading what="subscriptions" /> : error ? <Failed error={error} retry={reload} /> : <>
       <div className="metric-grid">
         <Metric icon="shop" label="Sellers on Premium" value={vendors.filter((s) => s.planKey === "PREMIUM" && s.status === "Active").length} />
@@ -575,6 +640,33 @@ export function AdminSubscriptionsPage() {
 }
 
 // ─── Platform settings (live) ──────────────────────────────────────────────
+// Admin-set delay before sellers are paid automatically when the buyer stays silent.
+function AutoReleaseSetting({ onSaved }) {
+  const ops = useLoad(adminApi.getOperationsSettings, []);
+  const [days, setDays] = useState("");
+  const [replyDays, setReplyDays] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState(null);
+  useEffect(() => { if (ops.data?.settings) { setDays(String(ops.data.settings.autoReleaseDays)); setReplyDays(String(ops.data.settings.disputeResponseDays ?? 3)); } }, [ops.data]);
+  const save = async (e) => {
+    e.preventDefault();
+    setBusy(true); setNotice(null);
+    try { await adminApi.updateOperationsSettings({ autoReleaseDays: Number(days), disputeResponseDays: Number(replyDays) }); setNotice({ ok: true, text: `Saved. ${Number(days) > 0 ? `Sellers are paid automatically ${days} day${Number(days) === 1 ? "" : "s"} after shipping if no problem is reported.` : "Automatic release is off."} Sellers have ${replyDays} day${Number(replyDays) === 1 ? "" : "s"} to answer a problem report before MVEC steps in.` }); onSaved?.(); }
+    catch (err) { setNotice({ ok: false, text: extractErrorMessage(err) }); }
+    finally { setBusy(false); }
+  };
+  return <form className="data-card" onSubmit={save}>
+    <h3>Paying sellers and problem reports</h3>
+    <p className="tiny">If a buyer neither gives the delivery code nor reports a problem, the seller is paid automatically this many days after the order ships. Buyers are told when their order ships. A reported problem freezes the payment. Pickup orders wait for collection. 0 turns it off.</p>
+    {notice && <div className={`form-alert ${notice.ok ? "success" : "error"}`}>{notice.text}</div>}
+    {ops.loading ? <Loading what="the setting" /> : ops.error ? <Failed error={ops.error} retry={ops.reload} /> : <div className="form-row">
+      <label className="field"><span>Pay sellers this many days after shipping</span><input type="number" min="0" max="30" step="1" value={days} onChange={(e) => setDays(e.target.value)} /></label>
+      <label className="field"><span>Days a seller has to answer a problem report</span><input type="number" min="1" max="14" step="1" value={replyDays} onChange={(e) => setReplyDays(e.target.value)} /></label>
+      <button className="gradient-btn" disabled={busy || days === "" || replyDays === ""}>{busy ? "Saving…" : "Save"}</button>
+    </div>}
+  </form>;
+}
+
 export function AdminPlatform() {
   const { loading, data, error, reload } = useLoad(adminApi.getPlatform, []);
   return <DashboardLayout admin>
@@ -584,13 +676,14 @@ export function AdminPlatform() {
         <div className="data-card"><h3>Fees</h3>{data.fees.map((f) => <div className="setting-line" key={f.label}><span><b>{f.label}</b><small>{f.detail}</small></span><strong>{f.value}</strong></div>)}</div>
         <div className="data-card"><h3>Rules</h3>{data.rules.map((f) => <div className="setting-line" key={f.label}><span><b>{f.label}</b></span><strong>{f.value}</strong></div>)}</div>
       </div>
+      <div className="settings-grid"><AutoReleaseSetting onSaved={reload} /></div>
       <div className="settings-grid">
         <div className="data-card"><h3>Payment providers & messages</h3><p className="tiny">“Test mode” means payments succeed without real money. Add the keys to the server's .env to go live.</p>
           {data.integrations.map((i) => <div className="setting-line" key={i.label}><span><b>{i.label}</b><small>{i.env}</small></span><Status value={i.status} label={i.status} /></div>)}</div>
         <div className="data-card"><h3>Automatic jobs</h3><p className="tiny">Environment: {data.environment}</p>
           {data.jobs.map((j) => <div className="setting-line" key={j.label}><span><b>{j.label}</b>{j.detail && <small>{j.detail}</small>}</span><strong>{j.schedule}</strong></div>)}</div>
       </div>
-      <div className="verified-box"><b>Change rates and shares</b><p>Commission per category, seller overrides, the developer and affiliate shares and who pays provider fees are all set on the Commission rules page.</p><Link className="gradient-btn" to="/admin/commission-rules">Open commission rules</Link></div>
+      <div className="verified-box"><b>Change rates and shares</b><p>Commission per category, seller overrides, the affiliate share and who pays provider fees are all set on the Commission rules page.</p><Link className="gradient-btn" to="/admin/commission-rules">Open commission rules</Link></div>
     </>}
   </DashboardLayout>;
 }
@@ -686,7 +779,7 @@ function CommissionSettings({ settings, onSaved }) {
   const example = 100000 * n("defaultCommissionPercent") / 100;
   const save = async (e) => {
     e.preventDefault(); setBusy(true); setNotice(null);
-    try { const res = await adminApi.updateCommissionSettings({ ...form, defaultCommissionPercent: n("defaultCommissionPercent"), defaultWholesaleCommissionPercent: n("defaultWholesaleCommissionPercent"), developerSharePercent: n("developerSharePercent"), affiliateSharePercent: n("affiliateSharePercent") }); setNotice({ ok: true, text: res.message }); onSaved(); }
+    try { const res = await adminApi.updateCommissionSettings({ ...form, defaultCommissionPercent: n("defaultCommissionPercent"), defaultWholesaleCommissionPercent: n("defaultWholesaleCommissionPercent"), developerSharePercent: 0, affiliateSharePercent: n("affiliateSharePercent") }); setNotice({ ok: true, text: res.message }); onSaved(); }
     catch (err) { setNotice({ ok: false, text: extractErrorMessage(err) }); } finally { setBusy(false); }
   };
   return <form className="data-card" onSubmit={save}>
@@ -698,10 +791,9 @@ function CommissionSettings({ settings, onSaved }) {
       <label className="field"><span>Payment provider fees paid by</span><select value={form.gatewayFeePayer} onChange={(e) => setForm({ ...form, gatewayFeePayer: e.target.value })}><option value="MVEC">MVEC (out of the commission)</option><option value="SELLER">The seller (out of their share)</option></select></label>
     </div>
     <div className="form-row">
-      <label className="field"><span>Developer share (% of the commission)</span><input type="number" min="0" max="100" step="1" value={form.developerSharePercent} onChange={(e) => setForm({ ...form, developerSharePercent: e.target.value })} /></label>
       <label className="field"><span>Affiliate share (% of the commission)</span><input type="number" min="0" max="100" step="1" value={form.affiliateSharePercent} onChange={(e) => setForm({ ...form, affiliateSharePercent: e.target.value })} /></label>
     </div>
-    <p className="tiny">Example, 100,000 RWF sale at the default rate: MVEC commission {money(example)} → developer {money(example * n("developerSharePercent") / 100)}, affiliate {money(example * n("affiliateSharePercent") / 100)} (only if the buyer came through an affiliate link), MVEC keeps the rest{form.gatewayFeePayer === "MVEC" ? " minus the payment provider fee" : ""}.</p>
+    <p className="tiny">Example, 100,000 RWF sale at the default rate: MVEC commission {money(example)} → affiliate {money(example * n("affiliateSharePercent") / 100)} (only if the buyer came through an affiliate link), MVEC keeps the rest{form.gatewayFeePayer === "MVEC" ? " minus the payment provider fee" : ""}.</p>
     <button className="gradient-btn" disabled={busy}>{busy ? "Saving…" : "Save settings"}</button>
   </form>;
 }
@@ -724,7 +816,7 @@ function SplitPreview({ sellers, scope }) {
     {error && <p className="danger-text">{error}</p>}
     {data && <div className="split-preview">
       <p><b>{data.commissionPercent}% commission</b> · {data.source}{data.rule ? ` (“${data.rule.name}”)` : ""}</p>
-      {[[scope === "WHOLESALE" ? "Supplier receives" : "Seller receives", data.vendorNet], ["MVEC commission", data.totalPlatformFee], ["  → Developer", data.developerShare], ["  → Affiliate (paid by MVEC)", data.platformAffiliateShare], ["  → MVEC keeps", data.adminShare], ["Payment provider fee", data.gatewayFee]].map(([k, v]) => <div className="setting-line" key={k}><span><b>{k.trim()}</b>{k.startsWith(" ") && <small>part of the commission</small>}</span><strong>{money(v)}</strong></div>)}
+      {[[scope === "WHOLESALE" ? "Supplier receives" : "Seller receives", data.vendorNet], ["MVEC commission", data.totalPlatformFee], ["  → Affiliate (paid by MVEC)", data.platformAffiliateShare], ["  → MVEC keeps", (Number(data.adminShare) || 0) + (Number(data.developerShare) || 0)], ["Payment provider fee", data.gatewayFee]].map(([k, v]) => <div className="setting-line" key={k}><span><b>{k.trim()}</b>{k.startsWith(" ") && <small>part of the commission</small>}</span><strong>{money(v)}</strong></div>)}
       <p className="tiny">Provider fee paid by {data.gatewayFeePayer === "SELLER" ? "the seller" : "MVEC"}.</p>
     </div>}
   </div>;

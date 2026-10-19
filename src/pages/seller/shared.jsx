@@ -28,7 +28,17 @@ export const parsePercent = value => {
 // DELIVERED on MVEC-paid orders is confirmed with the buyer's delivery OTP
 // (that releases the held funds); sellers close only orders whose payment
 // they collect themselves (manual cash-on-delivery / paid-offline orders).
-export const ORDER_FLOW = ['PENDING', 'CONFIRMED', 'PROCESSING', 'READY_FOR_SHIPMENT', 'SHIPPED', 'DELIVERED'];
+export const ORDER_FLOW = ['PENDING', 'CONFIRMED', 'PROCESSING', 'READY_FOR_SHIPMENT', 'SHIPPED', 'OUT_FOR_DELIVERY', 'DELIVERED'];
+// Pickup orders are never shipped: once ready, the buyer collects them.
+export const PICKUP_FLOW = ['PENDING', 'CONFIRMED', 'PROCESSING', 'READY_FOR_SHIPMENT', 'DELIVERED'];
+export const orderFlowFor = (order) => (order?.shippingMethod === 'PICKUP' ? PICKUP_FLOW : ORDER_FLOW);
+// Where an order sits in its flow (COMPLETED counts as delivered); -1 when off the flow (cancelled, refunded…).
+export const flowIndexOf = (order) => orderFlowFor(order).indexOf(order?.orderStatus === 'COMPLETED' ? 'DELIVERED' : order?.orderStatus);
+export const flowStepLabel = (order, status) => {
+  if (order?.shippingMethod === 'PICKUP' && status === 'READY_FOR_SHIPMENT') return 'Ready for pickup';
+  if (order?.shippingMethod === 'PICKUP' && status === 'DELIVERED') return 'Collected';
+  return titleCase(status);
+};
 const SELLER_NEXT = {
   PENDING: ['CONFIRMED', 'CANCELLED'],
   CONFIRMED: ['PROCESSING', 'CANCELLED'],

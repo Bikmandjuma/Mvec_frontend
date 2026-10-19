@@ -53,6 +53,9 @@ export const productsApi = {
     })),
   getRecommendations: (limit) =>
     client.get("/products/recommendations", { params: { limit } }).then((r) => r.data),
+  // Bulk upload: up to 200 product rows (Premium tool when plans are on).
+  bulkCreate: (products) =>
+    client.post("/products/bulk", { products }).then((r) => r.data),
   create: (payload) =>
     client.post("/products", toProductPayload(payload)).then((r) => r.data),
   update: (id, payload) => {

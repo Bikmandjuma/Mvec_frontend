@@ -13,6 +13,11 @@ const greeting = () => { const h = new Date(Date.now() + 2 * 3600e3).getUTCHours
 import { categoriesApi } from "../API/categories";
 import { extractErrorMessage } from "../API/client";
 
+// Readable labels instead of database codes (OUT_FOR_DELIVERY, super_admin…).
+const ROLE_LABEL = { super_admin: "Admin", delivery: "Courier", vendor: "Seller", supplier: "Supplier", affiliate: "Affiliate", buyer: "Buyer", developer: "Developer" };
+const human = (s) => String(s || "").toLowerCase().replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
+const countLabel = (n, word) => `${n} ${word}${Number(n) === 1 ? "" : "s"}`;
+
 // -----------------------------------------------------------------------------
 // Helpers
 // -----------------------------------------------------------------------------
@@ -128,13 +133,13 @@ function GenericAdminTable({ title, subtitle, type }) {
   })();
 
   const columns = type==='users' ? [
-    {key:'name',label:'User'},{key:'email',label:'Email'},{key:'role',label:'Role'},{key:'status',label:'Status',render:r=><em className={'status '+(r.status==='Blocked'?'warning':'active')}>{r.status}</em>}
+    {key:'name',label:'User'},{key:'email',label:'Email'},{key:'role',label:'Role',render:r=>ROLE_LABEL[r.role]||human(r.role)},{key:'status',label:'Status',render:r=><em className={'status '+(r.status==='Blocked'?'warning':'active')}>{r.status}</em>}
   ] : type==='vendors' ? [
-    {key:'name',label:'Store'},{key:'category',label:'Category'},{key:'products',label:'Products'},{key:'rating',label:'Rating',render:r=>`★ ${r.rating}`},{key:'status',label:'Status',render:r=><em className={'status '+(r.status==='VERIFIED'?'active':'warning')}>{r.status}</em>}
+    {key:'name',label:'Store'},{key:'category',label:'Category'},{key:'products',label:'Products'},{key:'rating',label:'Rating',render:r=>`★ ${r.rating}`},{key:'status',label:'Status',render:r=><em className={'status '+(r.status==='VERIFIED'?'active':'warning')}>{human(r.status)}</em>}
   ] : type==='products' ? [
-    {key:'name',label:'Product'},{key:'vendor',label:'Vendor'},{key:'price',label:'Price',render:r=>money(r.price)},{key:'stock',label:'Stock'},{key:'status',label:'Status',render:r=><em className={'status '+(r.status==='ACTIVE'?'active':'warning')}>{r.status}</em>}
+    {key:'name',label:'Product'},{key:'vendor',label:'Vendor'},{key:'price',label:'Price',render:r=>money(r.price)},{key:'stock',label:'Stock'},{key:'status',label:'Status',render:r=><em className={'status '+(r.status==='ACTIVE'?'active':'warning')}>{human(r.status)}</em>}
   ] : type==='orders' ? [
-    {key:'id',label:'Order'},{key:'buyer',label:'Buyer'},{key:'vendor',label:'Vendor'},{key:'total',label:'Total',render:r=>money(r.total)},{key:'payment',label:'Payment',render:r=><em className={'status '+(r.payment==='PAID'?'active':'warning')}>{r.payment}</em>},{key:'status',label:'Status'}
+    {key:'id',label:'Order'},{key:'buyer',label:'Buyer'},{key:'vendor',label:'Vendor'},{key:'total',label:'Total',render:r=>money(r.total)},{key:'payment',label:'Payment',render:r=><em className={'status '+(r.payment==='PAID'?'active':'warning')}>{human(r.payment)}</em>},{key:'status',label:'Status',render:r=>human(r.status)}
   ] : [
     {key:'name',label:'Category'},{key:'products',label:'Products'},{key:'status',label:'Status',render:r=><em className={'status '+(r.status==='Active'?'active':'warning')}>{r.status}</em>}
   ];
@@ -196,7 +201,7 @@ function GenericAdminTable({ title, subtitle, type }) {
       <div className="verified-box"><b>Live marketplace data</b><p>This list is read directly from the MVEC database. User actions update the account record and take effect across the marketplace.</p></div>
       <div className="data-card">
         <div className="data-card-head">
-          <div><h3>{title}</h3><span>{meta.total} records</span></div>
+          <div><h3>{title}</h3><span>{countLabel(meta.total, "record")}</span></div>
           {type === "users" && <label className="field"><span>Filter by role</span><select value={roleFilter} onChange={e => { setRoleFilter(e.target.value); setPage(1); }}><option value="">All roles</option><option value="buyer">Buyers</option><option value="vendor">Vendors</option><option value="affiliate">Affiliates</option><option value="supplier">Suppliers</option><option value="super_admin">Administrators</option><option value="delivery">Couriers</option><option value="developer">Developers</option></select></label>}
         </div>
         <span className="muted">Marketplace records from the database</span>
@@ -285,8 +290,16 @@ export default function AdminDashboard() {
       type = "orders";
       title = "Orders";
     } else {
-      type = "users";
-      title = "Settings";
+      // A mistyped admin address: say so instead of showing another page.
+      return (
+        <DashboardLayout admin>
+          <div className="data-card empty-state">
+            <h2>Page not found</h2>
+            <p>There is no admin page at {path}. It may have moved.</p>
+            <Link className="gradient-btn" to="/admin">Back to the admin overview</Link>
+          </div>
+        </DashboardLayout>
+      );
     }
 
     return (

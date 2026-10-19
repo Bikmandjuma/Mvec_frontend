@@ -48,6 +48,14 @@ export const adminApi = {
     client.get("/admin/orders", { params }).then((r) => r.data),
   updateUserStatus: (id, payload) =>
     client.patch(`/users/${id}`, payload).then((r) => r.data),
+  // Automatic release days and the subscription program (on/off, prices, Free limit).
+  getOperationsSettings: () =>
+    client.get("/admin/operations-settings").then((r) => r.data),
+  updateOperationsSettings: (payload) =>
+    client.put("/admin/operations-settings", payload).then((r) => r.data),
+  // Plan details (features, Free includes) for the Subscriptions page.
+  getPlanInfo: () =>
+    client.get("/plans/me").then((r) => r.data),
   getOverview: () =>
     client.get("/admin/overview").then((r) => r.data),
   getPayments: (params) =>

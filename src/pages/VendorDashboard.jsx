@@ -32,6 +32,7 @@ import CustomersPage from './seller/CustomersPage';
 import CategoriesPage, { buildCategoryTree } from './seller/CategoriesPage';
 import InventoryPage from './seller/InventoryPage';
 import OrdersPage from './seller/OrdersPage';
+import BulkUpload from './seller/BulkUpload';
 import ManualOrderModal from './seller/ManualOrderModal';
 import { AdvertisementsPage, SubscriptionPage } from './seller/GrowthPages';
 
@@ -217,6 +218,7 @@ function ProductForm({product,stores=[],onSave,onCancel,saving}){
 }
 
 function ProductModule(){
+  const [bulk,setBulk]=useState(false);
   const location=useLocation();
   const navigate=useNavigate();
   const [rows,setRows]=useState([]);
@@ -316,8 +318,9 @@ function ProductModule(){
   return <>
     <div className="dash-page-head">
       <div><span className="eyebrow">SELLER PLATFORM</span><h1>Products</h1><p>Manage product details, pricing, stock, media and publishing status.</p></div>
-      <button type="button" className="gradient-btn" onClick={()=>setEditing({mode:'create'})}><Icon name="plus"/> Add product</button>
+      <div className="row-actions"><button type="button" className="outline-btn" onClick={()=>setBulk(true)}><Icon name="box"/> Upload spreadsheet</button><button type="button" className="gradient-btn" onClick={()=>setEditing({mode:'create'})}><Icon name="plus"/> Add product</button></div>
     </div>
+    {bulk&&<BulkUpload onClose={()=>setBulk(false)} onDone={()=>{clearCatalogCache();load();}}/>}
     {error&&<div className="form-error">{error}</div>}
     <div className="dash-toolbar">
       <div className="dash-filter"><Icon name="search"/><input value={q} onChange={e=>{setQ(e.target.value);setPage(1)}} placeholder="Search products, SKU, brand or category"/></div>
