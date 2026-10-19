@@ -41,7 +41,10 @@ export const sellerCollectsPayment = (o) => o?.source === 'MANUAL' && (o.paidOff
 // Accepts an order (preferred) or a bare status string.
 export const sellerNextStatuses = (orderOrStatus) => {
   const order = typeof orderOrStatus === 'string' ? { orderStatus: orderOrStatus } : orderOrStatus || {};
-  const next = [...(SELLER_NEXT[order.orderStatus] || [])];
+  // A pickup order is never shipped: once ready, the buyer collects it and
+  // the seller enters the buyer's delivery code.
+  const flow = order.shippingMethod === 'PICKUP' ? { ...SELLER_NEXT, READY_FOR_SHIPMENT: ['CANCELLED'] } : SELLER_NEXT;
+  const next = [...(flow[order.orderStatus] || [])];
   if (sellerCollectsPayment(order)) {
     const from = order.shippingMethod === 'PICKUP' ? ['CONFIRMED', 'PROCESSING', 'READY_FOR_SHIPMENT'] : ['READY_FOR_SHIPMENT', 'SHIPPED', 'OUT_FOR_DELIVERY'];
     if (from.includes(order.orderStatus)) next.push('DELIVERED');
@@ -54,6 +57,9 @@ export const STEP_LABEL = {
   CONFIRMED: 'Accept order', PROCESSING: 'Start preparing', READY_FOR_SHIPMENT: 'Ready to ship', SHIPPED: 'Mark shipped',
   OUT_FOR_DELIVERY: 'Out for delivery', DELIVERED: 'Mark delivered', CANCELLED: 'Cancel order',
 };
+// Button label for a step, worded for pickup orders where that differs.
+export const stepLabelFor = (order, status) =>
+  (order?.shippingMethod === 'PICKUP' && status === 'READY_FOR_SHIPMENT' ? 'Ready for pickup' : STEP_LABEL[status]) || status;
 export const ORDER_TABS = [
   ['all', 'All', null],
   ['new', 'New', ['PENDING', 'CONFIRMED']],

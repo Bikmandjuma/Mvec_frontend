@@ -45,7 +45,8 @@ Buyer access is phone-first and guest-friendly. Email is optional for normal sho
 - Configurable commission rules by platform, category, vendor type, vendor, product and promotion
 - Centralized pricing calculation and stored order pricing snapshots
 - Rwanda location and delivery rules
-- English, Kinyarwanda and French language support
+- Sign in with email, phone or Google
+- Follow stores
 - Admin analytics, reports, trust controls and audit logs
 - Search and pagination on marketplace tables
 - Responsive desktop, tablet and mobile layouts
@@ -91,13 +92,7 @@ This keeps buyer-vendor and vendor-supplier conversations connected to the trans
 
 ## Languages
 
-The marketplace supports:
-
-- English
-- Kinyarwanda
-- French
-
-Translation keys are centralized so additional languages can be added without changing page components.
+The interface is in English. Page text still goes through `useLanguage().t()` in `src/context/LanguageContext.jsx`, so translations can be added there later.
 
 ## Development access
 
@@ -111,16 +106,21 @@ Delivery access is provisioned separately from development seed accounts.
 
 ## Running locally
 
+Start the backend (`Mvec_backend`, `npm run dev`, port 4000) first, then:
+
 ```bash
+cp .env.example .env   # set VITE_API_URL and, for Google sign-in, VITE_GOOGLE_CLIENT_ID
 npm install
-npm run dev
+npm run dev            # http://localhost:5173
 ```
 
-## API integration points
+The backend's `FRONTEND_URL` must match this address so payment pages return here.
 
-The current application keeps marketplace workflows separated from provider-specific services so production services can be connected without redesigning the pages.
+## Backend
 
-The main integration areas are:
+Every page reads and writes through the MVEC REST API (`src/API/`) and receives live updates over Socket.IO. Nothing is stored only in the browser except the login token and the theme.
+
+Services that still need production accounts or configuration on the backend:
 
 - Authentication and OTP
 - Payment collection
@@ -133,8 +133,6 @@ The main integration areas are:
 - KYC and verification
 - Refund processing
 - Analytics
-
-Until those services are connected, the application keeps its transaction state and workflow locally for local development.
 
 ## Production requirements
 

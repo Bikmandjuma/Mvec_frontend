@@ -1,4 +1,4 @@
-export default function FormField({ label, name, type = 'text', placeholder, value, onChange, required = true, autoComplete, minLength, maxLength }) {
+export default function FormField({ label, name, type = 'text', placeholder, value, onChange, required = true, autoComplete, minLength, maxLength, inputMode }) {
   return (
     <label className="field">
       <span>{label}</span>
@@ -12,6 +12,7 @@ export default function FormField({ label, name, type = 'text', placeholder, val
         autoComplete={autoComplete}
         minLength={minLength}
         maxLength={maxLength}
+        inputMode={inputMode}
       />
     </label>
   );

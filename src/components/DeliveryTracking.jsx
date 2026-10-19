@@ -18,6 +18,10 @@ const idOf = (x) => String(x?._id || x?.id || x || "");
 // delivery code, which also releases the held payment.
 const RETAIL_STEPS = ["CONFIRMED", "PROCESSING", "READY_FOR_SHIPMENT", "SHIPPED", "OUT_FOR_DELIVERY", "DELIVERED"];
 const RETAIL_ALIAS = { PENDING: -1, COMPLETED: 5 };
+// Pickup orders are never shipped: the buyer collects them from the store.
+const PICKUP_STEPS = ["CONFIRMED", "PROCESSING", "READY_FOR_SHIPMENT", "DELIVERED"];
+const PICKUP_ALIAS = { PENDING: -1, COMPLETED: 3 };
+const PICKUP_LABEL = { READY_FOR_SHIPMENT: "Ready for pickup", DELIVERED: "Collected" };
 const WHOLESALE_STEPS = ["PENDING_PAYMENT", "ESCROW_HELD", "SHIPPED", "DELIVERED", "CONFIRMED_RELEASED"];
 const STEP_LABEL = { CONFIRMED: "Paid", PROCESSING: "Preparing", READY_FOR_SHIPMENT: "Packed", OUT_FOR_DELIVERY: "On the way", PENDING_PAYMENT: "Unpaid", ESCROW_HELD: "Paid", CONFIRMED_RELEASED: "Settled" };
 const NEXT_ACTION = {
@@ -52,23 +56,27 @@ function normalizeRetail(o, role, userId) {
   const done = DONE.includes(o.orderStatus);
   const handedOver = role === "vendor" && (o.deliveredVendors || []).map(String).includes(String(userId));
   const active = payable && !closed && !done;
+  const pickup = o.shippingMethod === "PICKUP";
+  const steps = pickup ? PICKUP_STEPS : RETAIL_STEPS;
+  const next = pickup && o.orderStatus === "READY_FOR_SHIPMENT" ? null : o.orderStatus === "PROCESSING" && pickup ? ["READY_FOR_SHIPMENT", "Mark ready for pickup"] : NEXT_ACTION[o.orderStatus];
   return {
     raw: o,
+    pickup,
     id: idOf(o),
     number: o.orderNumber,
     title: first ? `${first.quantity} × ${first.name}${items.length > 1 ? ` +${items.length - 1} more` : ""}` : "Order",
     sellers: [...new Set((o.items || []).map((i) => nameOf(i.vendor, "")).filter(Boolean))].join(", "),
     party: o.recipient?.name || o.customer?.name || nameOf(o.user, "Buyer"),
     phone: o.recipient?.phone || o.customer?.phone || o.user?.phone,
-    place: [address.street, address.sector, address.district || address.city, address.province].filter(Boolean).join(", "),
+    place: pickup ? "Buyer collects from the store" : [address.street, address.sector, address.district || address.city, address.province].filter(Boolean).join(", "),
     eta: parcel?.eta,
     method: titleCase(o.shippingMethod || o.deliveryMethod || "STANDARD"),
     courier: o.courier,
     amount: role === "vendor" ? (o.vendorSubtotal || 0) + (o.vendorShippingFee || 0) : o.totalAmount,
     status: o.orderStatus,
     date: o.createdAt,
-    steps: RETAIL_STEPS,
-    step: RETAIL_ALIAS[o.orderStatus] ?? RETAIL_STEPS.indexOf(o.orderStatus),
+    steps,
+    step: (pickup ? PICKUP_ALIAS : RETAIL_ALIAS)[o.orderStatus] ?? steps.indexOf(o.orderStatus),
     settlement: retailSettlement(o),
     closed,
     done,
@@ -77,8 +85,8 @@ function normalizeRetail(o, role, userId) {
     relevant: payable || closed || done,
     held: o.paymentStatus === "PAID" && !o.paidOffline && active,
     link: role === "vendor" ? `/vendor/orders/${idOf(o)}` : role === "admin" ? `/admin/orders/${idOf(o)}` : null,
-    next: active && !handedOver && (role === "vendor" || role === "admin") ? NEXT_ACTION[o.orderStatus] : null,
-    canPickUp: active && role === "delivery" && o.orderStatus !== "OUT_FOR_DELIVERY",
+    next: active && !handedOver && (role === "vendor" || role === "admin") ? next : null,
+    canPickUp: active && !pickup && role === "delivery" && o.orderStatus !== "OUT_FOR_DELIVERY",
     canAssign: active && role === "admin",
     canConfirm: active && !handedOver && ["vendor", "admin", "delivery"].includes(role),
   };
@@ -275,7 +283,7 @@ export default function DeliveryTracking({ role = "vendor", initialTab = "active
             : <ol className="dlv-steps" style={{ "--steps": o.steps.length }}>
                 {o.steps.map((s, i) => <li key={s} className={i < o.step || (o.done && i === o.step) ? "done" : i === o.step ? "now" : ""}>
                   <i>{i < o.step || (o.done && i === o.step) ? <Icon name="check" size={12} /> : i + 1}</i>
-                  <small>{STEP_LABEL[s] || titleCase(s)}</small>
+                  <small>{(o.pickup && PICKUP_LABEL[s]) || STEP_LABEL[s] || titleCase(s)}</small>
                 </li>)}
               </ol>}
 
@@ -297,7 +305,7 @@ export default function DeliveryTracking({ role = "vendor", initialTab = "active
             <input inputMode="numeric" maxLength={6} value={codes[o.id] || ""} aria-label={`Delivery code for ${o.number}`}
               onChange={(e) => setCodes((s) => ({ ...s, [o.id]: e.target.value.replace(/\D/g, "").slice(0, 6) }))} placeholder="••••••" />
             <button type="button" className="gradient-btn" disabled={(codes[o.id] || "").length !== 6 || busy} onClick={() => confirm(o)}>
-              <Icon name="check" size={16} />{busy ? "Verifying…" : "Confirm delivery"}
+              <Icon name="check" size={16} />{busy ? "Verifying…" : o.pickup ? "Confirm pickup" : "Confirm delivery"}
             </button>
             <small className="tiny">{isCod(o.raw) ? "Collect the cash, then enter the code shown on the buyer's order page." : "Enter the code shown on the buyer's order page. It releases the held payment."}</small>
           </div>}

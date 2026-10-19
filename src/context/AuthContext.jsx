@@ -39,6 +39,12 @@ export function AuthProvider({ children }) {
     return data.user;
   }
 
+  async function loginWithGoogle(idToken, role) {
+    const data = await authApi.googleLogin(idToken, role);
+    persistSession(data);
+    return data.user;
+  }
+
   async function register(payload) {
     const data = await authApi.register(payload);
     persistSession(data);
@@ -67,7 +73,7 @@ export function AuthProvider({ children }) {
   const replaceToken = (token) => { if (token) localStorage.setItem('huska_token', token); };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout, refresh, setUser, updateUser, replaceToken }}>
+    <AuthContext.Provider value={{ user, loading, login, loginWithGoogle, register, startSession: persistSession, logout, refresh, setUser, updateUser, replaceToken }}>
       {children}
     </AuthContext.Provider>
   );

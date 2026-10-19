@@ -7,7 +7,7 @@ import { useAuth } from './AuthContext';
 
 const MarketplaceContext = createContext(null);
 
-const GUEST_CART_KEY = 'mvec_cart';
+export const GUEST_CART_KEY = 'mvec_cart';
 const LEGACY_WISHLIST_KEY = 'mvec_wishlist';
 const wishlistKey = (userId) => `mvec_wishlist_${userId}`;
 const MAX_QTY = 100;

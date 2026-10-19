@@ -6,7 +6,7 @@ import { ordersApi } from '../API/orders';
 import { payoutsApi } from '../API/payouts';
 import { extractErrorMessage } from '../API/client';
 import { useAuth } from '../context/AuthContext';
-import { money, dateDMY, personName, titleCase, parsePercent, sellerNextStatuses, canRecordCash, STEP_LABEL, ORDER_FLOW, StatusPill, FormModal } from './seller/shared';
+import { money, dateDMY, personName, titleCase, parsePercent, sellerNextStatuses, canRecordCash, stepLabelFor, ORDER_FLOW, StatusPill, FormModal } from './seller/shared';
 
 const idOf = v => String(v?._id || v?.id || v || '');
 
@@ -99,7 +99,7 @@ export default function SellerOrderDetail() {
             {order.customer?.phone && <span>{order.customer.phone}</span>}
             {(order.customer?.email || order.user?.email) && <span>{order.customer?.email || order.user.email}</span>}
             {order.source === 'MANUAL' && <span className="tiny">{order.user ? 'Linked to the customer\u2019s MVEC account' : 'Guest customer (no MVEC account)'}</span>}
-            <span>{[address.street, address.sector, address.district || address.city, address.province || address.state, address.country].filter(Boolean).join(', ') || 'No address provided'}</span>
+            <span>{order.shippingMethod === 'PICKUP' ? 'The buyer collects this order from your store. Ask for their delivery code when you hand it over.' : [address.street, address.sector, address.district || address.city, address.province || address.state, address.country].filter(Boolean).join(', ') || 'No address provided'}</span>
             {parcels[0]?.eta && <span>Delivery promised: {parcels[0].eta}</span>}
           </div>
           <h3 className="subhead">Payment</h3>
@@ -115,7 +115,7 @@ export default function SellerOrderDetail() {
               ? <div className="seller-next-actions">
                   {next.map(s => <button type="button" key={s} className="gradient-btn seller-next-primary" disabled={updating} onClick={() => updateStatus({ status: s })}>
                     <Icon name={s === 'SHIPPED' || s === 'READY_FOR_SHIPMENT' ? 'box' : 'check'} size={17} />
-                    {updating ? 'Updating…' : STEP_LABEL[s] || titleCase(s)}
+                    {updating ? 'Updating…' : stepLabelFor(order, s) || titleCase(s)}
                     <Icon name="arrow" size={16} />
                   </button>)}
                   {canRecordCash(order) && <button type="button" className="outline-btn" disabled={updating} onClick={() => updateStatus({ paymentStatus: 'PAID' })}>Cash received</button>}

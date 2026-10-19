@@ -88,6 +88,7 @@ export default function OrderDetails() {
   const awaitingPayment = isAwaitingPayment(order);
   const idx = stepIndex(order);
   const addr = order.shippingAddress || {};
+  const isPickup = order.shippingMethod === "PICKUP";
   const vendors = [...new Set(items.map((it) => it.vendor?.companyName || it.vendor?.Fullname).filter(Boolean))];
   const reviewable = items.filter((it) => productIdOf(it) && !reviewedIds.includes(productIdOf(it)));
 
@@ -177,20 +178,27 @@ export default function OrderDetails() {
         ))}
         <div className="summary-lines">
           <div><span>Products</span><b>{money(order.subtotal ?? order.totalAmount - (order.shippingFee || 0))}</b></div>
-          <div><span>Delivery{order.shippingMethod && order.shippingMethod !== "STANDARD" ? ` (${order.shippingMethod.toLowerCase()})` : ""}{order.shippingBreakdown?.length > 1 ? ` · ${order.shippingBreakdown.length} parcels` : ""}</span><b>{order.shippingFee ? money(order.shippingFee) : "FREE"}</b></div>
-          {order.shippingBreakdown?.filter((p) => p.eta).map((p, i) => <div className="tiny" key={i}><span>{p.storeName || "Seller"}</span><span>arrives in {p.eta}</span></div>)}
+          <div><span>{isPickup ? "Pickup" : "Delivery"}{order.shippingMethod === "EXPRESS" ? " (express)" : ""}{order.shippingBreakdown?.length > 1 ? ` · ${order.shippingBreakdown.length} parcels` : ""}</span><b>{order.shippingFee ? money(order.shippingFee) : "FREE"}</b></div>
+          {!isPickup && order.shippingBreakdown?.filter((p) => p.eta).map((p, i) => <div className="tiny" key={i}><span>{p.storeName || "Seller"}</span><span>arrives in {p.eta}</span></div>)}
           {order.discountAmount > 0 && <div><span>Coupon {order.coupon?.code}</span><b>−{money(order.discountAmount)}</b></div>}
           <div className="grand"><span>Total</span><strong>{money(order.totalAmount)}</strong></div>
         </div>
       </section>
 
       <section className="data-card">
-        <h3>Delivery</h3>
+        <h3>{isPickup ? "Pickup" : "Delivery"}</h3>
         <div className="profile-detail">
           {order.recipient?.name && <b>{order.recipient.name}</b>}
           {order.recipient?.phone && <span>{order.recipient.phone}</span>}
-          <span>{[addr.street, addr.sector, addr.city].filter(Boolean).join(", ")}</span>
-          <span>{[addr.province || addr.state, addr.country].filter(Boolean).join(", ")}</span>
+          {isPickup
+            ? <>
+                <span>You collect this order from the seller.</span>
+                {(order.pickupLocations || []).map((p, i) => <span key={i}><b>{p.storeName}</b>: {p.address}{p.phone ? ` · ${p.phone}` : ""}</span>)}
+              </>
+            : <>
+                <span>{[addr.street, addr.sector, addr.city].filter(Boolean).join(", ")}</span>
+                <span>{[addr.province || addr.state, addr.country].filter(Boolean).join(", ")}</span>
+              </>}
         </div>
         <h3>Seller &amp; payment</h3>
         <div className="profile-detail">
@@ -211,7 +219,7 @@ export default function OrderDetails() {
     {order.paymentStatus === "PAID" && order.deliveryOtp && !delivered && !cancelled && (
       <section className="verified-box otp-buyer-box">
         <b>🔐 Your delivery code</b>
-        <p>Give this code to the seller or courier only when your order is in your hands. It releases your payment to the seller. We also sent it to you by SMS.</p>
+        <p>{isPickup ? "When you collect your order, give this code to the seller only once the items are in your hands." : "Give this code to the seller or courier only when your order is in your hands."} It releases your payment to the seller. We also sent it to you by SMS.</p>
         <strong className="delivery-otp">{order.deliveryOtp}</strong>
       </section>
     )}

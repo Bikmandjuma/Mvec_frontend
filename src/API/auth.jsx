@@ -24,6 +24,18 @@ export const authApi = {
       .post("/auth/login", backendPayload)
       .then((r) => mapAuthResponse(r.data));
   },
+  // Google Sign-In: the ID token from Google; role only applies to new accounts.
+  googleLogin: (idToken, role) =>
+    client
+      .post("/auth/google-login", { idToken, ...(role ? { role } : {}) })
+      .then((r) => mapAuthResponse(r.data)),
+  // Guest checkout: a one-time code proves the phone instead of signing up.
+  guestSendCode: (phone) =>
+    client.post("/auth/guest/send-code", { phone }).then((r) => r.data),
+  guestVerify: ({ phone, code, fullName, email }) =>
+    client
+      .post("/auth/guest/verify", { phone, code, fullName, email })
+      .then((r) => ({ ...mapAuthResponse(r.data), guest: Boolean(r.data.guest) })),
   me: () =>
     client.get("/auth/me").then((r) => mapUser(r.data.user)),
   updateProfile: (payload) =>

@@ -9,12 +9,12 @@ This package is the consolidated frontend release candidate for MVEC.
 - Affiliate dashboard with product promotion, links, conversions, earnings, wallet and withdrawals
 - Admin dashboard with marketplace management, users, vendors, products, categories, orders, finance, risk, acquisition, reports, settings and support
 - Delivery and protected-settlement workflow presentation
-- Kinyarwanda, English and French interface support
+- English interface
 - Responsive desktop, tablet and mobile layouts
 - Shared table search, filtering, pagination and CSV export
 
 ## Frontend behavior
-All UI actions are wired to local application state and storage where a backend service is not yet connected. API/provider integration points remain isolated so backend services can replace the local persistence without redesigning the interface.
+All UI actions call the MVEC backend API. Provider integrations (payments, SMS, delivery) are configured on the backend.
 
 ## Release checks completed
 - Product Add/Edit opens inside the dashboard layout and saves the complete product record.

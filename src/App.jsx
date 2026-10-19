@@ -1,48 +1,60 @@
-import React from "react";
+import React, { Suspense, lazy } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
-import Home from "./pages/Home";
-import Login from "./pages/Login";
-import Signup from "./pages/Signup";
-import ForgotPassword from "./pages/ForgotPassword";
-import Shop from "./pages/Shop";
-import ProductDetails from "./pages/ProductDetails";
-import Cart from "./pages/Cart";
-import Wishlist from "./pages/Wishlist";
-import Checkout from "./pages/Checkout";
-import Payment from "./pages/Payment";
-import Profile from "./pages/Profile";
-import Orders from "./pages/Orders";
-import OrderDetails from "./pages/OrderDetails";
-import Vendors from "./pages/Vendors";
-import VendorDetail from "./pages/VendorDetail";
-import VendorDashboard from "./pages/VendorDashboard";
-import SupplierDashboard from "./pages/SupplierDashboard";
-import AffiliateDashboard from "./pages/AffiliateDashboard";
-import DeliveryDashboard from "./pages/DeliveryDashboard";
-import PlatformOperations from "./pages/PlatformOperations";
-import VendorNetwork from "./pages/VendorNetwork";
-import VendorAffiliate from "./pages/VendorAffiliate";
-import AdminDashboard from "./pages/AdminDashboard";
-import BecomeSeller from "./pages/BecomeSeller";
-import SellerOrderDetail from "./pages/SellerOrderDetail";
 import RequireAuth from "./components/RequireAuth";
 import DeliveryTracking from "./components/DeliveryTracking";
 import DashboardLayout from "./components/DashboardLayout";
 import NotificationPanel from "./components/NotificationPanel";
 import MobileBottomNav from "./components/MobileBottomNav";
-import FeaturePages, { AdminDisputesPage } from "./pages/FeaturePages";
 import AffiliateRedirect from "./components/AffiliateRedirect";
-import AdminTransfers from "./pages/AdminTransfers";
-import { VendorQuotes } from "./pages/Wholesale";
-import VendorPayoutsAdmin from "./pages/admin/VendorPayoutsAdmin";
-import AccountSettings from "./pages/account/AccountSettings";
-import AdvertisingAdmin from "./pages/admin/AdvertisingAdmin";
 import { ReferralCapture } from "./services/referral";
-import {
-  AdminVendors, AdminSuppliers, AdminPaymentsPage, AdminEarnings, AdminLedgerPage, AdminAnalyticsPage,
-  AdminRisk, AdminTrust, AdminSubscriptionsPage, AdminPlatform, AdminAuditLog, AdminCommissionRules, AdminSupportInbox,
-} from "./pages/AdminOps";
-import { CommunicationPage } from "./pages/ExtendedModules";
+// Each page loads on demand, so the first visit downloads only what it shows.
+const Home = lazy(() => import("./pages/Home"));
+const Login = lazy(() => import("./pages/Login"));
+const Signup = lazy(() => import("./pages/Signup"));
+const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
+const Shop = lazy(() => import("./pages/Shop"));
+const ProductDetails = lazy(() => import("./pages/ProductDetails"));
+const Cart = lazy(() => import("./pages/Cart"));
+const Wishlist = lazy(() => import("./pages/Wishlist"));
+const Checkout = lazy(() => import("./pages/Checkout"));
+const Payment = lazy(() => import("./pages/Payment"));
+const Profile = lazy(() => import("./pages/Profile"));
+const Orders = lazy(() => import("./pages/Orders"));
+const OrderDetails = lazy(() => import("./pages/OrderDetails"));
+const Vendors = lazy(() => import("./pages/Vendors"));
+const VendorDetail = lazy(() => import("./pages/VendorDetail"));
+const VendorDashboard = lazy(() => import("./pages/VendorDashboard"));
+const SupplierDashboard = lazy(() => import("./pages/SupplierDashboard"));
+const AffiliateDashboard = lazy(() => import("./pages/AffiliateDashboard"));
+const DeliveryDashboard = lazy(() => import("./pages/DeliveryDashboard"));
+const PlatformOperations = lazy(() => import("./pages/PlatformOperations"));
+const VendorNetwork = lazy(() => import("./pages/VendorNetwork"));
+const VendorAffiliate = lazy(() => import("./pages/VendorAffiliate"));
+const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
+const BecomeSeller = lazy(() => import("./pages/BecomeSeller"));
+const SellerOrderDetail = lazy(() => import("./pages/SellerOrderDetail"));
+const AdminTransfers = lazy(() => import("./pages/AdminTransfers"));
+const VendorPayoutsAdmin = lazy(() => import("./pages/admin/VendorPayoutsAdmin"));
+const AccountSettings = lazy(() => import("./pages/account/AccountSettings"));
+const AdvertisingAdmin = lazy(() => import("./pages/admin/AdvertisingAdmin"));
+const FeaturePages = lazy(() => import("./pages/FeaturePages"));
+const AdminDisputesPage = lazy(() => import("./pages/FeaturePages").then((m) => ({ default: m.AdminDisputesPage })));
+const VendorQuotes = lazy(() => import("./pages/Wholesale").then((m) => ({ default: m.VendorQuotes })));
+const AdminVendors = lazy(() => import("./pages/AdminOps").then((m) => ({ default: m.AdminVendors })));
+const AdminSuppliers = lazy(() => import("./pages/AdminOps").then((m) => ({ default: m.AdminSuppliers })));
+const AdminPaymentsPage = lazy(() => import("./pages/AdminOps").then((m) => ({ default: m.AdminPaymentsPage })));
+const AdminEarnings = lazy(() => import("./pages/AdminOps").then((m) => ({ default: m.AdminEarnings })));
+const AdminLedgerPage = lazy(() => import("./pages/AdminOps").then((m) => ({ default: m.AdminLedgerPage })));
+const AdminAnalyticsPage = lazy(() => import("./pages/AdminOps").then((m) => ({ default: m.AdminAnalyticsPage })));
+const AdminRisk = lazy(() => import("./pages/AdminOps").then((m) => ({ default: m.AdminRisk })));
+const AdminTrust = lazy(() => import("./pages/AdminOps").then((m) => ({ default: m.AdminTrust })));
+const AdminSubscriptionsPage = lazy(() => import("./pages/AdminOps").then((m) => ({ default: m.AdminSubscriptionsPage })));
+const AdminPlatform = lazy(() => import("./pages/AdminOps").then((m) => ({ default: m.AdminPlatform })));
+const AdminAuditLog = lazy(() => import("./pages/AdminOps").then((m) => ({ default: m.AdminAuditLog })));
+const AdminCommissionRules = lazy(() => import("./pages/AdminOps").then((m) => ({ default: m.AdminCommissionRules })));
+const AdminSupportInbox = lazy(() => import("./pages/AdminOps").then((m) => ({ default: m.AdminSupportInbox })));
+const CommunicationPage = lazy(() => import("./pages/ExtendedModules").then((m) => ({ default: m.CommunicationPage })));
+
 function DashboardDelivery({ role }) {
   return (
     <DashboardLayout admin={role === "admin"}>
@@ -54,6 +66,7 @@ export default function App() {
   return (
     <>
     <ReferralCapture />
+    <Suspense fallback={<div className="loading-screen">Loading MVEC…</div>}>
     <Routes>
       <Route path="/" element={<Home />} />
       <Route path="/login" element={<Login />} />
@@ -629,6 +642,7 @@ export default function App() {
       />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    </Suspense>
     <MobileBottomNav />
     </>
   );

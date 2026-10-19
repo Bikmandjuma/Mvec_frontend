@@ -7,7 +7,7 @@ import { ordersApi } from '../../API/orders';
 import ManualOrderModal from './ManualOrderModal';
 import {
   PageHead, Loading, EmptyState, Metric, StatusPill, FormModal, money, dateDMY, matches, personName, titleCase,
-  sellerNextStatuses, canRecordCash, STEP_LABEL, ORDER_TABS, isRevenueOrder, useLoader, useNotice,
+  sellerNextStatuses, canRecordCash, stepLabelFor, ORDER_TABS, isRevenueOrder, useLoader, useNotice,
 } from './shared';
 
 const PER_PAGE = 10;
@@ -148,7 +148,7 @@ export default function OrdersPage() {
                 <span><StatusPill value={o.paymentStatus} /></span>
                 <span><StatusPill value={o.orderStatus} /></span>
                 <span className="seller-ord-actions">
-                  {next.map((s) => <button type="button" key={s} className="table-action-btn primary" disabled={busy === o._id} onClick={() => update(o, { status: s }, `${o.orderNumber}: ${titleCase(s).toLowerCase()}.`)}>{STEP_LABEL[s] || titleCase(s)}</button>)}
+                  {next.map((s) => <button type="button" key={s} className="table-action-btn primary" disabled={busy === o._id} onClick={() => update(o, { status: s }, `${o.orderNumber}: ${titleCase(s).toLowerCase()}.`)}>{stepLabelFor(o, s) || titleCase(s)}</button>)}
                   {canRecordCash(o) && <button type="button" className="table-action-btn" disabled={busy === o._id} onClick={() => update(o, { paymentStatus: 'PAID' }, `Cash recorded for ${o.orderNumber}.`)}>Cash received</button>}
                   {!next.length && !canRecordCash(o) && ['SHIPPED', 'OUT_FOR_DELIVERY'].includes(o.orderStatus) && <small className="tiny">Awaiting delivery code</small>}
                   {canCancel && <button type="button" className="seller-icon-btn" title="Cancel order" disabled={busy === o._id} onClick={() => setCancelling(o)}><Icon name="trash" size={15} /></button>}

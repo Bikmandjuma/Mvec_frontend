@@ -99,7 +99,9 @@ export function mapUser(u) {
     category: u.category || "",
     location: u.location || null,
     isOnboarded: u.isOnboarded !== false,
-    verificationStatus: u.verificationStatus || "VERIFIED",
+    isGuest: Boolean(u.isGuest),
+    // Same rule as the server: a seller with no status yet is unverified.
+    verificationStatus: u.verificationStatus || (["vendor", "supplier"].includes(u.role) ? "UNVERIFIED" : "VERIFIED"),
     verificationNote: u.verificationNote || "",
     isSellerEnabled: Boolean(u.isSellerEnabled),
     // Vendor staff sign in to their employer's store with limited access.

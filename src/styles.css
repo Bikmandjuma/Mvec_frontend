@@ -1538,3 +1538,20 @@ button.theme-switch.is-dark .theme-switch-icon.moon{opacity:1;transform:rotate(-
 .case-message.from-user{background:var(--surface-2)}
 .case-message.from-mvec{justify-self:end;background:#e9f7fc;border-color:#bfe6f2}
 [data-theme="dark"] .case-message.from-mvec{background:#123543;border-color:#1f5568}
+
+/* Google sign-in under the login and signup forms */
+.google-signin{display:grid;justify-items:center;margin-bottom:8px}.google-signin .or-divider{width:100%}
+
+/* Checkout: pickup or delivery */
+.fulfilment-choice{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:10px 0 6px}
+.fulfilment-choice label{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);border-radius:10px;padding:14px;cursor:pointer;background:transparent}
+.fulfilment-choice label.selected{border-color:var(--blue);box-shadow:0 0 0 2px rgba(37,173,219,.18)}
+.fulfilment-choice input{margin-top:3px}
+.fulfilment-choice b,.fulfilment-choice small{display:block}
+.fulfilment-choice small{font-size:12px;color:var(--muted);margin-top:3px}
+.form-card.has-error .fulfilment-choice label{border-color:#e5484d}
+.form-alert.info{background:#eef8fc;color:#165a73}
+.form-alert.info a{font-weight:800;margin-left:6px}
+[data-theme="dark"] .fulfilment-choice label{border-color:var(--line2)}
+[data-theme="dark"] .form-alert.info{background:#12313d;color:#bfe9f8}
+@media(max-width:640px){.fulfilment-choice{grid-template-columns:1fr}}

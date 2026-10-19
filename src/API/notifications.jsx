@@ -14,6 +14,4 @@ export const notificationsApi = {
     client.patch(`/notifications/${id}/read`).then((r) => r.data),
   markAllAsRead: () =>
     client.post("/notifications/read-all").then((r) => r.data),
-  remove: (id) =>
-    client.delete(`/notifications/${id}`).then((r) => r.data),
 };

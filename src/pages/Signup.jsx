@@ -2,17 +2,18 @@ import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import AuthLayout from "../components/AuthLayout";
 import FormField from "../components/FormField";
+import GoogleButton from "../components/GoogleButton";
 import { useAuth } from "../context/AuthContext";
 import { extractErrorMessage } from "../API/client";
 import { isRwandanPhone } from "../utils/delivery";
-import { homeForRole, safeRedirect } from "../utils/redirect";
+import { afterSignIn, safeRedirect } from "../utils/redirect";
 
 const ROLES = ["buyer", "vendor", "supplier", "affiliate"];
 
 export default function Signup() {
   const navigate = useNavigate(),
     location = useLocation();
-  const { register } = useAuth();
+  const { register, loginWithGoogle } = useAuth();
   const [form, setForm] = useState({
     fullName: "",
     telephone: "",
@@ -58,13 +59,28 @@ export default function Signup() {
       const { confirmPassword: _, ...payload } = form;
       const user = await register({ ...payload, fullName: form.fullName.trim(), email: form.email.trim() || undefined, gender: form.gender || undefined });
       const returnTo = safeRedirect(location.state?.from);
-      navigate(returnTo && user.role === "buyer" ? returnTo : homeForRole(user.role), { replace: true });
+      navigate(afterSignIn(user, returnTo), { replace: true });
     } catch (err) {
       setError(extractErrorMessage(err));
     } finally {
       setLoading(false);
     }
   }
+  // Google sign-up creates the account with the role picked above.
+  async function handleGoogle(idToken) {
+    setError("");
+    setLoading(true);
+    try {
+      const user = await loginWithGoogle(idToken, form.role);
+      const returnTo = safeRedirect(location.state?.from);
+      navigate(afterSignIn(user, returnTo), { replace: true });
+    } catch (err) {
+      setError(extractErrorMessage(err, "Google sign-up failed. Try again or fill in the form."));
+    } finally {
+      setLoading(false);
+    }
+  }
+
   const roleText = {
     buyer: [
       "Buyer account",
@@ -184,6 +200,7 @@ export default function Signup() {
           {loading ? "Creating account…" : "Create account"}
         </button>
       </form>
+      <GoogleButton text="signup_with" onCredential={handleGoogle} onError={() => setError("Google sign-up was cancelled or failed. Try again.")} />
       <p className="switch-text">
         Already have an account?{" "}
         <Link to="/login" state={location.state}>

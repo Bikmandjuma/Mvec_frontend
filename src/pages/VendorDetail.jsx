@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import Storefront from '../components/Storefront';
 import { vendorsApi } from '../API/vendors';
 import { productsApi } from '../API/products';
@@ -15,6 +16,12 @@ export default function VendorDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [following, setFollowing] = useState(false);
+  const [followers, setFollowers] = useState(0);
+  const [followBusy, setFollowBusy] = useState(false);
+  const [followError, setFollowError] = useState('');
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
     let alive = true;
@@ -23,7 +30,8 @@ export default function VendorDetail() {
       if (!alive) return;
       const v = res.vendor;
       setVendor(v);
-      setFollowing(localStorage.getItem(`mvec_follow_vendor_${v.id}`) === '1');
+      setFollowing(Boolean(v.following));
+      setFollowers(Number(v.followers) || 0);
       return v.userId ? productsApi.getAll({ vendorId: v.userId }) : { products: [] };
     }).then(res => {
       if (!alive || !res) return;
@@ -31,12 +39,25 @@ export default function VendorDetail() {
     }).catch(err => alive && setError(extractErrorMessage(err)))
       .finally(() => alive && setLoading(false));
     return () => { alive = false; };
-  }, [id]);
+  }, [id, user?.id]);
 
-  const toggleFollow = () => {
-    const next = !following;
-    setFollowing(next);
-    localStorage.setItem(`mvec_follow_vendor_${vendor.id}`, next ? '1' : '0');
+  // Saved on the account, so it shows on every device and counts for the store.
+  const toggleFollow = async () => {
+    if (!user) {
+      navigate('/login', { state: { from: location.pathname } });
+      return;
+    }
+    setFollowBusy(true);
+    setFollowError('');
+    try {
+      const res = following ? await vendorsApi.unfollow(vendor.id) : await vendorsApi.follow(vendor.id);
+      setFollowing(Boolean(res.following));
+      setFollowers(Number(res.followers) || 0);
+    } catch (err) {
+      setFollowError(extractErrorMessage(err));
+    } finally {
+      setFollowBusy(false);
+    }
   };
 
   if (loading) return <Storefront><main className="catalog-page"><div className="empty-state"><h3>Loading store…</h3></div></main></Storefront>;
@@ -50,9 +71,10 @@ export default function VendorDetail() {
           <div>
             <span className="eyebrow">{vendor.verificationStatus === 'VERIFIED' ? 'VERIFIED STORE' : 'STORE'}</span>
             <h1>{vendor.businessName}</h1>
-            <p>★ {Number(vendor.ratingAvg || 0).toFixed(1)} · {products.length} products · {vendor.category || 'Business'}</p>
+            <p>★ {Number(vendor.ratingAvg || 0).toFixed(1)} · {products.length} products · {followers} {followers === 1 ? 'follower' : 'followers'} · {vendor.category || 'Business'}</p>
+            {followError && <p className="form-alert error" role="alert">{followError}</p>}
           </div>
-          <button className="outline-btn" onClick={toggleFollow}>{following ? 'Following' : 'Follow store'}</button>
+          <button className="outline-btn" onClick={toggleFollow} disabled={followBusy}>{following ? 'Following' : 'Follow store'}</button>
         </div>
         <div className="verified-box"><b>{vendor.category || 'Business'} · {typeof vendor.location === 'string' ? vendor.location : (vendor.location?.city || 'Rwanda')}</b><p>{vendor.description || 'This business has not added a description yet.'}</p></div>
         <div className="section-heading"><h2>Store products</h2><Link to="/shop">All products →</Link></div>

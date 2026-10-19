@@ -5,6 +5,11 @@ export const vendorsApi = {
     client.get("/vendors", { params }).then((r) => r.data),
   getByIdOrSlug: (idOrSlug) =>
     client.get(`/vendors/${idOrSlug}`).then((r) => r.data),
+  // Following a store is saved on the account; both return { following, followers }.
+  follow: (vendorId) =>
+    client.post(`/vendors/${vendorId}/follow`).then((r) => r.data),
+  unfollow: (vendorId) =>
+    client.delete(`/vendors/${vendorId}/follow`).then((r) => r.data),
   onboard: (payload) =>
     client.post("/vendors/onboard", payload).then((r) => r.data),
   becomeSeller: (payload) =>

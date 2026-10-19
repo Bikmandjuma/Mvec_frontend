@@ -8,3 +8,13 @@ export function safeRedirect(path) {
 
 export const homeForRole = (role) =>
   ({ vendor: '/vendor', supplier: '/supplier', affiliate: '/affiliate', delivery: '/delivery', super_admin: '/admin' }[role] || '/');
+
+// Where to go right after logging in or creating an account. Everyone except
+// buyers goes straight to their dashboard (a link inside that dashboard, e.g.
+// after a timed-out session, is kept). Buyers return to what they were doing.
+export function afterSignIn(user, returnTo) {
+  if (!user || user.role === 'buyer') return returnTo || '/';
+  const home = homeForRole(user.role);
+  if (home === '/') return '/';
+  return returnTo && (returnTo === home || returnTo.startsWith(`${home}/`)) ? returnTo : home;
+}

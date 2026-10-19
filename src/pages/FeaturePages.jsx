@@ -179,7 +179,7 @@ function SupportModule({role}){
     <h3>New request</h3>
     <div className="seller-form-grid">
      <label className="field"><span>Subject *</span><input name="subject" value={form.subject} onChange={update} required placeholder="e.g. Payout not received"/></label>
-     <label className="field half"><span>Topic</span><select name="category" value={form.category} onChange={update}>{SUPPORT_CATEGORIES.map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></label>
+     <label className="field half"><span>Topic</span><select name="category" value={form.category} onChange={update}>{SUPPORT_CATEGORIES.map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></label>{role==='buyer'&&form.category==='ORDER'&&<p className="tiny field-note">Problem with a specific order? Open it in <Link to="/orders">My orders</Link> and choose Report a problem. The seller and MVEC both receive it, and the payment stays on hold until it's resolved.</p>}
      <label className="field half"><span>Urgency</span><select name="priority" value={form.priority} onChange={update}><option value="LOW">Low</option><option value="MEDIUM">Normal</option><option value="HIGH">High</option><option value="URGENT">Urgent: money or orders blocked</option></select></label>
      <label className="field"><span>Order or transaction ID</span><input name="reference" value={form.reference} onChange={update} placeholder="Optional"/></label>
      <label className="field"><span>Message *</span><textarea name="description" rows="5" value={form.description} onChange={update} required placeholder="Describe the issue and what you've already tried…"/></label>
