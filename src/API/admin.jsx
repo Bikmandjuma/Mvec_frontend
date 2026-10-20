@@ -48,6 +48,10 @@ export const adminApi = {
     client.get("/admin/orders", { params }).then((r) => r.data),
   updateUserStatus: (id, payload) =>
     client.patch(`/users/${id}`, payload).then((r) => r.data),
+  // Couriers and admins are added as new accounts; roles are never switched.
+  addCourier: (payload) => client.post("/users/couriers", payload).then((r) => r.data),
+  addAdmin: (payload) => client.post("/users/admins", payload).then((r) => r.data),
+  setAdminAccess: (id, payload) => client.post(`/users/${id}/admin-access`, payload).then((r) => r.data),
   // Automatic release days and the subscription program (on/off, prices, Free limit).
   getOperationsSettings: () =>
     client.get("/admin/operations-settings").then((r) => r.data),

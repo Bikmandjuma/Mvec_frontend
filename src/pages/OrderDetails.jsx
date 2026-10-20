@@ -240,7 +240,7 @@ export default function OrderDetails() {
     {order.paymentStatus === "PAID" && order.deliveryOtp && !delivered && !cancelled && (
       <section className="verified-box otp-buyer-box">
         <b>🔐 Your delivery code</b>
-        <p>{isPickup ? "When you collect your order, give this code to the seller only once the items are in your hands." : "Give this code to the seller or courier only when your order is in your hands."} It releases your payment to the seller. We also sent it to you by SMS.</p>
+        <p>{isPickup ? "When you collect your order, give this code to the seller only once the items are in your hands." : "Give this code to the seller or courier only when your order is in your hands."} It releases your payment to the seller. It stays here on your order until delivery.</p>
         <strong className="delivery-otp">{order.deliveryOtp}</strong>
       </section>
     )}

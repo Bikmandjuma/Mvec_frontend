@@ -82,7 +82,7 @@ export default function Checkout() {
   const errorRef = useRef(null);
 
   // Guest checkout: the buyer proves the phone with a one-time code.
-  const [verify, setVerify] = useState(null); // { step: "sending" | "code", code, busy, error, devCode }
+  const [verify, setVerify] = useState(null); // { step: "sending" | "code", code, busy, error, sentTo }
 
   // Buy now: load the one product being purchased.
   useEffect(() => {
@@ -293,8 +293,8 @@ export default function Checkout() {
   async function sendGuestCode() {
     setVerify({ step: "sending", code: "", busy: true, error: "" });
     try {
-      const res = await authApi.guestSendCode(form.phone.trim());
-      setVerify({ step: "code", code: "", busy: false, error: "", devCode: res.devCode || "" });
+      const res = await authApi.guestSendCode(form.phone.trim(), form.email.trim());
+      setVerify({ step: "code", code: "", busy: false, error: "", sentTo: res.message || "" });
     } catch (err) {
       const message = extractErrorMessage(err);
       // A code sent less than a minute ago is still valid: let them type it.
@@ -364,14 +364,14 @@ export default function Checkout() {
     <div className="page-title"><span className="eyebrow">CHECKOUT</span><h1>Complete your order</h1><p>Pay with mobile money or card. MVEC holds the payment until you confirm you have your items.</p></div>
     <ol className="checkout-steps"><li className="active">1 Your details</li><li>2 Payment</li><li>3 Confirmation</li></ol>
     {error && <div className="form-alert error" role="alert" ref={errorRef}>{error}</div>}
-    {!user && !authLoading && <div className="form-alert info">No account needed. We'll text a code to your phone to confirm it's yours before you pay. <Link to="/login" state={{ from: `/checkout${pid ? `?product=${pid}&qty=${requestedQty}` : ""}`, checkoutReturn: true }}>Have an account? Log in</Link></div>}
+    {!user && !authLoading && <div className="form-alert info">No account needed. We'll send a code to your phone (and to your email, if you add one) to confirm it's yours before you pay. <Link to="/login" state={{ from: `/checkout${pid ? `?product=${pid}&qty=${requestedQty}` : ""}`, checkoutReturn: true }}>Have an account? Log in</Link></div>}
     <form onSubmit={placeOrder} noValidate><div className="checkout-layout"><section className="checkout-main">
       <div className="form-card"><h2>Your details</h2><p className="tiny">The seller uses this phone number to reach you about the order.</p>
         <div className="two-col">
           {field("name", "Full name", { autoComplete: "name", required: true })}
           {field("phone", "Phone", { type: "tel", autoComplete: "tel", placeholder: "07xx xxx xxx", required: true, disabled: Boolean(verify) })}
         </div>
-        {field("email", "Email (optional)", { type: "email", autoComplete: "email", placeholder: "you@example.com" })}
+        {field("email", "Email (optional)", { type: "email", autoComplete: "email", placeholder: "We also send your code and receipt here" })}
       </div>
 
       <div className={`form-card ${errors.fulfilment ? "has-error" : ""}`}><h2>How do you want to get your order?</h2>
@@ -480,8 +480,7 @@ export default function Checkout() {
         {verify.step === "sending"
           ? <p>Sending a code to {form.phone}…</p>
           : <>
-              <p>We sent a 6-digit code to <b>{form.phone}</b>. Enter it to place your order. Only this phone can see the order.</p>
-              {verify.devCode && <p className="tiny">Development code: <b>{verify.devCode}</b></p>}
+              <p>{verify.sentTo || <>We sent a 6-digit code to <b>{form.phone}</b>.</>} Enter it to place your order. Only this phone can see the order.</p>
               <label className="field"><span>Code</span>
                 <input inputMode="numeric" autoComplete="one-time-code" maxLength={6} autoFocus value={verify.code}
                   onChange={(e) => setVerify((v) => ({ ...v, code: e.target.value.replace(/\D/g, ""), error: "" }))} />

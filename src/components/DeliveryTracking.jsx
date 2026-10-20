@@ -167,7 +167,7 @@ export default function DeliveryTracking({ role = "vendor", initialTab = "active
     load();
     if (role === "vendor") payoutsApi.getBalance().then((res) => setBalance(res.balance || null)).catch(() => {});
     if (role === "admin") {
-      client.get("/users", { params: { role: "delivery", limit: 100 } })
+      client.get("/users", { params: { role: "delivery", status: "ACTIVE", limit: 100 } })
         .then((r) => setCouriers(r.data.data || []))
         .catch(() => setCouriers([]));
     }

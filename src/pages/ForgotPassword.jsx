@@ -22,7 +22,6 @@ export default function ForgotPassword() {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
-  const [devCode, setDevCode] = useState('');
 
   const sendOtp = async (e) => {
     e.preventDefault();
@@ -37,7 +36,6 @@ export default function ForgotPassword() {
     setBusy(true);
     try {
       const res = await authApi.forgotPassword(identityPayload(email));
-      setDevCode(res.devCode || '');
       setOtp(['', '', '', '', '', '']);
       setStep(2);
       setMessage(res.message || `If an account uses ${email.trim()}, we sent it a 6-digit code.`);
@@ -123,9 +121,8 @@ export default function ForgotPassword() {
     setBusy(true);
     try {
       const res = await authApi.forgotPassword(identityPayload(email));
-      setDevCode(res.devCode || '');
       setOtp(['', '', '', '', '', '']);
-      setMessage(`A new code was sent to ${email.trim()}.`);
+      setMessage(res.message || `A new code was sent to ${email.trim()}.`);
       document.getElementById('otp-0')?.focus();
     } catch (err) {
       setError(extractErrorMessage(err));
@@ -210,11 +207,6 @@ export default function ForgotPassword() {
               ))}
             </div>
           </div>
-
-          {devCode && <div className="demo-otp">
-            <span>Development verification code</span>
-            <strong>{devCode}</strong>
-          </div>}
 
           <button className="submit-btn" type="submit" disabled={busy}>{busy ? 'Verifying…' : 'Verify code'}</button>
 
