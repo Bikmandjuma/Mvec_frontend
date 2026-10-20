@@ -22,7 +22,8 @@ const toProductPayload = (payload) => {
   }
   const editableFields = [
     "name", "sku", "slug", "brand", "shortDescription", "description", "price",
-    "discountPrice", "discount", "costPrice", "stockQuantity", "lowStockThreshold", "status",
+    "discountPrice", "discountType", "discountValue", "discount", "costPrice", "stockQuantity",
+    "lowStockThreshold", "status", "storeId",
   ];
   const result = Object.fromEntries(editableFields
     .filter((key) => rest[key] !== undefined)
