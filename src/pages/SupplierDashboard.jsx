@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import PremiumGate from "../components/PremiumGate";
 import { Link, useLocation } from "react-router-dom";
 import DashboardLayout from "../components/DashboardLayout";
 import Icon from "../components/Icon";
@@ -157,4 +158,4 @@ function Settings() {
 }
 
 
-export default function SupplierDashboard() { const path = useLocation().pathname; let page = <Overview/>; if (path.includes("/products")) page = <Products/>; else if (path.includes("/orders")) page = <WholesaleOrders role="supplier"/>; else if (path.includes("/quotes")) page = <SupplierQuotes/>; else if (path.includes("/inventory")) page = <Inventory/>; else if (path.includes("/analytics")) page = <Analytics/>; else if (path.includes("/payments")) page = <Payments/>;  else if (path.includes("/reports")) page = <Reports/>; else if (path.includes("/team")) page = <Team/>; else if (path.includes("/notifications")) page = <NotificationPanel/>; else if (path.includes("/settings")) page = <Settings/>; return <DashboardLayout><RestrictedOverview>{page}</RestrictedOverview></DashboardLayout>; }
+export default function SupplierDashboard() { const path = useLocation().pathname; let page = <Overview/>; if (path.includes("/products")) page = <Products/>; else if (path.includes("/orders")) page = <WholesaleOrders role="supplier"/>; else if (path.includes("/quotes")) page = <SupplierQuotes/>; else if (path.includes("/inventory")) page = <Inventory/>; else if (path.includes("/analytics")) page = <PremiumGate feature="growthInsights" title="Growth insights"><Analytics/></PremiumGate>; else if (path.includes("/payments")) page = <Payments/>;  else if (path.includes("/reports")) page = <PremiumGate feature="advancedAnalytics" title="Advanced reports"><Reports/></PremiumGate>; else if (path.includes("/team")) page = <Team/>; else if (path.includes("/notifications")) page = <NotificationPanel/>; else if (path.includes("/settings")) page = <Settings/>; return <DashboardLayout><RestrictedOverview>{page}</RestrictedOverview></DashboardLayout>; }

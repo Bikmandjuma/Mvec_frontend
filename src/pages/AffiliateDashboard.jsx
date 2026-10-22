@@ -623,8 +623,8 @@ function AffiliateDashboard() {
   let page = path.includes("/products") ? <Products />
     : path.includes("/links") ? <Links />
     : path.includes("/commissions") ? <Commissions />
-    : path.includes("/commissions") ? <Commissions />
     : path.includes("/withdrawals") ? <Withdrawals />
+    : path.includes("/profile") ? <Profile />
     : path.includes("/wallet") ? <Wallet />
     : <Overview />;
   return <DashboardLayout>{page}</DashboardLayout>;

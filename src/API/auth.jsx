@@ -30,8 +30,9 @@ export const authApi = {
       .post("/auth/google-login", { idToken, ...(role ? { role } : {}) })
       .then((r) => mapAuthResponse(r.data)),
   // Guest checkout: a one-time code proves the phone instead of signing up.
-  guestSendCode: (phone) =>
-    client.post("/auth/guest/send-code", { phone }).then((r) => r.data),
+  // The code goes by text message and, for a new guest, to the email they gave.
+  guestSendCode: (phone, email) =>
+    client.post("/auth/guest/send-code", { phone, ...(email ? { email } : {}) }).then((r) => r.data),
   guestVerify: ({ phone, code, fullName, email }) =>
     client
       .post("/auth/guest/verify", { phone, code, fullName, email })

@@ -14,7 +14,7 @@ function Overview() {
       </div>
       <div className="verified-box">
         <b>Delivery confirmation</b>
-        <p>When you hand the items to the buyer, ask for the 6-digit code shown on their order and sent to them by SMS. The correct code completes the delivery and releases the seller's payment. Five wrong codes lock the delivery for MVEC support.</p>
+        <p>When you hand the items to the buyer, ask for the 6-digit code shown on their order. The correct code completes the delivery and releases the seller's payment. Five wrong codes lock the delivery for MVEC support.</p>
       </div>
       <DeliveryTracking role="delivery" />
     </>

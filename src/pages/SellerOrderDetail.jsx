@@ -6,7 +6,8 @@ import { ordersApi } from '../API/orders';
 import { payoutsApi } from '../API/payouts';
 import { extractErrorMessage } from '../API/client';
 import { useAuth } from '../context/AuthContext';
-import { money, dateDMY, personName, titleCase, parsePercent, sellerNextStatuses, canRecordCash, stepLabelFor, ORDER_FLOW, StatusPill, FormModal } from './seller/shared';
+import { money, dateDMY, personName, titleCase, parsePercent, sellerNextStatuses, canRecordCash, stepLabelFor, orderFlowFor, flowIndexOf, flowStepLabel, StatusPill, FormModal } from './seller/shared';
+import ProductImage from '../components/ProductImage';
 
 const idOf = v => String(v?._id || v?.id || v || '');
 
@@ -61,7 +62,8 @@ export default function SellerOrderDetail() {
   const parcels = isAdmin ? order.shippingBreakdown || [] : (order.shippingBreakdown || []).filter(p => idOf(p.vendor) === idOf(user));
   const delivery = parcels.reduce((s, p) => s + Number(p.fee || 0), 0);
   const address = order.shippingAddress || {};
-  const flowIndex = ORDER_FLOW.indexOf(order.orderStatus);
+  const flow = orderFlowFor(order);
+  const flowIndex = flowIndexOf(order);
   const offFlow = flowIndex === -1;
   const allNext = isAdmin ? [] : sellerNextStatuses(order);
   const next = allNext.filter(s => s !== 'CANCELLED');
@@ -79,7 +81,7 @@ export default function SellerOrderDetail() {
           <div className="data-card-head"><div><h3>{isAdmin ? 'Order items' : 'Your items'}</h3><span>{items.length} item{items.length === 1 ? '' : 's'}</span></div><StatusPill value={order.orderStatus} /></div>
           {items.map(it => (
             <div className="order-product" key={it._id || it.id || it.name}>
-              {it.image && <img src={it.image} alt="" />}
+              {it.image && <ProductImage src={it.image} alt="" />}
               <div><b>{it.name}</b><small>{it.quantity} × {money(it.price)}</small><strong>{money(it.price * it.quantity)}</strong></div>
             </div>
           ))}
@@ -130,9 +132,9 @@ export default function SellerOrderDetail() {
         <div className="data-card-head"><div><h3>Order progress</h3><span>From placement to delivery</span></div></div>
         {offFlow && <p className="tiny">This order is <b>{titleCase(order.orderStatus).toLowerCase()}</b>.</p>}
         <div className="timeline">
-          {ORDER_FLOW.map((s, i) => (
+          {flow.map((s, i) => (
             <div className={'timeline-item ' + (!offFlow && i <= flowIndex ? 'done' : '')} key={s}>
-              <i /><div><b>{titleCase(s)}</b><small>{!offFlow && i === flowIndex ? 'Current status' : !offFlow && i < flowIndex ? 'Completed' : 'Upcoming'}</small></div>
+              <i /><div><b>{flowStepLabel(order, s)}</b><small>{!offFlow && i === flowIndex ? 'Current status' : !offFlow && i < flowIndex ? 'Completed' : 'Upcoming'}</small></div>
             </div>
           ))}
         </div>
