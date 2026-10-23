@@ -10,6 +10,7 @@ import { searchApi } from '../API/search';
 import { navGroupsForRole } from '../data/navItems';
 import { staffCan } from '../data/staffAccess';
 import { useTheme } from '../context/ThemeContext';
+import { resolveImageUrl } from '../utils/imageUrl';
 
 const RECENT_KEY = 'mvec_recent_searches';
 const MAX_RECENT = 6;
@@ -172,7 +173,7 @@ export default function CommandPalette({ open, onClose, admin, user, onLogout })
             const i = index;
             return <div key={item.id} id={`cmdk-${i}`} data-index={i} role="option" aria-selected={i === active}
               className={'cmdk-item' + (i === active ? ' active' : '')} onMouseMove={() => active !== i && setActive(i)} onClick={() => choose(item)}>
-              <span className={`cmdk-icon kind-${item.kind}`}>{item.image ? <img src={item.image} alt="" /> : <Icon name={item.icon || 'arrow'} size={16} />}</span>
+              <span className={`cmdk-icon kind-${item.kind}`}>{item.image ? <img src={resolveImageUrl(item.image)} alt="" /> : <Icon name={item.icon || 'arrow'} size={16} />}</span>
               <span className="cmdk-text">
                 <b><Highlight text={item.title} term={item.kind === 'market' ? '' : query} /></b>
                 {item.subtitle && <small><Highlight text={item.subtitle} term={query} /></small>}

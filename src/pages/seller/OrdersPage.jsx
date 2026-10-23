@@ -42,7 +42,9 @@ export function exportOrdersCsv(rows) {
   URL.revokeObjectURL(url);
 }
 
-export default function OrdersPage() {
+// Suppliers use this page for buyers' orders of their published products:
+// basePath is where order details open, and they don't record manual sales.
+export default function OrdersPage({ basePath = '/vendor/orders', allowManual = true, eyebrow, title = 'Orders', desc = 'Online orders for your products and the sales you record yourself.' }) {
   const navigate = useNavigate();
   const { data, loading, error, reload } = useLoader(() => ordersApi.getVendorOrders().then((r) => r.orders || []));
   const [tab, setTab] = useState('all');
@@ -95,10 +97,10 @@ export default function OrdersPage() {
   };
 
   return <>
-    <PageHead title="Orders" desc="Online orders for your products and the sales you record yourself."
+    <PageHead eyebrow={eyebrow} title={title} desc={desc}
       action={<div className="row-actions">
         <button type="button" className="outline-btn" onClick={() => exportOrdersCsv(filtered)} disabled={!filtered.length}><Icon name="copy" size={15} /> Export</button>
-        <button type="button" className="gradient-btn" onClick={() => setCreating(true)}><Icon name="plus" /> New order</button>
+        {allowManual && <button type="button" className="gradient-btn" onClick={() => setCreating(true)}><Icon name="plus" /> New order</button>}
       </div>} />
     {notice.banner}
     {loading && !data && <Loading />}
@@ -129,7 +131,7 @@ export default function OrdersPage() {
 
       <div className="data-card seller-ord-card">
         {!orders.length
-          ? <EmptyState title="No orders yet" text="Orders for your products appear here. You can also record a sale yourself." action={<button type="button" className="gradient-btn" onClick={() => setCreating(true)}><Icon name="plus" /> New order</button>} />
+          ? <EmptyState title="No orders yet" text={allowManual ? 'Orders for your products appear here. You can also record a sale yourself.' : 'Buyers\' orders for your published products appear here.'} action={allowManual ? <button type="button" className="gradient-btn" onClick={() => setCreating(true)}><Icon name="plus" /> New order</button> : null} />
           : !filtered.length ? <p className="tiny seller-cat-empty">No orders match these filters.</p>
           : <div className="data-table">
             <div className="seller-ord-row seller-ord-head"><span>Order</span><span>Customer</span><span>Items</span><span>Total</span><span>Payment</span><span>Status</span><span /></div>
@@ -138,7 +140,7 @@ export default function OrdersPage() {
               const canCancel = sellerNextStatuses(o).includes('CANCELLED');
               return <div className="seller-ord-row" key={o._id}>
                 <span>
-                  <Link to={`/vendor/orders/${o._id}`}><b>{o.orderNumber}</b></Link>
+                  <Link to={`${basePath}/${o._id}`}><b>{o.orderNumber}</b></Link>
                   {o.source === 'MANUAL' && <em className="seller-manual-tag">Manual</em>}
                   <small className="tiny seller-block">{dateDMY(o.createdAt)}</small>
                 </span>

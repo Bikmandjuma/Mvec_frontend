@@ -50,7 +50,7 @@ export const adminNavGroups = [
   },
 ];
 
-export const supplierNav = [['/supplier','Dashboard','grid'],['/supplier/products','Wholesale Products','box'],['/supplier/inventory','Inventory','grid'],['/supplier/orders','Orders','cart'],['/supplier/quotes','Quote Requests','receipt'],['/supplier/analytics','Analytics','chart'],['/supplier/payments','Payments','wallet'],['/supplier/transactions','Transactions','wallet'],['/supplier/reports','Reports','chart'],['/supplier/reviews','Reviews','heart'],['/supplier/messages','Messages','users'],['/supplier/team','Team / Staff','users'],['/supplier/notifications','Notifications','bell'],['/supplier/settings','Settings','settings'],['/supplier/support','MVEC Support','bell']];
+export const supplierNav = [['/supplier','Dashboard','grid'],['/supplier/stores','My Stores','shop'],['/supplier/products','Wholesale Products','box'],['/supplier/inventory','Inventory','grid'],['/supplier/orders','Vendor Orders','cart'],['/supplier/sales','Marketplace Orders','cart'],['/supplier/quotes','Quote Requests','receipt'],['/supplier/analytics','Analytics','chart'],['/supplier/payments','Payments','wallet'],['/supplier/transactions','Transactions','wallet'],['/supplier/reports','Reports','chart'],['/supplier/reviews','Reviews','heart'],['/supplier/messages','Messages','users'],['/supplier/team','Team / Staff','users'],['/supplier/notifications','Notifications','bell'],['/supplier/settings','Settings','settings'],['/supplier/support','MVEC Support','bell']];
 
 export const affiliateNav = [['/affiliate','Dashboard','grid'],['/affiliate/messages','Messages','users'],['/affiliate/products','Promote Products','box'],['/affiliate/links','My Links','tag'],['/affiliate/commissions','Commissions','chart'],['/affiliate/wallet','Wallet','wallet'],['/affiliate/withdrawals','Withdrawals','wallet'],['/affiliate/notifications','Notifications','bell'],['/affiliate/profile','Profile','user'],['/affiliate/support','MVEC Support','bell']];
 
@@ -86,7 +86,7 @@ export const sellerNavGroups = [
 
 export const supplierNavGroups = [
   { label: 'Overview', items: [['/supplier','Dashboard','grid']] },
-  { label: 'Catalog & Orders', items: [['/supplier/products','Wholesale Products','box'],['/supplier/inventory','Inventory','grid'],['/supplier/orders','Orders','cart'],['/supplier/quotes','Quote Requests','receipt']] },
+  { label: 'Catalog & Orders', items: [['/supplier/stores','My Stores','shop'],['/supplier/products','Wholesale Products','box'],['/supplier/inventory','Inventory','grid'],['/supplier/orders','Vendor Orders','cart'],['/supplier/sales','Marketplace Orders','cart'],['/supplier/quotes','Quote Requests','receipt']] },
   { label: 'Finance & Insights', items: [['/supplier/payments','Payments','wallet'],['/supplier/transactions','Transactions','wallet'],['/supplier/analytics','Analytics','chart'],['/supplier/reports','Reports','chart'],['/supplier/reviews','Reviews','heart']] },
   { label: 'Team & Settings', items: [['/supplier/team','Team / Staff','users'],['/supplier/settings','Settings','settings']] },
   { label: 'Support', items: [['/supplier/messages','Messages','users'],['/supplier/notifications','Notifications','bell'],['/supplier/support','MVEC Support','bell']] },
@@ -137,17 +137,19 @@ const VENDOR_SECTION_PERMISSIONS = {
 
 // Supplier team role capabilities — mirrors the backend CAPABILITIES_BY_ROLE.
 const SUPPLIER_ROLE_CAPABILITIES = {
-  OPERATIONS: ['catalog', 'supply', 'analytics'],
-  WAREHOUSE: ['supply'],
+  OPERATIONS: ['catalog', 'inventory', 'supply', 'analytics'],
+  WAREHOUSE: ['inventory', 'supply'],
   FULFILMENT: ['supply'],
   FINANCE: ['finance', 'analytics'],
   VIEWER: [],
 };
 
 const SUPPLIER_SECTION_CAPABILITIES = {
+  '/supplier/stores': 'profile',
   '/supplier/products': 'catalog',
-  '/supplier/inventory': 'catalog',
+  '/supplier/inventory': 'inventory',
   '/supplier/orders': 'supply',
+  '/supplier/sales': 'supply',
   '/supplier/quotes': 'supply',
   '/supplier/payments': 'finance',
   '/supplier/team': 'team',

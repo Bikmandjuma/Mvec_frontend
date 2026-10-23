@@ -6,6 +6,7 @@ import { storesApi } from '../../API/stores';
 import { uploadsApi } from '../../API/uploads';
 import { extractErrorMessage } from '../../API/client';
 import { PageHead, Loading, EmptyState, StatusPill, dateDMY, useLoader, useNotice } from './shared';
+import { resolveImageUrl } from '../../utils/imageUrl';
 
 const EMPTY = { storeName: '', businessCategory: '', description: '', contactEmail: '', contactPhone: '', city: '', businessAddress: '', logo: '' };
 
@@ -20,7 +21,20 @@ const fromStore = s => ({
   logo: s.logo || '',
 });
 
-function StoreFormModal({ store, onClose, onSaved }) {
+// Vendors and suppliers share this page; `api` and `copy` say whose stores it shows.
+const VENDOR_COPY = {
+  eyebrow: 'SELLER PLATFORM',
+  desc: 'Run several storefronts from one seller account. Your primary store is shown on your vendor profile.',
+  newText: 'Each store gets its own name, logo and contact details on MVEC.',
+  editText: 'Update how this storefront appears to buyers.',
+  placeholder: 'e.g. Kigali Tech Store',
+  emptyText: 'Register your first store to start listing products and receiving orders.',
+  deleteText: name => `Delete ${name}? Its products, promotions and shipping zones move to your primary store.`,
+  note: 'Payouts, staff and your seller balance are shared across all your stores. Products without a store are listed under the primary store.',
+};
+const VENDOR_API = { list: storesApi.getMyStores, create: storesApi.create, update: storesApi.updateById, setPrimary: storesApi.setPrimary, remove: storesApi.remove };
+
+function StoreFormModal({ store, api, copy, onClose, onSaved }) {
   const [form, setForm] = useState(() => (store ? fromStore(store) : { ...EMPTY }));
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -52,7 +66,7 @@ function StoreFormModal({ store, onClose, onSaved }) {
     setSaving(true);
     setError('');
     try {
-      const res = store ? await storesApi.updateById(store._id, form) : await storesApi.create(form);
+      const res = store ? await api.update(store._id, form) : await api.create(form);
       onSaved(res.store, !store);
     } catch (err) { setError(extractErrorMessage(err)); setSaving(false); }
   };
@@ -61,16 +75,16 @@ function StoreFormModal({ store, onClose, onSaved }) {
     <form className="modal seller-modal" onMouseDown={e => e.stopPropagation()} onSubmit={submit} aria-label={store ? 'Edit store' : 'Register store'}>
       <button type="button" className="modal-close" onClick={onClose} aria-label="Close">×</button>
       <h2>{store ? `Edit ${store.storeName}` : 'Register a store'}</h2>
-      <p>{store ? 'Update how this storefront appears to buyers.' : 'Each store gets its own name, logo and contact details on MVEC.'}</p>
+      <p>{store ? copy.editText : copy.newText}</p>
       {error && <div className="form-error">{error}</div>}
       <div className="seller-store-identity">
         <label className="seller-logo-upload" title="Upload store logo">
-          {form.logo ? <img src={form.logo} alt="Store logo" /> : <Icon name="shop" size={24} />}
+          {form.logo ? <img src={resolveImageUrl(form.logo)} alt="Store logo" /> : <Icon name="shop" size={24} />}
           <span>{uploading ? 'Uploading…' : form.logo ? 'Change' : 'Add logo'}</span>
           <input type="file" accept="image/*" onChange={uploadLogo} disabled={uploading} />
         </label>
         <div className="seller-store-name seller-form-grid">
-          <label className="field"><span>Store name *</span><input name="storeName" value={form.storeName} onChange={update} required placeholder="e.g. Kigali Tech Store" /></label>
+          <label className="field"><span>Store name *</span><input name="storeName" value={form.storeName} onChange={update} required placeholder={copy.placeholder} /></label>
           <CategorySelect className="field half" valueKey="name" label="Business category" name="businessCategory" value={form.businessCategory} onChange={value => setForm(f => ({ ...f, businessCategory: value }))} />
           <label className="field half"><span>City</span><input name="city" value={form.city} onChange={update} placeholder="Kigali" /></label>
         </div>
@@ -89,8 +103,9 @@ function StoreFormModal({ store, onClose, onSaved }) {
   </div>;
 }
 
-export default function StorePage() {
-  const { data, loading, error, reload } = useLoader(() => storesApi.getMyStores());
+export default function StorePage({ api = VENDOR_API, copy: copyOverride }) {
+  const copy = { ...VENDOR_COPY, ...copyOverride };
+  const { data, loading, error, reload } = useLoader(() => api.list());
   const [modal, setModal] = useState(null);
   const [busyId, setBusyId] = useState('');
   const notice = useNotice();
@@ -108,7 +123,7 @@ export default function StorePage() {
 
   const columns = [
     { key: 'storeName', label: 'Store', render: s => <div className="seller-store-cell">
-      {s.logo ? <img src={s.logo} alt="" /> : <span><Icon name="shop" size={16} /></span>}
+      {s.logo ? <img src={resolveImageUrl(s.logo)} alt="" /> : <span><Icon name="shop" size={16} /></span>}
       <div><b>{s.storeName}</b>{s.isPrimary && <em className="seller-primary-tag">Primary</em>}<small className="tiny seller-block">/{s.slug}</small></div>
     </div> },
     { key: 'businessCategory', label: 'Category', render: s => s.businessCategory || '—' },
@@ -121,9 +136,9 @@ export default function StorePage() {
   const actions = s => <span className="row-actions">
     <button type="button" title="Edit store" disabled={busyId === s._id} onClick={() => setModal({ store: s })}><Icon name="edit" /></button>
     {!s.isPrimary && <button type="button" title="Make primary store" disabled={busyId === s._id}
-      onClick={() => act(s, () => storesApi.setPrimary(s._id))}><Icon name="check" /></button>}
+      onClick={() => act(s, () => api.setPrimary(s._id))}><Icon name="check" /></button>}
     {!s.isPrimary && <button type="button" title="Delete store" disabled={busyId === s._id}
-      onClick={() => window.confirm(`Delete ${s.storeName}? Its products, promotions and shipping zones move to your primary store.`) && act(s, () => storesApi.remove(s._id))}><Icon name="trash" /></button>}
+      onClick={() => window.confirm(copy.deleteText(s.storeName)) && act(s, () => api.remove(s._id))}><Icon name="trash" /></button>}
   </span>;
 
   const registerBtn = <button type="button" className="gradient-btn" disabled={atLimit} title={atLimit ? `You can own up to ${maxStores} stores` : ''} onClick={() => setModal({ store: null })}>
@@ -131,18 +146,18 @@ export default function StorePage() {
   </button>;
 
   return <>
-    <PageHead title="My Stores" desc="Run several storefronts from one seller account. Your primary store is shown on your vendor profile."
+    <PageHead eyebrow={copy.eyebrow} title="My Stores" desc={copy.desc}
       action={!loading && !error && registerBtn} />
     {notice.banner}
     {loading && !data && <Loading />}
     {error && <div className="form-error">{error}</div>}
-    {data && !stores.length && <EmptyState title="You don't have a store yet" text="Register your first store to start listing products and receiving orders." action={registerBtn} />}
+    {data && !stores.length && <EmptyState title="You don't have a store yet" text={copy.emptyText} action={registerBtn} />}
     {stores.length > 0 && <div className="data-card">
       <div className="data-card-head"><div><h3>Your stores</h3><span>{stores.length}{maxStores ? ` of ${maxStores}` : ''} stores</span></div></div>
       <SmartTable columns={columns} rows={stores} rowKey={s => s._id} actions={actions} searchPlaceholder="Search stores…" exportName="mvec-stores" />
-      <p className="tiny seller-store-note">Payouts, staff and your seller balance are shared across all your stores. Products without a store are listed under the primary store.</p>
+      <p className="tiny seller-store-note">{copy.note}</p>
     </div>}
-    {modal && <StoreFormModal store={modal.store} onClose={() => setModal(null)}
+    {modal && <StoreFormModal store={modal.store} api={api} copy={copy} onClose={() => setModal(null)}
       onSaved={(saved, created) => { setModal(null); notice.success(created ? `${saved.storeName} has been registered.` : 'Store details saved.'); reload(); }} />}
   </>;
 }

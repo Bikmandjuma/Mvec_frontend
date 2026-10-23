@@ -98,11 +98,16 @@ const emptyProduct={name:'',sku:'',categoryId:'',brand:'',shortDescription:'',de
 function ProductForm({product,stores=[],onSave,onCancel,saving}){
   const [form,setForm]=useState(()=>{
     if(!product) return {...emptyProduct};
+    // The API keeps images under media; the main image leads the gallery.
+    const mainImage=product.media?.mainImage||product.mainImage||'';
+    const stored=product.media?.gallery?.length?product.media.gallery:Array.isArray(product.gallery)?product.gallery:[];
+    const gallery=mainImage?[mainImage,...stored.filter(src=>src!==mainImage)]:stored;
     return {
       ...emptyProduct,...product,
-      categoryId: product.category?.id || product.categoryId || '',
+      categoryId: product.category?.id || product.category?._id || product.categoryId || '',
       storeId: product.store?._id || product.store || '',
-      gallery: Array.isArray(product.gallery)?product.gallery:[],
+      mainImage: mainImage||gallery[0]||'',
+      gallery,
       ...(product.discountType
         ? {discountType:product.discountType,discountValue:product.discountValue??''}
         : product.discountPrice&&product.discountPrice<product.price
@@ -203,7 +208,7 @@ function ProductForm({product,stores=[],onSave,onCancel,saving}){
       </section>
       <section className="editor-section"><h3>Media</h3><p className="editor-help">Upload product images. The first image becomes the main product image.</p>
         <label className="upload-zone"><Icon name="box"/><b>{uploading?'Uploading…':'Upload product images'}</b><small>PNG, JPG or WEBP, multiple files supported (max 8MB each)</small><input type="file" accept="image/*" multiple onChange={addImages} disabled={uploading}/></label>
-        {form.gallery.length>0&&<div className="media-grid">{form.gallery.map((src,i)=><div className="media-thumb" key={i}><img src={src} alt={`Product ${i+1}`}/><button type="button" onClick={()=>removeImage(i)}>×</button>{i===0&&<span>Main image</span>}</div>)}</div>}
+        {form.gallery.length>0&&<div className="media-grid">{form.gallery.map((src,i)=><div className="media-thumb" key={i}><ProductImage src={src} alt={`Product ${i+1}`}/><button type="button" onClick={()=>removeImage(i)}>×</button>{i===0&&<span>Main image</span>}</div>)}</div>}
       </section>
       <div className="editor-actions"><button type="button" className="outline-btn" onClick={onCancel}>Cancel</button><button className="gradient-btn" type="submit" disabled={saving||uploading}>{saving?'Saving...':product?'Save changes':'Create product'}</button></div>
     </form>
