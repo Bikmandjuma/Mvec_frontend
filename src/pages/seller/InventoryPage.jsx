@@ -6,6 +6,7 @@ import { productsApi } from '../../API/products';
 import { storesApi } from '../../API/stores';
 import { PageHead, Loading, EmptyState, Metric, FormModal, money, matches, personName, useLoader, useNotice } from './shared';
 import useUrlQuery from '../../components/useUrlQuery';
+import { resolveImageUrl } from '../../utils/imageUrl';
 
 const PER_PAGE = 10;
 const idOf = v => String(v?._id || v?.id || v || '');
@@ -176,7 +177,7 @@ export default function InventoryPage() {
               return <div className={'seller-inv-row' + (multiStore ? ' multi' : '') + (selected.has(p.id) ? ' selected' : '')} key={p.id}>
                 <span><input type="checkbox" checked={selected.has(p.id)} onChange={() => toggle(p.id)} aria-label={`Select ${p.name}`} /></span>
                 <span className="seller-inv-product">
-                  {p.media?.mainImage || p.mainImage ? <img src={p.media?.mainImage || p.mainImage} alt="" /> : <i><Icon name="box" size={15} /></i>}
+                  {p.media?.mainImage || p.mainImage ? <img src={resolveImageUrl(p.media?.mainImage || p.mainImage)} alt="" /> : <i><Icon name="box" size={15} /></i>}
                   <span><b>{p.name}</b><small>{p.sku}{p.category?.name ? ` · ${p.category.name}` : ''}</small></span>
                 </span>
                 {multiStore && <span className="tiny">{storeName(storeOf(p))}</span>}

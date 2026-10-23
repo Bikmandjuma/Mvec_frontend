@@ -226,9 +226,15 @@ function WholesaleOversight({ onChanged }) {
     try { const r = await wholesaleApi.adminResolve(o._id, decision, note[o._id] || ""); setNotice({ ok: true, text: r.message }); reload(); onChanged?.(); }
     catch (err) { setNotice({ ok: false, text: extractErrorMessage(err) }); } finally { setBusy(""); }
   };
+  // Completed orders are added to the vendor's store automatically; this retries one that failed.
+  const restock = async (o) => {
+    setBusy(o._id); setNotice(null);
+    try { const r = await wholesaleApi.adminRestock(o._id); setNotice({ ok: true, text: r.message }); reload(); }
+    catch (err) { setNotice({ ok: false, text: extractErrorMessage(err) }); } finally { setBusy(""); }
+  };
   return <div className="data-card">
     <div className="data-card-head"><div><h3>Wholesale orders</h3><span>Vendors buying stock from suppliers. MVEC holds the money until the vendor confirms receipt; problems are decided here.</span></div>
-      <select className="inline-table-input" aria-label="Show" value={status} onChange={(e) => setStatus(e.target.value)}><option value="DISPUTED">Problem reported</option><option value="ESCROW_HELD">Paid, not shipped</option><option value="SHIPPED">Shipped</option><option value="PENDING_PAYMENT">Waiting for payment</option><option value="">All</option></select></div>
+      <select className="inline-table-input" aria-label="Show" value={status} onChange={(e) => setStatus(e.target.value)}><option value="DISPUTED">Problem reported</option><option value="ESCROW_HELD">Paid, not shipped</option><option value="SHIPPED">Shipped</option><option value="PENDING_PAYMENT">Waiting for payment</option><option value="CONFIRMED_RELEASED">Completed</option><option value="">All</option></select></div>
     <Notice notice={notice} />
     {loading ? <Loading what="wholesale orders" /> : error ? <Failed error={error} retry={reload} /> : rows.length === 0 ? <div className="empty-state"><h3>{status === "DISPUTED" ? "No reported problems" : "No orders here"}</h3></div>
       : <div className="orders-list">{rows.map((o) => <div className="order-row supply-row" key={o._id}>
@@ -236,12 +242,16 @@ function WholesaleOversight({ onChanged }) {
           {(o.items || []).map((i, k) => <small key={k}>{i.quantity} {i.unit || ""} × {i.productName} at {money(i.unitPrice)}</small>)}
           {o.disputeReason && <small className="danger-text">Problem: {o.disputeReason}</small>}
           {o.cancelReason && <small>Cancelled: {o.cancelReason}</small>}
-          <small>Placed {formatDate(o.createdAt)}{o.paidAt ? ` · paid ${formatDate(o.paidAt)}` : ""}{o.shippedAt ? ` · shipped ${formatDate(o.shippedAt)}` : ""}</small></div>
+          <small>Placed {formatDate(o.createdAt)}{o.paidAt ? ` · paid ${formatDate(o.paidAt)}` : ""}{o.shippedAt ? ` · shipped ${formatDate(o.shippedAt)}` : ""}{o.stockedAt ? ` · added to the vendor's store ${formatDate(o.stockedAt)}` : ""}</small></div>
         <div className="order-row-meta"><strong>{money(o.totalAmount)}</strong><Status value={o.status === "CONFIRMED_RELEASED" ? "ACTIVE" : o.status === "DISPUTED" || o.status === "CANCELLED" ? "FAILED" : "PENDING"} label={WHOLESALE_LABEL[o.status]} /></div>
         {o.status === "DISPUTED" && <div className="order-row-actions">
           <input className="inline-table-input" placeholder="Decision note (both sides see it)" aria-label={`Note for ${o.orderNumber}`} value={note[o._id] || ""} onChange={(e) => setNote({ ...note, [o._id]: e.target.value })} />
           <button type="button" className="gradient-btn" disabled={busy === o._id} onClick={() => decide(o, "RELEASE")}>Pay supplier</button>
           <button type="button" className="outline-btn" disabled={busy === o._id} onClick={() => decide(o, "REFUND")}>Refund vendor</button>
+        </div>}
+        {o.status === "CONFIRMED_RELEASED" && !o.stockedAt && <div className="order-row-actions">
+          <small className="danger-text">The goods are not in the vendor's store yet.</small>
+          <button type="button" className="outline-btn" disabled={busy === o._id} onClick={() => restock(o)}>Add to vendor's store</button>
         </div>}
       </div>)}</div>}
   </div>;

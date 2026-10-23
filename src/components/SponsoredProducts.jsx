@@ -4,6 +4,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { adsApi } from '../API/ads';
+import { resolveImageUrl } from '../utils/imageUrl';
 
 const money = n => new Intl.NumberFormat('en-RW').format(Number(n) || 0) + ' RWF';
 
@@ -32,7 +33,7 @@ export default function SponsoredProducts({ surface = 'shop', q = '', category =
     <div className="product-grid">
       {rows.map(({ ad, p }) => <div className="product-card sponsored" key={ad.adId}>
         <Link to={`/product/${p.id}`} className="product-img" onClick={() => open(ad)}>
-          <img src={p.image} alt={p.name} />
+          <img src={resolveImageUrl(p.image)} alt={p.name} />
           <span className="sponsored-badge">Sponsored</span>
         </Link>
         <div className="product-info">

@@ -16,16 +16,28 @@ import { money, formatDate } from "../utils/format";
 
 const partyName = (p) => p?.companyName || p?.Fullname || p?.fullName || p?.email || "—";
 const itemCount = (o) => (o.items || []).reduce((n, i) => n + (Number(i.quantity) || 0), 0);
-// label, tone, what it means for the vendor, what it means for the supplier
+// label, tone, what it means for the vendor, what it means for the supplier, the vendor's next step in a few words
 const STATUS = {
-  PENDING_PAYMENT: ["Waiting for payment", "pending", "Pay within 48 hours or the order expires and the stock is released.", "The vendor has not paid yet. Do not ship."],
-  ESCROW_HELD: ["Paid · MVEC holds the money", "pending", "The supplier has 7 days to ship. You can still cancel for a full refund.", "Paid. Ship within 7 days or the order is cancelled and refunded."],
-  SHIPPED: ["Shipped", "pending", "Confirm when the goods arrive, or report a problem. After 7 days the supplier is paid automatically.", "Waiting for the vendor to confirm. You are paid automatically after 7 days if no problem is reported."],
-  DELIVERED: ["Delivered", "pending", "Confirm receipt to pay the supplier.", "Waiting for the vendor to confirm receipt."],
-  CONFIRMED_RELEASED: ["Completed", "active", "Received. The supplier was paid.", "Completed. The money (minus MVEC's commission) is in your balance."],
-  DISPUTED: ["Problem reported", "danger", "MVEC is reviewing the problem; the money stays on hold.", "The vendor reported a problem. MVEC will decide; the money stays on hold."],
-  CANCELLED: ["Cancelled", "danger", "Cancelled. If you had paid, the money is being refunded.", "Cancelled."],
+  PENDING_PAYMENT: ["Waiting for payment", "pending", "Pay within 48 hours or the order expires and the stock is released.", "The vendor has not paid yet. Do not ship.", "Pay within 48 hours"],
+  ESCROW_HELD: ["Paid · MVEC holds the money", "pending", "The supplier has 7 days to ship. You can still cancel for a full refund.", "Paid. Ship within 7 days or the order is cancelled and refunded.", "Waiting for the supplier to ship"],
+  SHIPPED: ["Shipped", "pending", "Confirm when the goods arrive, or report a problem. After 7 days the supplier is paid automatically.", "Waiting for the vendor to confirm. You are paid automatically after 7 days if no problem is reported.", "Confirm when the goods arrive"],
+  DELIVERED: ["Delivered", "pending", "Confirm receipt to pay the supplier.", "Waiting for the vendor to confirm receipt.", "Confirm receipt"],
+  CONFIRMED_RELEASED: ["Completed", "active", "Received. The supplier was paid and the goods are in your inventory.", "Completed. The money (minus MVEC's commission) is in your balance.", "Goods are in your inventory"],
+  DISPUTED: ["Problem reported", "danger", "MVEC is reviewing the problem; the money stays on hold.", "The vendor reported a problem. MVEC will decide; the money stays on hold.", "MVEC is reviewing"],
+  CANCELLED: ["Cancelled", "danger", "Cancelled. If you had paid, the money is being refunded.", "Cancelled.", "Nothing to do"],
 };
+// Where an order is on its way from placed to received.
+const STEPS = [["Ordered", "createdAt"], ["Paid", "paidAt"], ["Shipped", "shippedAt"], ["Received", "confirmedAt"]];
+const STEP_OF = { PENDING_PAYMENT: 0, ESCROW_HELD: 1, SHIPPED: 2, DELIVERED: 2, DISPUTED: 2, CONFIRMED_RELEASED: 3 };
+function Progress({ order }) {
+  const at = STEP_OF[order.status];
+  if (at === undefined) return null;
+  return <ol className="wh-progress" aria-label="Order progress">
+    {STEPS.map(([label, field], i) => <li key={label} className={i <= at ? "done" : i === at + 1 ? "next" : ""}>
+      <span>{i <= at ? "✓" : i + 1}</span><b>{label}</b>{order[field] && i <= at && <small>{formatDate(order[field])}</small>}
+    </li>)}
+  </ol>;
+}
 const Status = ({ value }) => <em className={`status ${STATUS[value]?.[1] || "warning"}`}>{STATUS[value]?.[0] || value}</em>;
 const Head = ({ eyebrow, title, desc, action }) => <div className="dash-page-head"><div><span className="eyebrow">{eyebrow}</span><h1>{title}</h1>{desc && <p>{desc}</p>}</div>{action}</div>;
 const Notice = ({ notice }) => (notice ? <div className={`form-alert ${notice.ok ? "success" : "error"}`} role="status">{notice.text}</div> : null);
@@ -107,27 +119,44 @@ export function WholesaleOrders({ role }) {
   const [paying, setPaying] = useState(null);
   const [asking, setAsking] = useState(null); // { kind: "cancel" | "problem", order }
   const [tab, setTab] = useState("ACTIVE");
+  const navigate = useNavigate();
+  const [payOrderId, setPayOrderId] = useState(location.state?.payOrderId || "");
   const load = useCallback(() => wholesaleApi.getMine({ limit: 100 }).then((res) => setRows(res.orders || [])).catch((err) => setNotice({ ok: false, text: extractErrorMessage(err) })).finally(() => setLoading(false)), []);
   useEffect(() => { load(); const t = setInterval(load, 30000); return () => clearInterval(t); }, [load]);
+  // Arriving from a catalog order: go straight to paying it, once (not again on refresh).
+  useEffect(() => { if (location.state) navigate(location.pathname, { replace: true, state: null }); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!payOrderId || loading) return;
+    const o = rows.find((r) => String(r._id || r.id) === payOrderId);
+    if (o?.status === "PENDING_PAYMENT") setPaying(o);
+    setPayOrderId("");
+  }, [payOrderId, loading, rows]);
 
   const run = async (o, fn, text) => {
     setBusy(o._id); setNotice(null);
-    try { await fn(); setNotice({ ok: true, text }); setDetails(null); await load(); } catch (err) { setNotice({ ok: false, text: extractErrorMessage(err) }); } finally { setBusy(""); }
+    try { await fn(); setNotice({ ok: true, text: typeof text === "function" ? text() : text }); setDetails(null); await load(); } catch (err) { setNotice({ ok: false, text: extractErrorMessage(err) }); } finally { setBusy(""); }
   };
-  const confirmReceipt = (o) => window.confirm(`Confirm you received everything in ${o.orderNumber}? ${money(o.totalAmount)} is released to ${partyName(o.supplier)}. This cannot be undone.`)
-    && run(o, () => wholesaleApi.confirmReceipt(o._id), `${o.orderNumber} confirmed. The supplier has been paid.`);
+  const confirmReceipt = async (o) => {
+    if (!window.confirm(`Confirm you received everything in ${o.orderNumber}? ${money(o.totalAmount)} is released to ${partyName(o.supplier)} and the goods are added to ${o.store?.storeName || "your store"}'s inventory. This cannot be undone.`)) return;
+    let message = `${o.orderNumber} confirmed. The supplier has been paid.`;
+    await run(o, async () => { message = (await wholesaleApi.confirmReceipt(o._id)).message || message; }, () => message);
+  };
   const ship = (o) => run(o, () => wholesaleApi.markShipped(o._id), `${o.orderNumber} marked as shipped. The vendor was notified.`);
   const vendorCancel = (o) => window.confirm(o.status === "PENDING_PAYMENT" ? `Cancel ${o.orderNumber}? The reserved stock goes back to the supplier.` : `Cancel ${o.orderNumber}? Your ${money(o.totalAmount)} is refunded the way you paid.`)
     && run(o, () => wholesaleApi.cancel(o._id, ""), `${o.orderNumber} cancelled.${o.status === "ESCROW_HELD" ? " Your refund is on its way." : ""}`);
 
-  const actionsFor = (o) => {
+  // In the table a vendor sees only the one step that moves the order on;
+  // cancelling, reporting a problem and early confirmation live in the details.
+  const actionsFor = (o, inRow = false) => {
     const b = busy === o._id;
     const out = [];
     if (!supplier) {
-      if (o.status === "PENDING_PAYMENT") out.push(<button key="pay" type="button" className="table-action-btn primary" onClick={() => setPaying(o)}><Icon name="wallet" size={15} />Pay now</button>);
-      if (["SHIPPED", "DELIVERED", "ESCROW_HELD"].includes(o.status)) out.push(<button key="ok" type="button" className="table-action-btn primary" disabled={b} onClick={() => confirmReceipt(o)}><Icon name="check" size={15} />Confirm receipt</button>);
+      const arrived = ["SHIPPED", "DELIVERED"].includes(o.status);
+      if (o.status === "PENDING_PAYMENT") out.push(<button key="pay" type="button" className="table-action-btn primary" onClick={() => setPaying(o)}><Icon name="wallet" size={15} />Pay {money(o.totalAmount)}</button>);
+      if (arrived || (!inRow && o.status === "ESCROW_HELD")) out.push(<button key="ok" type="button" className={`table-action-btn${arrived ? " primary" : ""}`} disabled={b} onClick={() => confirmReceipt(o)}><Icon name="check" size={15} />{arrived ? "Confirm receipt" : "Already received it"}</button>);
+      if (inRow) return out;
       if (["SHIPPED", "DELIVERED", "ESCROW_HELD"].includes(o.status)) out.push(<button key="pb" type="button" className="table-action-btn" disabled={b} onClick={() => setAsking({ kind: "problem", order: o })}>Report a problem</button>);
-      if (["PENDING_PAYMENT", "ESCROW_HELD"].includes(o.status)) out.push(<button key="cx" type="button" className="table-action-btn" disabled={b} onClick={() => vendorCancel(o)}>Cancel</button>);
+      if (["PENDING_PAYMENT", "ESCROW_HELD"].includes(o.status)) out.push(<button key="cx" type="button" className="table-action-btn" disabled={b} onClick={() => vendorCancel(o)}>Cancel order</button>);
     } else {
       if (o.status === "ESCROW_HELD") out.push(<button key="ship" type="button" className="table-action-btn primary" disabled={b} onClick={() => ship(o)}><Icon name="box" size={15} />Mark shipped</button>);
       if (["PENDING_PAYMENT", "ESCROW_HELD"].includes(o.status)) out.push(<button key="cx" type="button" className="table-action-btn" disabled={b} onClick={() => setAsking({ kind: "cancel", order: o })}>{o.status === "ESCROW_HELD" ? "Can't fulfil" : "Decline"}</button>);
@@ -149,9 +178,9 @@ export function WholesaleOrders({ role }) {
     { key: counterpart, label: supplier ? "Vendor" : "Supplier", render: (r) => partyName(r[counterpart]) },
     { key: "items", label: "Items", render: (r) => <div>{r.items?.[0]?.productName || "—"}<small className="tiny seller-block">{r.items?.length > 1 ? `+${r.items.length - 1} more · ` : ""}{itemCount(r)} units</small></div> },
     { key: "totalAmount", label: "Total", render: (r) => <b>{money(r.totalAmount)}</b> },
-    { key: "status", label: "Status", render: (r) => <Status value={r.status} /> },
+    { key: "status", label: "Status", render: (r) => <div><Status value={r.status} />{!supplier && STATUS[r.status]?.[4] && <small className="tiny seller-block">{STATUS[r.status][4]}</small>}</div> },
   ];
-  const actions = (r) => <span className="row-actions">{actionsFor(r)}<button type="button" className="table-action-btn icon-only" title="View details" aria-label="View details" onClick={() => setDetails(r)}><Icon name="eye" size={16} /></button></span>;
+  const actions = (r) => <span className="row-actions">{actionsFor(r, true)}<button type="button" className="table-action-btn icon-only" title="View details" aria-label="View details" onClick={() => setDetails(r)}><Icon name="eye" size={16} /></button></span>;
   const newPurchase = !supplier && <div className="row-actions"><Link className="outline-btn" to="/vendor/quotes">Ask for quotes</Link><Link className="gradient-btn" to="/vendor/suppliers"><Icon name="plus" size={16} /> Buy from a catalog</Link></div>;
 
   return <>
@@ -179,6 +208,7 @@ export function WholesaleOrders({ role }) {
       <button type="button" className="modal-close" onClick={() => setDetails(null)} aria-label="Close">×</button>
       <h2>{details.orderNumber}</h2>
       <p>{supplier ? "Vendor" : "Supplier"}: <b>{partyName(details[counterpart])}</b>{details[counterpart]?.phone ? ` · ${details[counterpart].phone}` : ""} · placed {formatDate(details.createdAt)}</p>
+      <Progress order={details} />
       <div className="purchase-status-note"><Status value={details.status} /><span>{STATUS[details.status]?.[supplier ? 3 : 2]}</span></div>
       {details.cancelReason && <p className="tiny">Reason: {details.cancelReason}</p>}
       {details.disputeReason && <p className="tiny">Problem reported: {details.disputeReason}</p>}
@@ -186,7 +216,8 @@ export function WholesaleOrders({ role }) {
         {(details.items || []).map((i, k) => <div key={k}><span><b>{i.productName}</b><small>{i.quantity} {i.unit || ""} × {money(i.unitPrice)}</small></span><b>{money(i.quantity * i.unitPrice)}</b></div>)}
         <div className="purchase-total"><span>Total</span><b>{money(details.totalAmount)}</b></div>
       </div>
-      <div className="purchase-dates tiny">{[["Paid", details.paidAt], ["Shipped", details.shippedAt], ["Completed", details.confirmedAt]].filter((d) => d[1]).map((d) => <span key={d[0]}>{d[0]} {formatDate(d[1])}</span>)}</div>
+      {!supplier && <p className="tiny">Delivered to <b>{details.store?.storeName || "your primary store"}</b>. {details.stockedAt ? <>The goods were added to its inventory. <Link to="/vendor/inventory">View inventory</Link></> : "The goods are added to its inventory when you confirm receipt."}</p>}
+      <div className="purchase-dates tiny">{[["Paid", details.paidAt], ["Shipped", details.shippedAt], ["Completed", details.confirmedAt], ["Added to inventory", supplier ? null : details.stockedAt]].filter((d) => d[1]).map((d) => <span key={d[0]}>{d[0]} {formatDate(d[1])}</span>)}</div>
       <div className="modal-actions"><button type="button" className="outline-btn" onClick={() => setDetails(null)}>Close</button>{actionsFor(details)}</div>
     </div></div>}
   </>;

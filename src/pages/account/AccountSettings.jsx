@@ -11,6 +11,7 @@ import { extractErrorMessage } from '../../API/client';
 import { RWANDA_LOCATIONS, PROVINCES } from '../../data/rwandaLocations';
 import { STAFF_ROLE_LABEL } from '../../data/staffAccess';
 import { PageHead, FormModal, StatusPill, dateDMY, useNotice } from '../seller/shared';
+import { resolveImageUrl } from '../../utils/imageUrl';
 
 const ROLE_LABEL = { buyer: 'Buyer', vendor: 'Seller', supplier: 'Supplier', affiliate: 'Affiliate', super_admin: 'Super admin', developer: 'Developer', delivery: 'Delivery partner' };
 const ADDRESS_TYPES = [['HOME', 'Home'], ['OFFICE', 'Office'], ['PARENTS', 'Family'], ['OTHER', 'Other']];
@@ -75,7 +76,7 @@ function AvatarBlock({ notice }) {
   };
   return <div className="account-identity">
     <button type="button" className="account-avatar" onClick={() => input.current?.click()} disabled={busy} title="Change photo">
-      {user.avatarUrl ? <img src={user.avatarUrl} alt="" /> : <span>{initials(user.fullName)}</span>}
+      {user.avatarUrl ? <img src={resolveImageUrl(user.avatarUrl)} alt="" /> : <span>{initials(user.fullName)}</span>}
       <i><Icon name="edit" size={14} /></i>
     </button>
     <input ref={input} type="file" accept="image/jpeg,image/png,image/webp" hidden onChange={upload} />

@@ -263,7 +263,16 @@ export default function App() {
       <Route
         path="/vendor/orders/:id"
         element={
-          <RequireAuth roles={["vendor"]}>
+          // Suppliers too: order notifications link here for every seller.
+          <RequireAuth roles={["vendor", "supplier"]}>
+            <SellerOrderDetail />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/supplier/sales/:id"
+        element={
+          <RequireAuth roles={["supplier"]}>
             <SellerOrderDetail />
           </RequireAuth>
         }

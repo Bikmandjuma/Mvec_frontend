@@ -21,6 +21,33 @@ export const suppliersApi = {
     client.put(`/suppliers/me/products/${id}`, payload).then((r) => r.data),
   deleteProduct: (id) =>
     client.delete(`/suppliers/me/products/${id}`).then((r) => r.data),
+  // { mode: "add" | "remove" | "set", quantity, reason, note } -> { product, movement }
+  adjustStock: (id, payload) =>
+    client.patch(`/suppliers/me/products/${id}/stock`, payload).then((r) => r.data),
+  getStockMovements: (params) =>
+    client.get("/suppliers/me/stock-movements", { params }).then((r) => r.data),
+  // Selling to buyers: publish { price, units } moves units from wholesale
+  // stock onto a marketplace listing; listing-stock { mode: add|remove, units }.
+  publish: (id, payload) =>
+    client.post(`/suppliers/me/products/${id}/publish`, payload).then((r) => r.data),
+  moveListingStock: (id, payload) =>
+    client.post(`/suppliers/me/products/${id}/listing-stock`, payload).then((r) => r.data),
+  unpublish: (id) =>
+    client.post(`/suppliers/me/products/${id}/unpublish`).then((r) => r.data),
+  moveToStore: (productIds, storeId, note) =>
+    client.post("/suppliers/me/products/move-store", { productIds, storeId, note }).then((r) => r.data),
+  // Supplier stores (warehouses, depots, branches). Same shapes as storesApi:
+  // getMyStores -> { store: primary, stores: [...with productCount], maxStores }
+  getMyStores: () =>
+    client.get("/suppliers/me/stores").then((r) => r.data),
+  createStore: (payload) =>
+    client.post("/suppliers/me/stores", payload).then((r) => r.data),
+  updateStore: (id, payload) =>
+    client.put(`/suppliers/me/stores/${id}`, payload).then((r) => r.data),
+  setPrimaryStore: (id) =>
+    client.patch(`/suppliers/me/stores/${id}/primary`).then((r) => r.data),
+  removeStore: (id) =>
+    client.delete(`/suppliers/me/stores/${id}`).then((r) => r.data),
   getFinanceSummary: () =>
     client.get("/suppliers/me/finance/summary").then((r) => r.data),
   getFinanceLedger: (params) =>

@@ -5,8 +5,10 @@ import Icon from "../components/Icon";
 import Pagination from "../components/Pagination";
 import { suppliersApi } from "../API/suppliers";
 import { wholesaleApi } from "../API/wholesale";
+import { storesApi } from "../API/stores";
 import { conversationsApi } from "../API/conversations";
 import { extractErrorMessage } from "../API/client";
+import { resolveImageUrl } from "../utils/imageUrl";
 
 const money = n => new Intl.NumberFormat("en-RW").format(Math.round(Number(n) || 0)) + " RWF";
 const idOf = v => String(v?._id || v?.id || v || "");
@@ -32,7 +34,7 @@ function Rating({ value }) {
 
 function SupplierAvatar({ s, size = 48 }) {
   return s.logoUrl
-    ? <img className="b2b-avatar" src={s.logoUrl} alt="" style={{ width: size, height: size }} />
+    ? <img className="b2b-avatar" src={resolveImageUrl(s.logoUrl)} alt="" style={{ width: size, height: size }} />
     : <span className="b2b-avatar" style={{ width: size, height: size }}>{(s.businessName || "?").slice(0, 1).toUpperCase()}</span>;
 }
 
@@ -44,6 +46,15 @@ function CatalogModal({ supplier, onClose, onMessage, messaging, messageError })
   const [q, setQ] = useState("");
   const [qty, setQty] = useState({});
   const [placing, setPlacing] = useState(false);
+  const [stores, setStores] = useState([]);
+  const [storeId, setStoreId] = useState("");
+
+  // The store that receives the goods when the order completes (primary by default).
+  useEffect(() => {
+    storesApi.getMyStores()
+      .then(res => { const list = res.stores || []; setStores(list); setStoreId(idOf(list.find(s => s.isPrimary) || list[0])); })
+      .catch(() => setStores([]));
+  }, []);
 
   useEffect(() => {
     suppliersApi.getProducts(idOf(supplier))
@@ -79,11 +90,13 @@ function CatalogModal({ supplier, onClose, onMessage, messaging, messageError })
     setPlacing(true);
     setError("");
     try {
-      await wholesaleApi.createOrder({
+      const res = await wholesaleApi.createOrder({
         supplierId: idOf(supplier),
         items: lines.map(l => ({ productId: idOf(l.p), productName: l.p.name, quantity: l.quantity })),
+        ...(storeId ? { storeId } : {}),
       });
-      navigate("/vendor/purchases", { state: { notice: "Order placed and stock reserved. Pay now (within 48 hours) to confirm it." } });
+      // Purchases opens the payment step for this order straight away.
+      navigate("/vendor/purchases", { state: { notice: "Order placed and stock reserved for 48 hours. Pay now to confirm it.", payOrderId: idOf(res.data) } });
     } catch (err) {
       setError(extractErrorMessage(err));
       setPlacing(false);
@@ -116,10 +129,10 @@ function CatalogModal({ supplier, onClose, onMessage, messaging, messageError })
             const n = qty[id] || 0;
             const out = p.stockQuantity < p.moq;
             return <div className={"b2b-product" + (n ? " selected" : "")} key={id}>
-              {p.media?.mainImage ? <img src={p.media.mainImage} alt="" /> : <span className="b2b-product-img"><Icon name="box" size={22} /></span>}
+              {p.media?.mainImage ? <img src={resolveImageUrl(p.media.mainImage)} alt="" /> : <span className="b2b-product-img"><Icon name="box" size={22} /></span>}
               <div className="b2b-product-info">
                 <b>{p.name}</b>
-                <small>{p.category} · MOQ {p.moq} {p.unit}{p.moq === 1 ? "" : "s"} · {p.stockQuantity} in stock</small>
+                <small>{p.category} · MOQ {p.moq} {p.unit}{p.moq === 1 ? "" : "s"} · {p.stockQuantity} in stock{p.shipsFrom ? ` · ships from ${p.shipsFrom.storeName}${p.shipsFrom.city ? `, ${p.shipsFrom.city}` : ""}` : ""}</small>
                 <span className="b2b-price">
                   {money(unitPrice(p))}<small>/{p.unit}</small>
                   {p.bulkDiscount > 0 && <><s>{money(p.wholesalePrice)}</s><em>-{p.bulkDiscount}%</em></>}
@@ -139,16 +152,30 @@ function CatalogModal({ supplier, onClose, onMessage, messaging, messageError })
         </div>
 
         <aside className="b2b-order">
-          <h3>Your order</h3>
-          {!lines.length && <p className="tiny">Add products to build a wholesale order. Quantities start at each product's minimum order.</p>}
+          <ol className="b2b-steps" aria-label="How buying works">
+            {["Pick products", "Place order", "Pay", "Confirm delivery"].map((label, i) =>
+              <li key={label} className={i === (lines.length ? 1 : 0) ? "on" : i < (lines.length ? 1 : 0) ? "done" : ""}><span>{i + 1}</span>{label}</li>)}
+          </ol>
+          <h3>Your order{lines.length > 0 && <small className="tiny"> · {lines.length} product{lines.length === 1 ? "" : "s"}</small>}</h3>
+          {!lines.length && <p className="tiny">Click <b>Add</b> on a product to start. Quantities start at each product's minimum order.</p>}
           {lines.map(l => <div className="b2b-order-line" key={idOf(l.p)}>
-            <div><b>{l.p.name}</b><small>{l.quantity} × {money(unitPrice(l.p))}</small>{lineError(l) && <small className="b2b-line-error">{lineError(l)}</small>}</div>
+            <div><b>{l.p.name}</b><small>{l.quantity} {l.p.unit}{l.quantity === 1 ? "" : "s"} × {money(unitPrice(l.p))}</small>{lineError(l) && <small className="b2b-line-error">{lineError(l)}</small>}</div>
             <span>{money(unitPrice(l.p) * l.quantity)}</span>
+            <button type="button" className="b2b-line-remove" aria-label={`Remove ${l.p.name}`} title="Remove" onClick={() => setLine(l.p, 0)}>×</button>
           </div>)}
           {lines.length > 0 && <div className="b2b-order-total"><span>Total</span><b>{money(total)}</b></div>}
+          {stores.length > 1
+            ? <label className="field"><span>Deliver to store</span>
+                <select value={storeId} onChange={e => setStoreId(e.target.value)}>
+                  {stores.map(s => <option key={idOf(s)} value={idOf(s)}>{s.storeName}{s.isPrimary ? " (primary)" : ""}</option>)}
+                </select>
+              </label>
+            : null}
+          {lines.length > 0 && <p className="tiny">When you confirm receipt, the goods are added to {stores.find(s => idOf(s) === storeId)?.storeName || "your store"}'s inventory automatically.</p>}
           <button type="button" className="gradient-btn" disabled={!lines.length || invalid || placing} onClick={placeOrder}>
-            {placing ? "Placing order…" : "Place wholesale order"}
+            {placing ? "Placing order…" : lines.length ? `Place order · ${money(total)}` : "Place order"}
           </button>
+          {lines.length > 0 && !invalid && <p className="tiny">Next, you pay by mobile money or card.</p>}
           <p className="tiny b2b-escrow-note"><Icon name="shield" size={14} /> Your payment is held in escrow and only released to the supplier after you confirm delivery.</p>
         </aside>
       </div>

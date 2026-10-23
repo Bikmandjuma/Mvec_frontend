@@ -7,6 +7,7 @@ import { payoutsApi } from '../API/payouts';
 import { extractErrorMessage } from '../API/client';
 import { useAuth } from '../context/AuthContext';
 import { money, dateDMY, personName, titleCase, parsePercent, sellerNextStatuses, canRecordCash, stepLabelFor, ORDER_FLOW, StatusPill, FormModal } from './seller/shared';
+import { resolveImageUrl } from '../utils/imageUrl';
 
 const idOf = v => String(v?._id || v?.id || v || '');
 
@@ -70,7 +71,7 @@ export default function SellerOrderDetail() {
     <DashboardLayout admin={isAdmin}>
       <div className="dash-page-head">
         <div><span className="eyebrow">{order.source === 'MANUAL' ? 'MANUAL ORDER' : 'ORDER'}</span><h1>{order.orderNumber}</h1><p>{order.source === 'MANUAL' ? 'Recorded' : 'Placed'} {dateDMY(order.createdAt)} · {order.paidOffline ? `Paid offline (${titleCase(order.offlinePaymentMethod || '')})` : titleCase(order.paymentMethod || '')}</p></div>
-        <Link className="outline-btn" to={isAdmin ? '/admin/orders' : '/vendor/orders'}>← Orders</Link>
+        <Link className="outline-btn" to={isAdmin ? '/admin/orders' : user?.role === 'supplier' ? '/supplier/sales' : '/vendor/orders'}>← Orders</Link>
       </div>
       {error && <div className="form-error">{error}</div>}
       {done && <div className="form-alert success">{done}</div>}
@@ -79,7 +80,7 @@ export default function SellerOrderDetail() {
           <div className="data-card-head"><div><h3>{isAdmin ? 'Order items' : 'Your items'}</h3><span>{items.length} item{items.length === 1 ? '' : 's'}</span></div><StatusPill value={order.orderStatus} /></div>
           {items.map(it => (
             <div className="order-product" key={it._id || it.id || it.name}>
-              {it.image && <img src={it.image} alt="" />}
+              {it.image && <img src={resolveImageUrl(it.image)} alt="" />}
               <div><b>{it.name}</b><small>{it.quantity} × {money(it.price)}</small><strong>{money(it.price * it.quantity)}</strong></div>
             </div>
           ))}
