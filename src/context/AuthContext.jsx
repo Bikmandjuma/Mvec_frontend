@@ -28,6 +28,32 @@ export function AuthProvider({ children }) {
 
   useEffect(() => { loadMe(); }, [loadMe]);
 
+  // The login is shared by every tab of this browser. When another tab signs
+  // in as a different account (or signs out), follow it here too; otherwise
+  // this tab keeps showing the old account's pages while every request is
+  // made as the new one ("User role 'vendor' is not authorized…").
+  const [switchNotice, setSwitchNotice] = useState('');
+  useEffect(() => {
+    const onStorage = (e) => {
+      if (e.key !== 'huska_token' && e.key !== null) return;
+      disconnectSocket();
+      if (!localStorage.getItem('huska_token')) {
+        setUser(null);
+        setSwitchNotice('You signed out in another tab.');
+        return;
+      }
+      const before = user?.id;
+      loadMe().then(() => setSwitchNotice(before ? 'You signed in with a different account in another tab, so this tab switched to it.' : ''));
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, [loadMe, user?.id]);
+  useEffect(() => {
+    if (!switchNotice) return undefined;
+    const t = setTimeout(() => setSwitchNotice(''), 8000);
+    return () => clearTimeout(t);
+  }, [switchNotice]);
+
   function persistSession({ token, user: u }) {
     localStorage.setItem('huska_token', token);
     setUser(u);
@@ -74,6 +100,7 @@ export function AuthProvider({ children }) {
 
   return (
     <AuthContext.Provider value={{ user, loading, login, loginWithGoogle, register, startSession: persistSession, logout, refresh, setUser, updateUser, replaceToken }}>
+      {switchNotice && <div className="account-switch-notice" role="status">{switchNotice}</div>}
       {children}
     </AuthContext.Provider>
   );

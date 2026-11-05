@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import SmartTable from '../../components/SmartTable';
+import PremiumGate from '../../components/PremiumGate';
 import { ordersApi } from '../../API/orders';
 import { productsApi } from '../../API/products';
 import { payoutsApi } from '../../API/payouts';
@@ -23,7 +24,8 @@ const loadVendorData = () => Promise.all([
 const CHANNELS = [['AFFILIATE', 'Affiliate referral'], ['COUPON', 'Coupon code'], ['MANUAL', 'Manual order'], ['ONLINE', 'Direct online']];
 const channelOf = o => (o.affiliateCode ? 'AFFILIATE' : o.coupon?.code ? 'COUPON' : o.source === 'MANUAL' ? 'MANUAL' : 'ONLINE');
 
-export function AnalyticsPage() {
+export function AnalyticsPage() { return <PremiumGate feature="advancedAnalytics" title="Advanced analytics"><AnalyticsPageInner /></PremiumGate>; }
+function AnalyticsPageInner() {
   const { data, loading, error } = useLoader(() => Promise.all([
     loadVendorData(),
     vendorServicesApi.getAdvertisements().then(r => r.data || []).catch(() => []),
@@ -95,7 +97,8 @@ export function AnalyticsPage() {
 
 const RANGES = [['7', 'Last 7 days'], ['30', 'Last 30 days'], ['90', 'Last 90 days'], ['365', 'Last 12 months'], ['all', 'All time']];
 
-export function ReportsPage() {
+export function ReportsPage() { return <PremiumGate feature="advancedAnalytics" title="Advanced reports"><ReportsPageInner /></PremiumGate>; }
+function ReportsPageInner() {
   const { data, loading, error } = useLoader(loadVendorData);
   const [range, setRange] = useState('30');
 

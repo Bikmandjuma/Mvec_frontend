@@ -13,6 +13,11 @@ const greeting = () => { const h = new Date(Date.now() + 2 * 3600e3).getUTCHours
 import { categoriesApi } from "../API/categories";
 import { extractErrorMessage } from "../API/client";
 
+// Readable labels instead of database codes (OUT_FOR_DELIVERY, super_admin…).
+const ROLE_LABEL = { super_admin: "Admin", delivery: "Courier", vendor: "Seller", supplier: "Supplier", affiliate: "Affiliate", buyer: "Buyer", developer: "Developer" };
+const human = (s) => String(s || "").toLowerCase().replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
+const countLabel = (n, word) => `${n} ${word}${Number(n) === 1 ? "" : "s"}`;
+
 // -----------------------------------------------------------------------------
 // Helpers
 // -----------------------------------------------------------------------------
@@ -54,6 +59,10 @@ function GenericAdminTable({ title, subtitle, type }) {
   const [viewing, setViewing] = useState(null);
   const [page, setPage] = useState(1);
   const [roleFilter, setRoleFilter] = useState("");
+  const [reload, setReload] = useState(0);
+  const [teamForm, setTeamForm] = useState(null); // "courier" | "admin"
+  const [accessFor, setAccessFor] = useState(null); // admin row whose access is changing
+  const [notice, setNotice] = useState("");
 
   useEffect(() => {
     let alive = true;
@@ -88,7 +97,7 @@ function GenericAdminTable({ title, subtitle, type }) {
       .finally(() => alive && setLoading(false));
 
     return () => { alive = false; };
-  }, [type, page, roleFilter]);
+  }, [type, page, roleFilter, reload]);
 
   const rows = (() => {
     if (type === "users") {
@@ -128,13 +137,13 @@ function GenericAdminTable({ title, subtitle, type }) {
   })();
 
   const columns = type==='users' ? [
-    {key:'name',label:'User'},{key:'email',label:'Email'},{key:'role',label:'Role'},{key:'status',label:'Status',render:r=><em className={'status '+(r.status==='Blocked'?'warning':'active')}>{r.status}</em>}
+    {key:'name',label:'User'},{key:'email',label:'Email'},{key:'role',label:'Role',render:r=>ROLE_LABEL[r.role]||human(r.role)},{key:'status',label:'Status',render:r=><em className={'status '+(r.status==='Blocked'?'warning':'active')}>{r.status}</em>}
   ] : type==='vendors' ? [
-    {key:'name',label:'Store'},{key:'category',label:'Category'},{key:'products',label:'Products'},{key:'rating',label:'Rating',render:r=>`★ ${r.rating}`},{key:'status',label:'Status',render:r=><em className={'status '+(r.status==='VERIFIED'?'active':'warning')}>{r.status}</em>}
+    {key:'name',label:'Store'},{key:'category',label:'Category'},{key:'products',label:'Products'},{key:'rating',label:'Rating',render:r=>`★ ${r.rating}`},{key:'status',label:'Status',render:r=><em className={'status '+(r.status==='VERIFIED'?'active':'warning')}>{human(r.status)}</em>}
   ] : type==='products' ? [
-    {key:'name',label:'Product'},{key:'vendor',label:'Vendor'},{key:'price',label:'Price',render:r=>money(r.price)},{key:'stock',label:'Stock'},{key:'status',label:'Status',render:r=><em className={'status '+(r.status==='ACTIVE'?'active':'warning')}>{r.status}</em>}
+    {key:'name',label:'Product'},{key:'vendor',label:'Vendor'},{key:'price',label:'Price',render:r=>money(r.price)},{key:'stock',label:'Stock'},{key:'status',label:'Status',render:r=><em className={'status '+(r.status==='ACTIVE'?'active':'warning')}>{human(r.status)}</em>}
   ] : type==='orders' ? [
-    {key:'id',label:'Order'},{key:'buyer',label:'Buyer'},{key:'vendor',label:'Vendor'},{key:'total',label:'Total',render:r=>money(r.total)},{key:'payment',label:'Payment',render:r=><em className={'status '+(r.payment==='PAID'?'active':'warning')}>{r.payment}</em>},{key:'status',label:'Status'}
+    {key:'id',label:'Order'},{key:'buyer',label:'Buyer'},{key:'vendor',label:'Vendor'},{key:'total',label:'Total',render:r=>money(r.total)},{key:'payment',label:'Payment',render:r=><em className={'status '+(r.payment==='PAID'?'active':'warning')}>{human(r.payment)}</em>},{key:'status',label:'Status',render:r=>human(r.status)}
   ] : [
     {key:'name',label:'Category'},{key:'products',label:'Products'},{key:'status',label:'Status',render:r=><em className={'status '+(r.status==='Active'?'active':'warning')}>{r.status}</em>}
   ];
@@ -150,20 +159,6 @@ function GenericAdminTable({ title, subtitle, type }) {
     try {
       await adminApi.updateUserStatus(row.id, { status: nextStatus });
       setList((current) => current.map((u) => (u.id === row.id ? { ...u, status: nextStatus } : u)));
-    } catch (err) {
-      window.alert(extractErrorMessage(err));
-    } finally {
-      setBusyId(null);
-    }
-  };
-
-  const changeRole = async (row, role) => {
-    const label = { buyer: "a buyer", delivery: "a courier", super_admin: "an admin" }[role];
-    if (!window.confirm(`Make ${row.name || row.email} ${label}?${role === "super_admin" ? " Admins can see and change everything." : ""}`)) return;
-    setBusyId(row.id);
-    try {
-      await adminApi.updateUserStatus(row.id, { role });
-      setList((current) => current.map((u) => (u.id === row.id ? { ...u, role } : u)));
     } catch (err) {
       window.alert(extractErrorMessage(err));
     } finally {
@@ -193,17 +188,24 @@ function GenericAdminTable({ title, subtitle, type }) {
   return (
     <DashboardLayout admin>
       <div className="dash-page-head"><div><span className="eyebrow">SUPER ADMIN</span><h1>{title}</h1><p>{subtitle}</p></div></div>
-      <div className="verified-box"><b>Live marketplace data</b><p>This list is read directly from the MVEC database. User actions update the account record and take effect across the marketplace.</p></div>
+      {type === "users"
+        ? <div className="verified-box"><b>Who gets which role</b><p>Buyers sign up or check out as guests. Sellers, suppliers and affiliates choose their role when they sign up, and MVEC verifies sellers and suppliers on their own pages. Couriers and admins are added here as new accounts — a shopper's account is never turned into one, and roles are never switched.</p>
+            <div className="modal-actions" style={{ justifyContent: "flex-start", marginTop: 12 }}>
+              <button type="button" className="gradient-btn compact-btn" onClick={() => { setNotice(""); setTeamForm("courier"); }}>+ Add courier</button>
+              <button type="button" className="outline-btn compact-btn" onClick={() => { setNotice(""); setTeamForm("admin"); }}>+ Add admin</button>
+            </div></div>
+        : <div className="verified-box"><b>Live marketplace data</b><p>This list is read directly from the MVEC database. User actions update the account record and take effect across the marketplace.</p></div>}
+      {notice && <div className="form-alert success" role="status">{notice}</div>}
       <div className="data-card">
         <div className="data-card-head">
-          <div><h3>{title}</h3><span>{meta.total} records</span></div>
+          <div><h3>{title}</h3><span>{countLabel(meta.total, "record")}</span></div>
           {type === "users" && <label className="field"><span>Filter by role</span><select value={roleFilter} onChange={e => { setRoleFilter(e.target.value); setPage(1); }}><option value="">All roles</option><option value="buyer">Buyers</option><option value="vendor">Vendors</option><option value="affiliate">Affiliates</option><option value="supplier">Suppliers</option><option value="super_admin">Administrators</option><option value="delivery">Couriers</option><option value="developer">Developers</option></select></label>}
         </div>
         <span className="muted">Marketplace records from the database</span>
         {loading && <div className="empty-state"><h3>Loading…</h3></div>}
         {!loading && error && <div className="empty-state"><h3>Couldn't load {title.toLowerCase()}</h3><p>{error}</p></div>}
         {!loading && !error && <SmartTable columns={columns} rows={rows} rowKey={(r, i) => r.id || r.email || r.name || i} searchPlaceholder={`Search ${title.toLowerCase()}…`} exportName={`admin-${type}`} actions={item => <>
-          {type === "users" && ["buyer", "delivery", "super_admin"].includes(item.role) && item.id !== me?.id && <select className="inline-table-input" aria-label={`Role of ${item.name}`} value={item.role} disabled={busyId === item.id} onChange={(e) => changeRole(item, e.target.value)}><option value="buyer">Buyer</option><option value="delivery">Courier</option><option value="super_admin">Admin</option></select>}
+          {type === "users" && item.role === "super_admin" && item.id !== me?.id && <button className="table-action-btn" onClick={() => { setNotice(""); setAccessFor(item); }}>{item.status === "Blocked" ? "Restore admin access" : "Remove admin access"}</button>}
           {type === "users" && item.role !== "super_admin" && <button className="table-action-btn" disabled={busyId === item.id} onClick={() => toggleUserBlock(item)}>{item.status === "Active" ? "Block" : "Unblock"}</button>}
           <button className="table-action-btn" onClick={() => setViewing(item)}><Icon name="eye" /> View</button>
           {type === "categories" && <button className="table-action-btn" onClick={() => deleteCategory(item)}><Icon name="trash" /> Delete</button>}
@@ -211,9 +213,78 @@ function GenericAdminTable({ title, subtitle, type }) {
         {!loading && !error && meta.total > 20 && <Pagination page={page} setPage={setPage} total={meta.total} perPage={20} />}
       </div>
       {viewing && <AdminRecordView title={`${title.slice(0, -1)} record`} record={viewing} onClose={() => setViewing(null)} />}
+      {teamForm && <TeamAccountForm kind={teamForm} onClose={() => setTeamForm(null)} onDone={(message) => { setTeamForm(null); setNotice(message); setReload((n) => n + 1); }} />}
+      {accessFor && <AdminAccessForm admin={accessFor} onClose={() => setAccessFor(null)} onDone={(message) => { setAccessFor(null); setNotice(message); setReload((n) => n + 1); }} />}
     </DashboardLayout>
   );
 }
+// Adds a courier or an admin as a brand-new account. They set their own
+// password from the welcome email ("Forgot password"), so no admin knows it.
+function TeamAccountForm({ kind, onClose, onDone }) {
+  const admin = kind === "admin";
+  const [form, setForm] = useState({ fullName: "", email: "", phone: "", currentPassword: "" });
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
+  async function submit(e) {
+    e.preventDefault();
+    setBusy(true); setError("");
+    try {
+      const res = admin ? await adminApi.addAdmin(form) : await adminApi.addCourier({ fullName: form.fullName, email: form.email, phone: form.phone });
+      onDone(res.message);
+    } catch (err) { setError(extractErrorMessage(err)); setBusy(false); }
+  }
+  return <div className="modal-backdrop" onMouseDown={() => !busy && onClose()}>
+    <form className="modal" role="dialog" aria-label={admin ? "Add admin" : "Add courier"} onMouseDown={(e) => e.stopPropagation()} onSubmit={submit} noValidate>
+      <button type="button" className="modal-close" onClick={onClose} aria-label="Close" disabled={busy}>×</button>
+      <h2>{admin ? "Add an admin" : "Add a courier"}</h2>
+      <p>{admin
+        ? "Admins can see and change everything on MVEC. Only add MVEC staff, with their work email. This creates a new account; they choose their password from the email we send."
+        : "Couriers deliver paid orders and confirm them with the buyer's code. This creates a new account for the delivery partner; they choose their password from the email we send."}</p>
+      <label className="field"><span>Full name</span><input value={form.fullName} onChange={set("fullName")} autoFocus /></label>
+      <label className="field"><span>Email</span><input type="email" value={form.email} onChange={set("email")} placeholder="name@example.com" /></label>
+      <label className="field"><span>Phone number</span><input type="tel" value={form.phone} onChange={set("phone")} placeholder="0788 123 456" /></label>
+      {admin && <label className="field"><span>Your password (to confirm)</span><input type="password" autoComplete="current-password" value={form.currentPassword} onChange={set("currentPassword")} /></label>}
+      {error && <div className="form-alert error" role="alert">{error}</div>}
+      <div className="modal-actions">
+        <button type="button" className="outline-btn" onClick={onClose} disabled={busy}>Cancel</button>
+        <button type="submit" className="gradient-btn" disabled={busy}>{busy ? "Adding…" : admin ? "Add admin" : "Add courier"}</button>
+      </div>
+    </form>
+  </div>;
+}
+
+// Removes or restores an admin's access, confirmed with the acting admin's password.
+function AdminAccessForm({ admin, onClose, onDone }) {
+  const restoring = admin.status === "Blocked";
+  const [password, setPassword] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  async function submit(e) {
+    e.preventDefault();
+    setBusy(true); setError("");
+    try {
+      const res = await adminApi.setAdminAccess(admin.id, { active: restoring, currentPassword: password });
+      onDone(res.message);
+    } catch (err) { setError(extractErrorMessage(err)); setBusy(false); }
+  }
+  return <div className="modal-backdrop" onMouseDown={() => !busy && onClose()}>
+    <form className="modal" role="dialog" aria-label="Admin access" onMouseDown={(e) => e.stopPropagation()} onSubmit={submit} noValidate>
+      <button type="button" className="modal-close" onClick={onClose} aria-label="Close" disabled={busy}>×</button>
+      <h2>{restoring ? "Restore admin access" : "Remove admin access"}</h2>
+      <p>{restoring
+        ? `${admin.name} will be able to sign in and manage MVEC again.`
+        : `${admin.name} will no longer be able to sign in. Everything they did stays in the activity log.`}</p>
+      <label className="field"><span>Your password (to confirm)</span><input type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} autoFocus /></label>
+      {error && <div className="form-alert error" role="alert">{error}</div>}
+      <div className="modal-actions">
+        <button type="button" className="outline-btn" onClick={onClose} disabled={busy}>Cancel</button>
+        <button type="submit" className="gradient-btn" disabled={busy}>{busy ? "Saving…" : restoring ? "Restore access" : "Remove access"}</button>
+      </div>
+    </form>
+  </div>;
+}
+
 function AdminRecordView({title,record,onClose}){return <div className="modal-backdrop" onMouseDown={onClose}><div className="modal" onMouseDown={e=>e.stopPropagation()}><button className="modal-close" onClick={onClose}>×</button><span className="eyebrow">ACCOUNT REVIEW</span><h2>{title}</h2><div className="vendor-detail-grid">{Object.entries(record).filter(([k])=>k!=='id').map(([k,v])=><div key={k}><span>{k.replace(/([A-Z])/g,' $1')}</span><b>{String(v)}</b></div>)}</div><button className="gradient-btn" onClick={onClose}>Done</button></div></div>}
 
 
@@ -285,8 +356,16 @@ export default function AdminDashboard() {
       type = "orders";
       title = "Orders";
     } else {
-      type = "users";
-      title = "Settings";
+      // A mistyped admin address: say so instead of showing another page.
+      return (
+        <DashboardLayout admin>
+          <div className="data-card empty-state">
+            <h2>Page not found</h2>
+            <p>There is no admin page at {path}. It may have moved.</p>
+            <Link className="gradient-btn" to="/admin">Back to the admin overview</Link>
+          </div>
+        </DashboardLayout>
+      );
     }
 
     return (

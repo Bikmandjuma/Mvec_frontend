@@ -44,7 +44,7 @@ export default function SmartTable({ columns, rows=[], rowKey, pageSize=6, searc
       <div className="dash-filter"><span aria-hidden="true">⌕</span><input value={q} onChange={changeSearch} placeholder={searchPlaceholder}/></div>
       {filterOpen&&filterKey&&<select className="table-filter-select" value={filterValue} onChange={e=>{setFilterValue(e.target.value);setPage(1)}} aria-label={`Filter by ${labelFor(filterKey)}`}><option value="">All {labelFor(filterKey)}</option>{filterOptions.map(v=><option key={v} value={v}>{v}</option>)}</select>}
       <button type="button" className="filter-btn table-filter-toggle" onClick={()=>setFilterOpen(v=>!v)} aria-expanded={filterOpen}>Filter{filterValue?` · ${filterValue}`:""}</button><button type="button" className="filter-btn table-export-btn" onClick={exportCsv}>Export CSV</button>
-      <span className="table-count">{filtered.length} records</span>
+      <span className="table-count">{filtered.length} {filtered.length === 1 ? "record" : "records"}</span>
     </div>}
     <div className="table-scroll">
       <table className="smart-table">

@@ -57,11 +57,18 @@ function normalizeRetail(o, role, userId) {
   const handedOver = role === "vendor" && (o.deliveredVendors || []).map(String).includes(String(userId));
   const active = payable && !closed && !done;
   const pickup = o.shippingMethod === "PICKUP";
+  // Why an admin should look at this order now (empty when all is well).
+  const daysSince = (d) => (d ? (Date.now() - new Date(d).getTime()) / 86400000 : 0);
+  const attention = !active ? "" :
+    ["SHIPPED", "OUT_FOR_DELIVERY"].includes(o.orderStatus) && daysSince(o.shippedAt || o.updatedAt) > 2 ? `On the way for ${Math.floor(daysSince(o.shippedAt || o.updatedAt))} days without the buyer's code` :
+    !pickup && ["CONFIRMED", "PROCESSING", "READY_FOR_SHIPMENT"].includes(o.orderStatus) && daysSince(o.paidAt || o.createdAt) > 3 ? `Paid ${Math.floor(daysSince(o.paidAt || o.createdAt))} days ago and not shipped` :
+    pickup && o.orderStatus === "READY_FOR_SHIPMENT" && daysSince(o.updatedAt) > 7 ? `Ready for pickup for ${Math.floor(daysSince(o.updatedAt))} days, not collected` : "";
   const steps = pickup ? PICKUP_STEPS : RETAIL_STEPS;
   const next = pickup && o.orderStatus === "READY_FOR_SHIPMENT" ? null : o.orderStatus === "PROCESSING" && pickup ? ["READY_FOR_SHIPMENT", "Mark ready for pickup"] : NEXT_ACTION[o.orderStatus];
   return {
     raw: o,
     pickup,
+    attention,
     id: idOf(o),
     number: o.orderNumber,
     title: first ? `${first.quantity} × ${first.name}${items.length > 1 ? ` +${items.length - 1} more` : ""}` : "Order",
@@ -121,7 +128,7 @@ function normalizeWholesale(o) {
 const COPY = {
   vendor: ["Delivery & settlement", "Move each paid order to the buyer, then confirm with the buyer's 6-digit code to release your money."],
   supplier: ["Delivery & settlement", "Ship paid wholesale orders. Funds are released when the vendor confirms receipt."],
-  admin: ["All deliveries", "Monitor every parcel, assign couriers and confirm deliveries with the buyer's code."],
+  admin: ["Deliveries", "Orders that need action first: stuck on the way, paid but not shipped, or waiting for pickup. Sellers deliver their own orders; assign an MVEC courier here once you have courier accounts."],
   delivery: ["My deliveries", "Deliveries assigned to you. Ask the buyer for their 6-digit code when you hand over the items."],
 };
 
@@ -134,7 +141,8 @@ export default function DeliveryTracking({ role = "vendor", initialTab = "active
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [q, setQ] = useState("");
-  const [tab, setTab] = useState(initialTab);
+  // Admins start on the orders that need action; sellers see their own list.
+  const [tab, setTab] = useState(role === "admin" ? "attention" : initialTab);
   const [page, setPage] = useState(1);
   const [codes, setCodes] = useState({});
   const [busyId, setBusyId] = useState("");
@@ -159,7 +167,7 @@ export default function DeliveryTracking({ role = "vendor", initialTab = "active
     load();
     if (role === "vendor") payoutsApi.getBalance().then((res) => setBalance(res.balance || null)).catch(() => {});
     if (role === "admin") {
-      client.get("/users", { params: { role: "delivery", limit: 100 } })
+      client.get("/users", { params: { role: "delivery", status: "ACTIVE", limit: 100 } })
         .then((r) => setCouriers(r.data.data || []))
         .catch(() => setCouriers([]));
     }
@@ -168,6 +176,7 @@ export default function DeliveryTracking({ role = "vendor", initialTab = "active
 
   const relevant = useMemo(() => orders.filter((o) => o.relevant), [orders]);
   const counts = useMemo(() => ({
+    attention: relevant.filter((o) => o.attention).length,
     active: relevant.filter((o) => !o.done && !o.closed).length,
     done: relevant.filter((o) => o.done).length,
     all: relevant.length,
@@ -175,7 +184,7 @@ export default function DeliveryTracking({ role = "vendor", initialTab = "active
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase();
     return relevant
-      .filter((o) => (tab === "active" ? !o.done && !o.closed : tab === "done" ? o.done : true))
+      .filter((o) => (tab === "attention" ? Boolean(o.attention) : tab === "active" ? !o.done && !o.closed : tab === "done" ? o.done : true))
       .filter((o) => !term || `${o.number} ${o.title} ${o.party} ${o.phone || ""} ${o.place || ""}`.toLowerCase().includes(term));
   }, [relevant, tab, q]);
   const safePage = Math.min(page, Math.max(1, Math.ceil(filtered.length / perPage)));
@@ -247,14 +256,14 @@ export default function DeliveryTracking({ role = "vendor", initialTab = "active
     <div className="data-card">
       <div className="dlv-toolbar">
         <div className="dlv-tabs" role="tablist">
-          {[["active", "In progress"], ["done", "Delivered"], ["all", "All"]].map(([k, l]) =>
+          {[...(role === "admin" ? [["attention", "Needs attention"]] : []), ["active", "In progress"], ["done", "Delivered"], ["all", "All"]].map(([k, l]) =>
             <button type="button" role="tab" aria-selected={tab === k} key={k} className={tab === k ? "on" : ""} onClick={() => { setTab(k); setPage(1); }}>{l}<em>{counts[k]}</em></button>)}
         </div>
         <div className="dash-filter"><Icon name="search" /><input value={q} onChange={(e) => { setQ(e.target.value); setPage(1); }} aria-label="Search deliveries" placeholder={wholesale ? "Search order, vendor or product…" : "Search order, buyer, product or place…"} /></div>
       </div>
 
       {!shown.length && <div className="empty-state">
-        <h3>{q ? "No deliveries match your search" : tab === "done" ? "Nothing delivered yet" : "No deliveries in progress"}</h3>
+        <h3>{q ? "No deliveries match your search" : tab === "attention" ? "Nothing needs your attention" : tab === "done" ? "Nothing delivered yet" : "No deliveries in progress"}</h3>
         <p>{wholesale ? "Paid wholesale orders you need to ship will appear here." : "Paid orders appear here as they move towards the buyer."}</p>
       </div>}
 
@@ -278,6 +287,7 @@ export default function DeliveryTracking({ role = "vendor", initialTab = "active
             </div>
           </div>
 
+          {o.attention && <div className="form-alert error dlv-attention">{o.attention}</div>}
           {o.closed
             ? <p className="tiny dlv-closed-note">This order is {titleCase(o.raw.paymentStatus === "DISPUTED" ? "DISPUTED" : o.status).toLowerCase()} and will not be delivered{o.raw.paymentStatus === "DISPUTED" ? " until MVEC resolves the dispute" : ""}.</p>
             : <ol className="dlv-steps" style={{ "--steps": o.steps.length }}>
@@ -292,10 +302,10 @@ export default function DeliveryTracking({ role = "vendor", initialTab = "active
             {o.eta && <span><Icon name="bell" size={14} />Promised: {o.eta}</span>}
           </div>}
 
-          {(o.next || o.canPickUp || o.canAssign) && <div className="dlv-otp">
+          {(o.next || o.canPickUp || (o.canAssign && couriers.length > 0)) && <div className="dlv-otp">
             {o.next && <button type="button" className="outline-btn" disabled={busy} onClick={() => advance(o, o.next[0])}>{busy ? "Saving…" : o.next[1]}</button>}
             {o.canPickUp && <button type="button" className="outline-btn" disabled={busy} onClick={() => pickUp(o)}>Picked up · out for delivery</button>}
-            {o.canAssign && <select className="inline-table-input" aria-label={`Courier for ${o.number}`} value={idOf(o.courier) === "null" ? "" : idOf(o.courier)} onChange={(e) => assign(o, e.target.value)} disabled={busy}>
+            {o.canAssign && couriers.length > 0 && <select className="inline-table-input" aria-label={`Courier for ${o.number}`} value={idOf(o.courier) === "null" ? "" : idOf(o.courier)} onChange={(e) => assign(o, e.target.value)} disabled={busy}>
               <option value="">{couriers.length ? "Assign a courier…" : "No courier accounts yet"}</option>
               {couriers.map((c) => <option key={c.id} value={String(c.id)}>{c.Fullname || c.fullName || c.phone}</option>)}
             </select>}

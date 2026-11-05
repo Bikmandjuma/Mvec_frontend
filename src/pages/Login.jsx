@@ -18,8 +18,8 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const returnTo = safeRedirect(location.state?.from) || safeRedirect(params.get("next"));
   const update = (e) => setForm({ ...form, [e.target.name]: e.target.value });
-  // Guests (and buyers who prefer it) log in with a code texted to their phone.
-  const [codeLogin, setCodeLogin] = useState(null); // { phone, code, sent, devCode }
+  // Guests (and buyers who prefer it) log in with a one-time code.
+  const [codeLogin, setCodeLogin] = useState(null); // { phone, code, sent, sentTo }
 
   async function sendLoginCode(e) {
     e.preventDefault();
@@ -27,7 +27,7 @@ export default function Login() {
     setLoading(true);
     try {
       const res = await authApi.guestSendCode(codeLogin.phone.trim());
-      setCodeLogin((c) => ({ ...c, sent: true, devCode: res.devCode || "" }));
+      setCodeLogin((c) => ({ ...c, sent: true, sentTo: res.message || "" }));
     } catch (err) {
       if (err.response?.status === 429) setCodeLogin((c) => ({ ...c, sent: true }));
       setError(extractErrorMessage(err));
@@ -102,8 +102,8 @@ export default function Login() {
         ? <form onSubmit={codeLogin.sent ? verifyLoginCode : sendLoginCode} className="auth-form code-login" noValidate>
             <FormField label="Phone number" name="codePhone" placeholder="0788 123 456" value={codeLogin.phone} onChange={(e) => setCodeLogin((c) => ({ ...c, phone: e.target.value, sent: false }))} autoComplete="tel" />
             {codeLogin.sent && <FormField label="6-digit code" name="code" inputMode="numeric" autoComplete="one-time-code" value={codeLogin.code} onChange={(e) => setCodeLogin((c) => ({ ...c, code: e.target.value.replace(/\D/g, "").slice(0, 6) }))} />}
-            {codeLogin.devCode && <p className="tiny">Development code: <b>{codeLogin.devCode}</b></p>}
-            <button className="submit-btn" type="submit" disabled={loading}>{loading ? "Please wait…" : codeLogin.sent ? "Log in" : "Text me a code"}</button>
+            {codeLogin.sent && codeLogin.sentTo && <p className="tiny" role="status">{codeLogin.sentTo}</p>}
+            <button className="submit-btn" type="submit" disabled={loading}>{loading ? "Please wait…" : codeLogin.sent ? "Log in" : "Send me a code"}</button>
             <button type="button" className="text-btn" onClick={() => setCodeLogin(null)}>Use my password instead</button>
           </form>
         : <p className="switch-text">Ordered as a guest? <button type="button" className="text-btn" onClick={() => { setError(""); setCodeLogin({ phone: "", code: "", sent: false }); }}>Log in with a code</button></p>}

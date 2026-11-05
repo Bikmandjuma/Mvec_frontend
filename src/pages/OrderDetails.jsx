@@ -4,6 +4,7 @@ import Storefront from "../components/Storefront";
 import ProductImage from "../components/ProductImage";
 import { ordersApi } from "../API/orders";
 import { disputesApi } from "../API/disputes";
+import DisputeCase from "../components/DisputeCase";
 import { reviewsApi } from "../API/reviews";
 import { extractErrorMessage } from "../API/client";
 import { money, formatDate } from "../utils/format";
@@ -54,6 +55,9 @@ export default function OrderDetails() {
   const [reason, setReason] = useState("");
   const [description, setDescription] = useState("");
   const [reportBusy, setReportBusy] = useState(false);
+  // The buyer's problem-report case for this order (latest first), if any.
+  const [caseId, setCaseId] = useState(null);
+  const [caseOpen, setCaseOpen] = useState(false);
 
   const [reviewProduct, setReviewProduct] = useState("");
   const [rating, setRating] = useState(5);
@@ -70,6 +74,20 @@ export default function OrderDetails() {
       .finally(() => alive && setLoading(false));
     return () => { alive = false; };
   }, [id]);
+
+  // Find this order's latest problem-report case; refresh the order when the
+  // case changes (a refund or a decision changes the order's payment state).
+  const CLOSED_CASE = ["RESOLVED_BUYER_REFUNDED", "RESOLVED_VENDOR_RELEASED", "RESOLVED_SPLIT", "REJECTED", "WITHDRAWN"];
+  const findCase = () => disputesApi.getMine().then((r) => {
+    const mine = (r.data || []).filter((d) => String(d.order?._id || d.order?.id || d.order) === String(id))
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    if (mine[0]) { setCaseId(mine[0]._id || mine[0].id); setCaseOpen(!CLOSED_CASE.includes(mine[0].status)); }
+  }).catch(() => {});
+  useEffect(() => { findCase(); }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const refreshCase = () => {
+    findCase();
+    ordersApi.getById(id).then((res) => setOrder(res.order)).catch(() => {});
+  };
 
   const remaining = order ? paidCancelRemaining(order, now) : 0;
   useEffect(() => {
@@ -118,9 +136,12 @@ export default function OrderDetails() {
     setReportBusy(true);
     setNotice(null);
     try {
-      await disputesApi.open({ orderId: order.id, reason, description: description.trim(), disputedAmount: order.totalAmount });
+      const res = await disputesApi.open({ orderId: order.id, reason, description: description.trim(), disputedAmount: order.totalAmount });
       setOrder((prev) => ({ ...prev, paymentStatus: "DISPUTED" }));
-      setNotice({ ok: true, text: "Your problem was reported. MVEC support will review the order, and the seller's payment is on hold meanwhile." });
+      setCaseId(res.data?._id || res.data?.id || null);
+      setCaseOpen(true);
+      setReason(""); setDescription("");
+      setNotice({ ok: true, text: "Your problem was reported. The seller has been told and the payment is on hold; follow it below." });
     } catch (err) {
       setNotice({ ok: false, text: extractErrorMessage(err) });
     } finally {
@@ -219,7 +240,7 @@ export default function OrderDetails() {
     {order.paymentStatus === "PAID" && order.deliveryOtp && !delivered && !cancelled && (
       <section className="verified-box otp-buyer-box">
         <b>🔐 Your delivery code</b>
-        <p>{isPickup ? "When you collect your order, give this code to the seller only once the items are in your hands." : "Give this code to the seller or courier only when your order is in your hands."} It releases your payment to the seller. We also sent it to you by SMS.</p>
+        <p>{isPickup ? "When you collect your order, give this code to the seller only once the items are in your hands." : "Give this code to the seller or courier only when your order is in your hands."} It releases your payment to the seller. It stays here on your order until delivery.</p>
         <strong className="delivery-otp">{order.deliveryOtp}</strong>
       </section>
     )}
@@ -281,10 +302,12 @@ export default function OrderDetails() {
       </section>
     )}
 
-    {order.paymentStatus === "PAID" && !cancelled && (
+    {caseId && <section className="data-card"><DisputeCase caseId={caseId} onChanged={refreshCase} /></section>}
+
+    {order.paymentStatus === "PAID" && !cancelled && !caseOpen && (
       <section className="data-card">
         <h3>Report a problem</h3>
-        <p className="tiny">Use this if something is wrong with your order. The seller&apos;s payment stays on hold while MVEC reviews it.</p>
+        <p className="tiny">Use this if something is wrong with your order. The seller is told straight away and can refund you or make an offer; the payment stays on hold until it's resolved, and MVEC decides if you can't agree.</p>
         <form onSubmit={report}>
           <div className="two-col">
             <label className="field"><span>What went wrong?</span>
@@ -300,9 +323,6 @@ export default function OrderDetails() {
           <button type="submit" className="outline-btn" disabled={reportBusy}>{reportBusy ? "Submitting…" : "Report a problem"}</button>
         </form>
       </section>
-    )}
-    {order.paymentStatus === "DISPUTED" && (
-      <section className="verified-box"><b>Problem reported</b><p>MVEC support is reviewing this order. You can follow it under <Link to="/buyer/refunds">Refunds</Link>.</p></section>
     )}
 
     <Link className="outline-btn" to="/orders">← Back to orders</Link>
