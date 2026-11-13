@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import DashboardLayout from "../components/DashboardLayout";
 import Icon from "../components/Icon";
@@ -21,25 +21,6 @@ async function copyText(text) {
   el.select();
   document.execCommand("copy");
   el.remove();
-}
-
-const dateFmt = d => (d ? new Date(d).toLocaleDateString("en-GB") : "—");
-const statusLabel = { PENDING: "Pending", APPROVED: "Approved", REVERSED: "Reversed" };
-
-function ErrorBanner({ message, onRetry }) {
-  if (!message) return null;
-  return <div className="form-error">{message} {onRetry && <button className="outline-btn" onClick={onRetry}>Retry</button>}</div>;
-}
-
-function ClicksChart({ stats }) {
-  const clicks = stats?.series?.clicks || [];
-  const max = Math.max(1, ...clicks);
-  if (!clicks.some(Boolean)) return <div className="table-empty">No clicks in the last {stats?.days || 30} days yet.</div>;
-  return (
-    <svg viewBox={`0 0 ${clicks.length * 10} 60`} role="img" aria-label="Clicks per day" style={{ width: "100%", height: 120 }} preserveAspectRatio="none">
-      {clicks.map((v, i) => <rect key={i} x={i * 10 + 1} y={60 - (v / max) * 58} width="8" height={(v / max) * 58} fill="currentColor" opacity="0.75"><title>{`${stats.labels[i]}: ${v} clicks`}</title></rect>)}
-    </svg>
-  );
 }
 
 function Overview() {
@@ -471,7 +452,7 @@ function Withdrawals() {
         ? `${money(value)} was sent to your mobile money.`
         : status === "PROCESSING"
           ? `${money(value)} is being sent to your mobile money. You will get a notification when it arrives.`
-          : `Your ${money(value)} withdrawal is waiting for MVEC approval. You will get a notification when it is sent.`);
+          : `Your ${money(value)} withdrawal is waiting for Ikiguzi approval. You will get a notification when it is sent.`);
       setAmount("");
       load();
     } catch (err) {
@@ -497,7 +478,7 @@ function Withdrawals() {
         {wallet && Number(wallet.availableBalance || 0) < 10000 && <p className="tiny">You can withdraw once your available balance reaches RWF 10,000. Commissions become available after the buyer confirms delivery.</p>}
         {msg && <p className={msgOk ? "success-text" : "form-alert error"} role="status">{msg}</p>}
       </div>
-      <div className="data-card"><h3>Payout process</h3><div className="timeline">{["Request a withdrawal to MTN MoMo, Airtel Money or a bank account.", "Up to RWF 100,000 to mobile money is sent automatically within minutes.", "Larger amounts and bank transfers are sent after MVEC approval.", "You get a notification and SMS when the money is sent. A failed transfer returns to your balance."].map((x, i) => <div className="timeline-item done" key={x}><i /><div><b>{i + 1}. {x}</b></div></div>)}</div></div>
+      <div className="data-card"><h3>Payout process</h3><div className="timeline">{["Request a withdrawal to MTN MoMo, Airtel Money or a bank account.", "Up to RWF 100,000 to mobile money is sent automatically within minutes.", "Larger amounts and bank transfers are sent after Ikiguzi approval.", "You get a notification and SMS when the money is sent. A failed transfer returns to your balance."].map((x, i) => <div className="timeline-item done" key={x}><i /><div><b>{i + 1}. {x}</b></div></div>)}</div></div>
     </div>
     <div className="data-card"><h3>Withdrawal history</h3>
       {loading && <div className="empty-state"><h3>Loading…</h3></div>}

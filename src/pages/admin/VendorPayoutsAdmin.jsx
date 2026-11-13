@@ -4,14 +4,15 @@
 import { useState } from 'react';
 import DashboardLayout from '../../components/DashboardLayout';
 import { vendorPayoutsAdminApi } from '../../API/payouts';
-import { PageHead, Loading, Metric, StatusPill, money, dateDMY, useLoader, useNotice } from '../seller/shared';
+import { PageHead, Loading, Metric, StatusPill, money, dateDMY, useNotice } from '../seller/shared';
+import { useLoader } from '../../lib/useLoader';
 
 const TABS = [['PENDING', 'To review'], ['PROCESSING', 'Processing'], ['PAID', 'Paid'], ['REJECTED', 'Rejected'], ['CANCELLED', 'Cancelled'], ['', 'All']];
 
 export default function VendorPayoutsAdmin() {
   const [status, setStatus] = useState('PENDING');
   const [page, setPage] = useState(1);
-  const { data, loading, error, reload } = useLoader(() => vendorPayoutsAdminApi.list({ status: status || undefined, page, limit: 20 }), [status, page]);
+  const { data, loading, error, reload } = useLoader(['admin', 'vendor-payouts', status, page], () => vendorPayoutsAdminApi.list({ status: status || undefined, page, limit: 20 }));
   const [busy, setBusy] = useState('');
   const notice = useNotice();
 

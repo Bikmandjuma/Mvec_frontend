@@ -3,7 +3,7 @@ import { disputesApi } from "../API/disputes";
 import { extractErrorMessage } from "../API/client";
 import { getSocket } from "../services/socket";
 
-// One problem-report case, as the buyer, the seller or MVEC sees it:
+// One problem-report case, as the buyer, the seller or Ikiguzi sees it:
 // where it stands, what happens next, the whole conversation, and only the
 // actions that person can take. Used on the buyer's order page, the seller's
 // Refunds page and the admin Disputes page.
@@ -19,7 +19,7 @@ function stepOf(c) {
   if (c.status === "EVIDENCE_SUBMITTED" || c.offerStatus === "PENDING") return 1;
   return 0;
 }
-const STEPS = ["Reported", "Seller responding", "MVEC reviewing", "Resolved"];
+const STEPS = ["Reported", "Seller responding", "Ikiguzi reviewing", "Resolved"];
 
 function outcomeText(c) {
   const d = c.arbitrationDecision || {};
@@ -36,15 +36,15 @@ function nextText(c, you) {
   const deadline = c.respondBy ? new Date(c.respondBy).toLocaleDateString("en-GB", { day: "numeric", month: "long" }) : "";
   if (c.status === "UNDER_REVIEW") {
     return you === "admin" ? "Both sides are waiting for your decision. Read the conversation, ask for anything missing, then decide below."
-      : "MVEC is reviewing both sides and will decide. You can still add information below. You'll be told the outcome.";
+      : "Ikiguzi is reviewing both sides and will decide. You can still add information below. You'll be told the outcome.";
   }
   if (c.offerStatus === "PENDING") {
-    return you === "buyer" ? `The seller offers to refund ${money(c.offerAmount)}. Accept it to close the case, or decline and MVEC will decide.`
+    return you === "buyer" ? `The seller offers to refund ${money(c.offerAmount)}. Accept it to close the case, or decline and Ikiguzi will decide.`
       : you === "seller" ? `Waiting for the buyer to answer your ${money(c.offerAmount)} offer.`
       : `The seller offered ${money(c.offerAmount)}; waiting for the buyer.`;
   }
-  if (you === "seller") return `The payment for this order is on hold. Refund the buyer, offer a partial refund, or reply with your side${deadline ? ` before ${deadline}` : ""}. If you don't respond in time, MVEC will decide.`;
-  if (you === "buyer") return `The seller has been told and has ${deadline ? `until ${deadline}` : "a few days"} to respond. The payment stays on hold meanwhile. If you can't agree, ask MVEC to decide.`;
+  if (you === "seller") return `The payment for this order is on hold. Refund the buyer, offer a partial refund, or reply with your side${deadline ? ` before ${deadline}` : ""}. If you don't respond in time, Ikiguzi will decide.`;
+  if (you === "buyer") return `The seller has been told and has ${deadline ? `until ${deadline}` : "a few days"} to respond. The payment stays on hold meanwhile. If you can't agree, ask Ikiguzi to decide.`;
   return `Waiting for the seller to respond${deadline ? ` (by ${deadline})` : ""}. If they don't, the case comes to you automatically.`;
 }
 
@@ -107,7 +107,7 @@ export default function DisputeCase({ caseId, onChanged }) {
       <b>Refund offer: {money(c.offerAmount)}</b>{c.offerNote && <p>“{c.offerNote}”</p>}
       <div className="dispute-actions">
         <button type="button" className="gradient-btn" disabled={!!busy} onClick={() => act("accept", () => disputesApi.acceptOffer(caseId), `Accept ${money(c.offerAmount)} and close the case? The rest of the payment goes to the seller.`)}>{busy === "accept" ? "Accepting…" : `Accept ${money(c.offerAmount)}`}</button>
-        <button type="button" className="outline-btn" disabled={!!busy} onClick={() => act("decline", () => disputesApi.declineOffer(caseId), "Decline the offer? MVEC will review the case and decide.")}>Decline, let MVEC decide</button>
+        <button type="button" className="outline-btn" disabled={!!busy} onClick={() => act("decline", () => disputesApi.declineOffer(caseId), "Decline the offer? Ikiguzi will review the case and decide.")}>Decline, let Ikiguzi decide</button>
       </div>
     </div>}
 
@@ -119,7 +119,7 @@ export default function DisputeCase({ caseId, onChanged }) {
       <div ref={endRef} />
     </div>
 
-    {can.reply && <form className="dispute-reply" onSubmit={(e) => { e.preventDefault(); if (!reply.trim()) return; act("reply", () => disputesApi.submitEvidence(caseId, { message: reply.trim() }).then((r) => { setReply(""); return { message: "Sent. Everyone on the case has been told." }; })); }}>
+    {can.reply && <form className="dispute-reply" onSubmit={(e) => { e.preventDefault(); if (!reply.trim()) return; act("reply", () => disputesApi.submitEvidence(caseId, { message: reply.trim() }).then(() => { setReply(""); return { message: "Sent. Everyone on the case has been told." }; })); }}>
       <textarea rows="3" value={reply} onChange={(e) => setReply(e.target.value)} maxLength={2000}
         placeholder={you === "admin" ? "Message both sides (e.g. ask the seller for delivery proof)…" : you === "seller" ? "Your side: delivery proof, what was sent, how you'd like to resolve it…" : "Add details, photos links, or reply to the seller…"} />
       <button type="submit" className="outline-btn" disabled={!!busy || !reply.trim()}>{busy === "reply" ? "Sending…" : "Send"}</button>
@@ -129,7 +129,7 @@ export default function DisputeCase({ caseId, onChanged }) {
     {you === "seller" && !closed && <div className="dispute-actions">
       {can.fullRefund && <button type="button" className="gradient-btn" disabled={!!busy} onClick={() => act("refund", () => disputesApi.fullRefund(caseId), `Refund the buyer ${money(c.held?.gross || c.order.totalAmount)} in full and close the case?`)}>{busy === "refund" ? "Refunding…" : "Refund in full"}</button>}
       {can.offer && <button type="button" className="outline-btn" disabled={!!busy} onClick={() => setOffer((o) => ({ ...o, open: !o.open }))}>Offer a partial refund</button>}
-      {can.escalate && <button type="button" className="outline-btn" disabled={!!busy} onClick={() => act("escalate", () => disputesApi.escalate(caseId), "Ask MVEC to decide this case?")}>Ask MVEC to decide</button>}
+      {can.escalate && <button type="button" className="outline-btn" disabled={!!busy} onClick={() => act("escalate", () => disputesApi.escalate(caseId), "Ask Ikiguzi to decide this case?")}>Ask Ikiguzi to decide</button>}
     </div>}
     {you === "seller" && offer.open && can.offer && <form className="dispute-offer-form" onSubmit={(e) => { e.preventDefault(); act("offer", () => disputesApi.offer(caseId, Number(offer.amount), offer.note).then((r) => { setOffer({ open: false, amount: "", note: "" }); return r; })); }}>
       <label className="field"><span>Refund amount (RWF)</span><input type="number" min="1" max={Math.max(1, (c.held?.gross || c.order.totalAmount) - 1)} value={offer.amount} onChange={(e) => setOffer({ ...offer, amount: e.target.value })} required /></label>
@@ -139,20 +139,20 @@ export default function DisputeCase({ caseId, onChanged }) {
 
     {/* Buyer: other options */}
     {you === "buyer" && !closed && <div className="dispute-actions">
-      {can.escalate && <button type="button" className="outline-btn" disabled={!!busy} onClick={() => act("escalate", () => disputesApi.escalate(caseId), "Ask MVEC to decide? MVEC will review both sides.")}>Ask MVEC to decide</button>}
+      {can.escalate && <button type="button" className="outline-btn" disabled={!!busy} onClick={() => act("escalate", () => disputesApi.escalate(caseId), "Ask Ikiguzi to decide? Ikiguzi will review both sides.")}>Ask Ikiguzi to decide</button>}
       {can.withdraw && <button type="button" className="outline-btn" disabled={!!busy} onClick={() => act("withdraw", () => disputesApi.withdraw(caseId), "Withdraw the report? Use this only if the problem is solved: the seller will be paid as normal.")}>Problem solved: withdraw report</button>}
     </div>}
 
-    {/* MVEC: decide */}
+    {/* Ikiguzi: decide */}
     {can.decide && <form className="dispute-decide" onSubmit={(e) => {
       e.preventDefault();
       const payload = { decision: decision.decision, notes: decision.notes, ...(decision.decision === "SPLIT_SETTLEMENT" ? { buyerRefundAmount: Number(decision.refund), vendorReleaseAmount: Number(decision.release) } : {}) };
       const label = decision.decision === "REFUND_BUYER" ? `refund the buyer ${money(c.held?.gross || c.order.totalAmount)}` : decision.decision === "RELEASE_TO_VENDOR" ? "pay the seller" : `refund ${money(decision.refund)} and release ${money(decision.release)} to the seller`;
       act("decide", () => disputesApi.decide(caseId, payload), `Decide to ${label}? The money moves straight away and both sides are told.`);
     }}>
-      <h4>MVEC decision</h4>
+      <h4>Ikiguzi decision</h4>
       <div className="dispute-choices" role="radiogroup">
-        {[["REFUND_BUYER", "Refund the buyer in full", `${money(c.held?.gross || c.order.totalAmount)} goes back to the buyer.`], ["RELEASE_TO_VENDOR", "Pay the seller", "The seller is paid as if delivered."], ["SPLIT_SETTLEMENT", "Split", "Refund part to the buyer, release part to the seller; MVEC keeps any rest."]].map(([k, l, d]) =>
+        {[["REFUND_BUYER", "Refund the buyer in full", `${money(c.held?.gross || c.order.totalAmount)} goes back to the buyer.`], ["RELEASE_TO_VENDOR", "Pay the seller", "The seller is paid as if delivered."], ["SPLIT_SETTLEMENT", "Split", "Refund part to the buyer, release part to the seller; Ikiguzi keeps any rest."]].map(([k, l, d]) =>
           <label key={k} className={decision.decision === k ? "selected" : ""}><input type="radio" name={`decision-${caseId}`} checked={decision.decision === k} onChange={() => setDecision({ ...decision, decision: k })} /><span><b>{l}</b><small>{d}</small></span></label>)}
       </div>
       {decision.decision === "SPLIT_SETTLEMENT" && <div className="form-row">

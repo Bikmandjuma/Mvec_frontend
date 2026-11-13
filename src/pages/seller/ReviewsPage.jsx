@@ -1,12 +1,13 @@
 import { useMemo, useState } from 'react';
 import SmartTable from '../../components/SmartTable';
 import { reviewsApi } from '../../API/reviews';
-import { PageHead, Loading, Metric, FormModal, dateDMY, useLoader, useNotice } from './shared';
+import { PageHead, Loading, Metric, FormModal, dateDMY, useNotice } from './shared';
+import { useLoader } from '../../lib/useLoader';
 
 const Stars = ({ value }) => <span className="seller-stars" aria-label={`${value} out of 5`}>{'★'.repeat(value)}<i>{'★'.repeat(5 - value)}</i></span>;
 
 export default function ReviewsPage() {
-  const { data, loading, error, reload } = useLoader(() => reviewsApi.getVendorReviews().then(r => r.data || []));
+  const { data, loading, error, reload } = useLoader(['vendor', 'reviews'], () => reviewsApi.getVendorReviews().then(r => r.data || []));
   const [replying, setReplying] = useState(null);
   const notice = useNotice();
 
@@ -46,7 +47,7 @@ export default function ReviewsPage() {
   const actions = r => <button type="button" className="table-action-btn" onClick={() => setReplying(r)}>{r.vendorReply ? 'Edit reply' : 'Reply'}</button>;
 
   return <>
-    <PageHead title="Reviews" desc="See what buyers say about your products and reply publicly. Your reply shows under the review on the product page and the buyer is notified. Moderation stays with MVEC." />
+    <PageHead title="Reviews" desc="See what buyers say about your products and reply publicly. Your reply shows under the review on the product page and the buyer is notified. Moderation stays with Ikiguzi." />
     {notice.banner}
     {loading && !data && <Loading />}
     {error && <div className="form-error">{error}</div>}

@@ -16,10 +16,9 @@ import { extractErrorMessage } from '../API/client';
 import { clearCatalogCache } from '../services/catalogApi';
 import RestrictedOverview from '../components/dashboard/RestrictedOverview';
 import ProductImage from '../components/ProductImage';
-import SmartTable from '../components/SmartTable';
 import { useAuth } from '../context/AuthContext';
 import { STAFF_ROLE_LABEL } from '../data/staffAccess';
-import { money, matches, personName, sellerNextStatuses, StatusPill, titleCase, FormModal } from './seller/shared';
+import { money, matches, personName, StatusPill, FormModal } from './seller/shared';
 import StorePage from './seller/StorePage';
 import SettingsPage from './seller/SettingsPage';
 import TeamPage from './seller/TeamPage';
@@ -33,7 +32,6 @@ import CategoriesPage, { buildCategoryTree } from './seller/CategoriesPage';
 import InventoryPage from './seller/InventoryPage';
 import OrdersPage from './seller/OrdersPage';
 import BulkUpload from './seller/BulkUpload';
-import ManualOrderModal from './seller/ManualOrderModal';
 import { AdvertisementsPage, SubscriptionPage } from './seller/GrowthPages';
 
 function Metric({label,value,icon,sub}){return <div className="metric"><div className="metric-icon"><Icon name={icon}/></div><div><span>{label}</span><strong>{value}</strong><small>{sub}</small></div></div>}
@@ -59,7 +57,7 @@ function SellerOverview(){
   const lowStock=products.filter(p=>Number(p.stockQuantity)<=Number(p.lowStockThreshold||5));
 
   return <>
-    <div className="dash-page-head"><div><span className="eyebrow">SELLER PLATFORM</span><h1>{greeting()}, {user?.fullName?.split(' ')[0]||'Seller'}</h1><p>{user?.isStaff?`You're working in ${user.staffStoreName||'the store'} as ${STAFF_ROLE_LABEL[user.staffRole]||'staff'}. Menus show what your role can access.`:'Everything you need to operate your MVEC store.'}</p></div></div>
+    <div className="dash-page-head"><div><span className="eyebrow">SELLER PLATFORM</span><h1>{greeting()}, {user?.fullName?.split(' ')[0]||'Seller'}</h1><p>{user?.isStaff?`You're working in ${user.staffStoreName||'the store'} as ${STAFF_ROLE_LABEL[user.staffRole]||'staff'}. Menus show what your role can access.`:'Everything you need to operate your Ikiguzi store.'}</p></div></div>
     <div className="metric-grid">
       <Metric label="Products" value={loading?'...':products.length} icon="box" sub="Published catalog"/>
       <Metric label="Low-stock items" value={loading?'...':lowStock.length} icon="bell" sub="Needs attention"/>
@@ -181,7 +179,7 @@ function ProductForm({product,stores=[],onSave,onCancel,saving}){
     })).catch(err=>setError(extractErrorMessage(err)));
   };
 
-  return <div className="product-editor"><div className="editor-head"><div><span className="eyebrow">PRODUCT CATALOG</span><h2>{product?'Edit product':'Add product'}</h2><p>Complete product information before publishing it to the MVEC marketplace.</p></div><button className="outline-btn" type="button" onClick={onCancel}>Cancel</button></div>
+  return <div className="product-editor"><div className="editor-head"><div><span className="eyebrow">PRODUCT CATALOG</span><h2>{product?'Edit product':'Add product'}</h2><p>Complete product information before publishing it to the Ikiguzi marketplace.</p></div><button className="outline-btn" type="button" onClick={onCancel}>Cancel</button></div>
     {error&&<div className="form-error">{error}</div>}
     {notice&&<div className="form-alert success">{notice}</div>}
     <form onSubmit={submit} className="product-form">
@@ -300,8 +298,6 @@ function ProductModule(){
       setEditing(null);
       load();
       navigate('/vendor/products',{replace:true});
-    }catch(err){
-      throw err; // shown inside the product form
     }
     finally{ setSaving(false); }
   };

@@ -29,7 +29,7 @@ export default function ForgotPassword() {
     setMessage('');
 
     if (!email.trim()) {
-      setError('Enter the email or phone number on your MVEC account.');
+      setError('Enter the email or phone number on your Ikiguzi account.');
       return;
     }
 
@@ -142,7 +142,7 @@ export default function ForgotPassword() {
       }
       subtitle={
         step === 1
-          ? 'Enter the email or phone number on your MVEC account. We will send you a 6-digit code.'
+          ? 'Enter the email or phone number on your Ikiguzi account. We will send you a 6-digit code.'
           : step === 2
             ? `Enter the 6-digit code we sent to ${email}.`
             : 'Choose a strong password that you have not used before.'
@@ -180,7 +180,7 @@ export default function ForgotPassword() {
             <div className="security-icon">✉</div>
             <div>
               <strong>Why do we need verification?</strong>
-              <p>MVEC sends a one-time code to your email or phone to make sure you own the account before you change the password. The code expires after 15 minutes.</p>
+              <p>Ikiguzi sends a one-time code to your email or phone to make sure you own the account before you change the password. The code expires after 15 minutes.</p>
             </div>
           </div>
 

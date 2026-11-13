@@ -5,12 +5,13 @@ import { useState } from 'react';
 import DashboardLayout from '../../components/DashboardLayout';
 import SmartTable from '../../components/SmartTable';
 import { adsAdminApi } from '../../API/vendorServices';
-import { PageHead, Loading, Metric, StatusPill, money, useLoader, useNotice } from '../seller/shared';
+import { PageHead, Loading, Metric, StatusPill, money, useNotice } from '../seller/shared';
+import { useLoader } from '../../lib/useLoader';
 
 const TABS = [['PENDING', 'To review'], ['ACTIVE', 'Live'], ['PAUSED', 'Paused'], ['COMPLETED', 'Ended'], ['REJECTED', 'Rejected'], ['ALL', 'All']];
 
 export default function AdvertisingAdmin() {
-  const { data, loading, error, reload } = useLoader(() => adsAdminApi.list({ limit: 200 }).then(r => r.data || []));
+  const { data, loading, error, reload } = useLoader(['admin', 'ads'], () => adsAdminApi.list({ limit: 200 }).then(r => r.data || []));
   const [tab, setTab] = useState('PENDING');
   const [busy, setBusy] = useState('');
   const notice = useNotice();

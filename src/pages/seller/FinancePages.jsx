@@ -4,7 +4,8 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import SmartTable from '../../components/SmartTable';
 import { payoutsApi } from '../../API/payouts';
-import { PageHead, Loading, Metric, StatusPill, money, dateDMY, titleCase, toInputDate, useLoader, useNotice } from './shared';
+import { PageHead, Loading, Metric, StatusPill, money, dateDMY, titleCase, toInputDate, useNotice } from './shared';
+import { useLoader } from '../../lib/useLoader';
 
 export const momoProvider = n => {
   const d = String(n || '').replace(/\D/g, '').replace(/^250/, '0');
@@ -13,7 +14,7 @@ export const momoProvider = n => {
 
 const PAYOUT_TABS = [['ALL', 'All'], ['OPEN', 'In progress', ['PENDING', 'PROCESSING']], ['PAID', 'Paid', ['PAID']], ['CLOSED', 'Rejected / cancelled', ['REJECTED', 'CANCELLED', 'FAILED']]];
 const PAYOUT_STEP = {
-  PENDING: 'Waiting for MVEC review',
+  PENDING: 'Waiting for Ikiguzi review',
   PROCESSING: 'Being sent to your mobile money',
   PAID: 'Sent',
   REJECTED: 'Rejected — the amount is back in your balance',
@@ -22,7 +23,7 @@ const PAYOUT_STEP = {
 };
 
 export function PayoutsPage() {
-  const { data, loading, error, reload } = useLoader(() => Promise.all([payoutsApi.getBalance(), payoutsApi.getHistory()])
+  const { data, loading, error, reload } = useLoader(['vendor', 'payouts'], () => Promise.all([payoutsApi.getBalance(), payoutsApi.getHistory()])
     .then(([b, h]) => ({ summary: b.summary || {}, commissionRate: b.commissionRate, payouts: h.payouts || [] })));
   const notice = useNotice();
   const [form, setForm] = useState(null);
@@ -103,7 +104,7 @@ export function PayoutsPage() {
               {provider && <small className="tiny">Paid to {provider}</small>}
             </label>
             <button className="gradient-btn" type="submit" disabled={busy === 'request' || (s.available || 0) < min}>{busy === 'request' ? 'Requesting…' : 'Request payout'}</button>
-            <p className="tiny">MVEC reviews requests and sends the money, usually within 1 business day. You can cancel while a request is waiting for review.</p>
+            <p className="tiny">Ikiguzi reviews requests and sends the money, usually within 1 business day. You can cancel while a request is waiting for review.</p>
           </form>
         </div>
 
@@ -112,8 +113,8 @@ export function PayoutsPage() {
           <div className="activity-row"><div><b>In escrow</b><small>Paid by buyers, released when they confirm delivery</small></div><strong>{money(s.inEscrow)}</strong></div>
           <div className="activity-row"><div><b>On hold</b><small>Orders with an open dispute</small></div><strong>{money(s.frozen)}</strong></div>
           <div className="activity-row"><div><b>Available</b><small>Released to you, ready to withdraw</small></div><strong>{money(s.available)}</strong></div>
-          {s.collectedBySeller > 0 && <div className="activity-row"><div><b>Collected by you</b><small>Manual orders paid in cash or offline — not in your MVEC balance</small></div><strong>{money(s.collectedBySeller)}</strong></div>}
-          <div className="activity-row"><div><b>MVEC commission</b><small>{data.commissionRate || '5%'} of each released sale</small></div><strong>{money(s.commissionPaid)}</strong></div>
+          {s.collectedBySeller > 0 && <div className="activity-row"><div><b>Collected by you</b><small>Manual orders paid in cash or offline — not in your Ikiguzi balance</small></div><strong>{money(s.collectedBySeller)}</strong></div>}
+          <div className="activity-row"><div><b>Ikiguzi commission</b><small>{data.commissionRate || '5%'} of each released sale</small></div><strong>{money(s.commissionPaid)}</strong></div>
         </div>
       </div>
 
@@ -153,8 +154,8 @@ export function TransactionsPage() {
   const [range, setRange] = useState({ from: daysAgo(30), to: toInputDate(new Date()) });
   const [type, setType] = useState('ALL');
   const params = period === 'ALL' ? {} : period === 'CUSTOM' ? range : { from: daysAgo(Number(period)) };
-  const { data, loading, error } = useLoader(() => Promise.all([payoutsApi.getStatement(params), payoutsApi.getBalance()])
-    .then(([st, b]) => ({ ...st, summary: b.summary || {} })), [period, range.from, range.to]);
+  const { data, loading, error } = useLoader(['vendor', 'statement', period, range.from, range.to], () => Promise.all([payoutsApi.getStatement(params), payoutsApi.getBalance()])
+    .then(([st, b]) => ({ ...st, summary: b.summary || {} })));
 
   const rows = useMemo(() => (data?.entries || [])
     .filter(e => type === 'ALL' || (type === 'CHARGE' ? ['SUBSCRIPTION', 'ADVERTISING', 'ADJUSTMENT'].includes(e.type) : e.type === type))

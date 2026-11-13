@@ -4,7 +4,8 @@ import SmartTable from '../../components/SmartTable';
 import { promotionsApi } from '../../API/promotions';
 import { storesApi } from '../../API/stores';
 import { productsApi } from '../../API/products';
-import { PageHead, Loading, Metric, StatusPill, FormModal, money, dateDMY, toInputDate, useLoader, useNotice } from './shared';
+import { PageHead, Loading, Metric, StatusPill, FormModal, money, dateDMY, toInputDate, useNotice } from './shared';
+import { useLoader } from '../../lib/useLoader';
 
 const TYPES = [['PERCENT', 'Percentage off'], ['FIXED', 'Fixed amount off'], ['FREE_SHIPPING', 'Free shipping']];
 const STATUSES = [['DRAFT', 'Draft'], ['SCHEDULED', 'Scheduled'], ['ACTIVE', 'Active'], ['PAUSED', 'Paused']];
@@ -38,7 +39,7 @@ const toPayload = f => ({
 });
 
 export default function PromotionsPage() {
-  const { data, loading, error, reload } = useLoader(() => promotionsApi.getAll().then(r => r.data || []));
+  const { data, loading, error, reload } = useLoader(['vendor', 'promotions'], () => promotionsApi.getAll().then(r => r.data || []));
   const [editing, setEditing] = useState(null);
   const notice = useNotice();
   const [stores, setStores] = useState([]);

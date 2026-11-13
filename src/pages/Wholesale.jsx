@@ -19,11 +19,11 @@ const itemCount = (o) => (o.items || []).reduce((n, i) => n + (Number(i.quantity
 // label, tone, what it means for the vendor, what it means for the supplier, the vendor's next step in a few words
 const STATUS = {
   PENDING_PAYMENT: ["Waiting for payment", "pending", "Pay within 48 hours or the order expires and the stock is released.", "The vendor has not paid yet. Do not ship.", "Pay within 48 hours"],
-  ESCROW_HELD: ["Paid · MVEC holds the money", "pending", "The supplier has 7 days to ship. You can still cancel for a full refund.", "Paid. Ship within 7 days or the order is cancelled and refunded.", "Waiting for the supplier to ship"],
+  ESCROW_HELD: ["Paid · Ikiguzi holds the money", "pending", "The supplier has 7 days to ship. You can still cancel for a full refund.", "Paid. Ship within 7 days or the order is cancelled and refunded.", "Waiting for the supplier to ship"],
   SHIPPED: ["Shipped", "pending", "Confirm when the goods arrive, or report a problem. After 7 days the supplier is paid automatically.", "Waiting for the vendor to confirm. You are paid automatically after 7 days if no problem is reported.", "Confirm when the goods arrive"],
   DELIVERED: ["Delivered", "pending", "Confirm receipt to pay the supplier.", "Waiting for the vendor to confirm receipt.", "Confirm receipt"],
-  CONFIRMED_RELEASED: ["Completed", "active", "Received. The supplier was paid and the goods are in your inventory.", "Completed. The money (minus MVEC's commission) is in your balance.", "Goods are in your inventory"],
-  DISPUTED: ["Problem reported", "danger", "MVEC is reviewing the problem; the money stays on hold.", "The vendor reported a problem. MVEC will decide; the money stays on hold.", "MVEC is reviewing"],
+  CONFIRMED_RELEASED: ["Completed", "active", "Received. The supplier was paid and the goods are in your inventory.", "Completed. The money (minus Ikiguzi's commission) is in your balance.", "Goods are in your inventory"],
+  DISPUTED: ["Problem reported", "danger", "Ikiguzi is reviewing the problem; the money stays on hold.", "The vendor reported a problem. Ikiguzi will decide; the money stays on hold.", "Ikiguzi is reviewing"],
   CANCELLED: ["Cancelled", "danger", "Cancelled. If you had paid, the money is being refunded.", "Cancelled.", "Nothing to do"],
 };
 // Where an order is on its way from placed to received.
@@ -62,7 +62,7 @@ function ReasonModal({ title, label, hint, confirm, danger, required = 5, onCanc
   </form></div>;
 }
 
-// Vendor pays by mobile money or card; MVEC holds the money until receipt.
+// Vendor pays by mobile money or card; Ikiguzi holds the money until receipt.
 export function PayWholesale({ order, onClose, onPaid }) {
   const [method, setMethod] = useState("momo");
   const [phone, setPhone] = useState("");
@@ -96,7 +96,7 @@ export function PayWholesale({ order, onClose, onPaid }) {
   return <div className="modal-backdrop" onMouseDown={onClose}><form className="modal" onMouseDown={(e) => e.stopPropagation()} onSubmit={submit}>
     <button type="button" className="modal-close" onClick={onClose} aria-label="Close">×</button>
     <span className="eyebrow">PAY WHOLESALE ORDER</span><h2>{money(order.totalAmount)}</h2>
-    <p>{order.orderNumber} · {partyName(order.supplier)}. MVEC holds the money and pays the supplier only after you confirm the goods arrived.</p>
+    <p>{order.orderNumber} · {partyName(order.supplier)}. Ikiguzi holds the money and pays the supplier only after you confirm the goods arrived.</p>
     {error && <div className="form-alert error" role="alert">{error}</div>}
     {waiting ? <div className="form-alert">Approve the prompt on your phone. This page updates when the payment is confirmed…</div> : <>
       <label className={`payment-option ${method === "momo" ? "selected" : ""}`}><input type="radio" name="wh-method" checked={method === "momo"} onChange={() => setMethod("momo")} /><span className="payment-logo" aria-hidden="true">📱</span><span><b>Mobile money</b><small>MTN MoMo or Airtel Money</small></span></label>
@@ -185,12 +185,12 @@ export function WholesaleOrders({ role }) {
 
   return <>
     <Head eyebrow={supplier ? "SUPPLIER · ORDERS" : "VENDOR · PURCHASES"} title={supplier ? "Orders from vendors" : "Purchases"}
-      desc={supplier ? "Ship paid orders within 7 days. You are paid when the vendor confirms receipt (or automatically 7 days after shipping)." : "Stock you buy from suppliers. MVEC holds your payment until you confirm the goods arrived."} action={newPurchase} />
+      desc={supplier ? "Ship paid orders within 7 days. You are paid when the vendor confirms receipt (or automatically 7 days after shipping)." : "Stock you buy from suppliers. Ikiguzi holds your payment until you confirm the goods arrived."} action={newPurchase} />
     <Notice notice={notice} />
     {!loading && rows.length > 0 && <div className="metric-grid">
       <div className="metric"><div className="metric-icon"><Icon name="bell" /></div><div><span>{supplier ? "To ship" : "Needs you"}</span><strong>{stats.toAct}</strong><small>{supplier ? "Paid and waiting" : "To pay or confirm"}</small></div></div>
-      <div className="metric"><div className="metric-icon"><Icon name="wallet" /></div><div><span>Held by MVEC</span><strong>{money(stats.held)}</strong><small>{stats.heldCount} order{stats.heldCount === 1 ? "" : "s"}</small></div></div>
-      <div className="metric"><div className="metric-icon"><Icon name="chart" /></div><div><span>{supplier ? "Completed sales" : "Completed purchases"}</span><strong>{money(stats.done)}</strong><small>Before MVEC's commission</small></div></div>
+      <div className="metric"><div className="metric-icon"><Icon name="wallet" /></div><div><span>Held by Ikiguzi</span><strong>{money(stats.held)}</strong><small>{stats.heldCount} order{stats.heldCount === 1 ? "" : "s"}</small></div></div>
+      <div className="metric"><div className="metric-icon"><Icon name="chart" /></div><div><span>{supplier ? "Completed sales" : "Completed purchases"}</span><strong>{money(stats.done)}</strong><small>Before Ikiguzi's commission</small></div></div>
     </div>}
     <div className="data-card">
       <div className="dlv-tabs admin-tabs" role="tablist" aria-label="Orders">{[["ACTIVE", "In progress"], ["DONE", "Completed & cancelled"]].map(([k, l]) => <button type="button" role="tab" key={k} aria-selected={tab === k} className={tab === k ? "on" : ""} onClick={() => setTab(k)}>{l}</button>)}</div>
@@ -200,8 +200,8 @@ export function WholesaleOrders({ role }) {
     </div>
 
     {paying && <PayWholesale order={paying} onClose={() => setPaying(null)} onPaid={(text) => { setPaying(null); setNotice({ ok: true, text }); load(); }} />}
-    {asking?.kind === "problem" && <ReasonModal title={`Report a problem with ${asking.order.orderNumber}`} label="What is wrong?" hint="MVEC holds the payment while it reviews. Describe what you received and what you expected." confirm="Report problem" required={10}
-      onCancel={() => setAsking(null)} onConfirm={async (reason) => { await wholesaleApi.reportProblem(asking.order._id, reason); setAsking(null); setNotice({ ok: true, text: "Problem reported. MVEC will review it; the payment stays on hold." }); load(); }} />}
+    {asking?.kind === "problem" && <ReasonModal title={`Report a problem with ${asking.order.orderNumber}`} label="What is wrong?" hint="Ikiguzi holds the payment while it reviews. Describe what you received and what you expected." confirm="Report problem" required={10}
+      onCancel={() => setAsking(null)} onConfirm={async (reason) => { await wholesaleApi.reportProblem(asking.order._id, reason); setAsking(null); setNotice({ ok: true, text: "Problem reported. Ikiguzi will review it; the payment stays on hold." }); load(); }} />}
     {asking?.kind === "cancel" && <ReasonModal title={`Cancel ${asking.order.orderNumber}`} label="Why can't you fulfil it? The vendor sees this." hint={asking.order.status === "ESCROW_HELD" ? "The vendor is refunded in full." : "The vendor has not paid yet."} confirm="Cancel order" danger
       onCancel={() => setAsking(null)} onConfirm={async (reason) => { await wholesaleApi.cancel(asking.order._id, reason); setAsking(null); setNotice({ ok: true, text: "Order cancelled. The vendor was told." }); load(); }} />}
     {details && <div className="modal-backdrop" onMouseDown={() => setDetails(null)}><div className="modal seller-modal" onMouseDown={(e) => e.stopPropagation()} role="dialog" aria-label={`Order ${details.orderNumber}`}>
@@ -317,7 +317,7 @@ function QuoteForm({ request, onClose, onSent }) {
     <div className="form-row"><label className="field"><span>Delivery takes (days)</span><input type="number" min="0" max="90" value={days} onChange={(e) => setDays(e.target.value)} required /></label>
       <label className="field"><span>Offer valid for</span><select value={valid} onChange={(e) => setValid(e.target.value)}>{[3, 7, 14, 30].map((d) => <option key={d} value={d}>{d} days</option>)}</select></label></div>
     <label className="field"><span>Note (optional)</span><input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Brand, delivery terms…" /></label>
-    <p className="tiny">Total: <b>{money(total)}</b>. If accepted, the vendor pays MVEC, you ship, and you are paid when they confirm receipt (minus MVEC's wholesale commission).</p>
+    <p className="tiny">Total: <b>{money(total)}</b>. If accepted, the vendor pays Ikiguzi, you ship, and you are paid when they confirm receipt (minus Ikiguzi's wholesale commission).</p>
     <div className="modal-actions"><button type="button" className="outline-btn" onClick={onClose}>Cancel</button><button className="gradient-btn" disabled={busy}>{busy ? "Sending…" : mine ? "Update quote" : "Send quote"}</button></div>
   </form></div>;
 }

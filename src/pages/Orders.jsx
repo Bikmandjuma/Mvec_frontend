@@ -106,7 +106,7 @@ export default function Orders() {
     )}
     {filtered.length > PER_PAGE && <Pagination page={currentPage} setPage={setPage} total={filtered.length} perPage={PER_PAGE} />}
 
-    <div className="verified-box"><b>🔒 Protected payment &amp; delivery</b><p>MVEC holds your payment until you confirm delivery with your code. You can cancel within 30 minutes of paying, before the seller ships. Unpaid orders are cancelled automatically after 30 minutes.</p></div>
+    <div className="verified-box"><b>🔒 Protected payment &amp; delivery</b><p>Ikiguzi holds your payment until you confirm delivery with your code. You can cancel within 30 minutes of paying, before the seller ships. Unpaid orders are cancelled automatically after 30 minutes.</p></div>
     <Link className="gradient-btn" to="/shop">Continue shopping</Link>
   </main></Storefront>;
 }

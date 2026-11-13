@@ -79,7 +79,7 @@ export function VendorAdvertising() {
       });
       setAds((prev) => [res.data.advertisement, ...prev]);
       setForm((f) => ({ ...f, productId: '', budget: '', endDate: '' }));
-      setNotice({ ok: true, text: 'Campaign submitted. It goes live once MVEC approves it.' });
+      setNotice({ ok: true, text: 'Campaign submitted. It goes live once Ikiguzi approves it.' });
     } catch (err) {
       setNotice({ ok: false, text: extractErrorMessage(err) });
     } finally {
@@ -102,7 +102,7 @@ export function VendorAdvertising() {
   };
 
   return <>
-    <div className="dash-page-head"><div><span className="eyebrow">VENDOR · ADVERTISING</span><h1>Advertising</h1><p>Promote your products on the MVEC home page. Campaigns go live after MVEC approval.</p></div></div>
+    <div className="dash-page-head"><div><span className="eyebrow">VENDOR · ADVERTISING</span><h1>Advertising</h1><p>Promote your products on the Ikiguzi home page. Campaigns go live after Ikiguzi approval.</p></div></div>
     <Notice notice={notice} />
     <div className="data-card">
       <h3>New campaign</h3>

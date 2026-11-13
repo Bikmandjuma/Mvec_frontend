@@ -4,7 +4,8 @@ import Icon from '../../components/Icon';
 import Pagination from '../../components/Pagination';
 import { productsApi } from '../../API/products';
 import { storesApi } from '../../API/stores';
-import { PageHead, Loading, EmptyState, Metric, FormModal, money, matches, personName, useLoader, useNotice } from './shared';
+import { PageHead, Loading, EmptyState, Metric, FormModal, money, matches, personName, useNotice } from './shared';
+import { useLoader } from '../../lib/useLoader';
 import useUrlQuery from '../../components/useUrlQuery';
 import { resolveImageUrl } from '../../utils/imageUrl';
 
@@ -46,7 +47,7 @@ function AdjustModal({ product, reasons, onClose, onDone }) {
 }
 
 export default function InventoryPage() {
-  const { data, loading, error, reload } = useLoader(() => Promise.all([
+  const { data, loading, error, reload } = useLoader(['vendor', 'inventory'], () => Promise.all([
     productsApi.getVendorProducts().then(r => r.products || []),
     storesApi.getMyStores().then(r => r.stores || []).catch(() => []),
     productsApi.getStockMovements({ limit: 200 }).catch(() => ({ movements: [], reasons: null })),

@@ -93,7 +93,7 @@ export default function Shop() {
   return <Storefront><main className="catalog-page">
     <div className="catalog-head">
       <div>
-        <span className="eyebrow">MVEC MARKETPLACE</span>
+        <span className="eyebrow">Ikiguzi MARKETPLACE</span>
         <h1>{dealsOnly ? 'Deals' : cat || 'Shop products'}</h1>
         <p>{q ? `Results for “${q}”` : 'Search by name, SKU, brand, category or vendor.'}</p>
       </div>

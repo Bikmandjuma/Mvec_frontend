@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import Icon from '../../components/Icon';
 import { extractErrorMessage } from '../../API/client';
@@ -114,21 +114,6 @@ export function EmptyState({ title, text, action }) {
 
 // Runs an async loader and exposes { data, loading, error, reload, setData }.
 // A 404 is reported through `notFound` so pages can offer a "create" state.
-export function useLoader(load, deps = []) {
-  const [state, setState] = useState({ data: null, loading: true, error: '', notFound: false });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const run = useCallback(load, deps);
-  const reload = useCallback(() => {
-    setState(s => ({ ...s, loading: true, error: '' }));
-    return run()
-      .then(data => setState({ data, loading: false, error: '', notFound: false }))
-      .catch(err => setState({ data: null, loading: false, error: extractErrorMessage(err), notFound: err?.response?.status === 404 }));
-  }, [run]);
-  useEffect(() => { reload(); }, [reload]);
-  const setData = updater => setState(s => ({ ...s, data: typeof updater === 'function' ? updater(s.data) : updater }));
-  return { ...state, reload, setData };
-}
-
 // Brief success / error banner shared by the seller modules.
 export function useNotice() {
   const [notice, setNotice] = useState(null);

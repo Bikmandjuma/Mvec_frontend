@@ -5,7 +5,7 @@ import Pagination from "./Pagination";
 import { ordersApi } from "../API/orders";
 import { payoutsApi } from "../API/payouts";
 import { wholesaleApi } from "../API/wholesale";
-import { client, extractErrorMessage } from "../API/client";
+import { extractErrorMessage } from "../API/client";
 import { useAuth } from "../context/AuthContext";
 import { money } from "../utils/format";
 
@@ -39,10 +39,10 @@ const isCod = (o) => o.paymentMethod === "CASH_ON_DELIVERY" && o.paymentStatus !
 function retailSettlement(o) {
   if (CLOSED.includes(o.orderStatus) || o.paymentStatus === "DISPUTED") return { label: titleCase(o.paymentStatus === "DISPUTED" ? "DISPUTED" : o.orderStatus), tone: "danger", hint: "Not settled" };
   if (isCod(o)) return { label: "Cash on delivery", tone: "warning", hint: "Collect from the buyer" };
-  if (o.paidOffline) return { label: "Paid offline", tone: "active", hint: "Settled outside MVEC" };
+  if (o.paidOffline) return { label: "Paid offline", tone: "active", hint: "Settled outside Ikiguzi" };
   if (o.paymentStatus !== "PAID") return { label: "Awaiting payment", tone: "warning", hint: "Not yet paid" };
   if (DONE.includes(o.orderStatus)) return { label: "Released", tone: "active", hint: "Added to the seller's balance" };
-  return { label: "Held by MVEC", tone: "pending", hint: "Released after delivery" };
+  return { label: "Held by Ikiguzi", tone: "pending", hint: "Released after delivery" };
 }
 
 function normalizeRetail(o, role, userId) {
@@ -78,7 +78,6 @@ function normalizeRetail(o, role, userId) {
     place: pickup ? "Buyer collects from the store" : [address.street, address.sector, address.district || address.city, address.province].filter(Boolean).join(", "),
     eta: parcel?.eta,
     method: titleCase(o.shippingMethod || o.deliveryMethod || "STANDARD"),
-    courier: o.courier,
     amount: role === "vendor" ? (o.vendorSubtotal || 0) + (o.vendorShippingFee || 0) : o.totalAmount,
     status: o.orderStatus,
     date: o.createdAt,
@@ -93,9 +92,7 @@ function normalizeRetail(o, role, userId) {
     held: o.paymentStatus === "PAID" && !o.paidOffline && active,
     link: role === "vendor" ? `/vendor/orders/${idOf(o)}` : role === "admin" ? `/admin/orders/${idOf(o)}` : null,
     next: active && !handedOver && (role === "vendor" || role === "admin") ? next : null,
-    canPickUp: active && !pickup && role === "delivery" && o.orderStatus !== "OUT_FOR_DELIVERY",
-    canAssign: active && role === "admin",
-    canConfirm: active && !handedOver && ["vendor", "admin", "delivery"].includes(role),
+    canConfirm: active && !handedOver && ["vendor", "admin"].includes(role),
   };
 }
 
@@ -128,15 +125,13 @@ function normalizeWholesale(o) {
 const COPY = {
   vendor: ["Delivery & settlement", "Move each paid order to the buyer, then confirm with the buyer's 6-digit code to release your money."],
   supplier: ["Delivery & settlement", "Ship paid wholesale orders. Funds are released when the vendor confirms receipt."],
-  admin: ["Deliveries", "Orders that need action first: stuck on the way, paid but not shipped, or waiting for pickup. Sellers deliver their own orders; assign an MVEC courier here once you have courier accounts."],
-  delivery: ["My deliveries", "Deliveries assigned to you. Ask the buyer for their 6-digit code when you hand over the items."],
+  admin: ["Deliveries", "Orders that need action first: stuck on the way, paid but not shipped, or waiting for pickup. Parcels of stores using Ikiguzi riders are offered to riders automatically."],
 };
 
 export default function DeliveryTracking({ role = "vendor", initialTab = "active" }) {
   const { user } = useAuth();
   const wholesale = role === "supplier";
   const [orders, setOrders] = useState([]);
-  const [couriers, setCouriers] = useState([]);
   const [balance, setBalance] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -152,8 +147,7 @@ export default function DeliveryTracking({ role = "vendor", initialTab = "active
   const load = () => {
     const request = wholesale ? wholesaleApi.getMine()
       : role === "vendor" ? ordersApi.getVendorOrders()
-      : role === "admin" ? ordersApi.getAll()
-      : ordersApi.getDeliverable();
+      : ordersApi.getAll();
     return request
       .then((res) => {
         const list = res.orders || res.data || [];
@@ -166,11 +160,6 @@ export default function DeliveryTracking({ role = "vendor", initialTab = "active
   useEffect(() => {
     load();
     if (role === "vendor") payoutsApi.getBalance().then((res) => setBalance(res.balance || null)).catch(() => {});
-    if (role === "admin") {
-      client.get("/users", { params: { role: "delivery", status: "ACTIVE", limit: 100 } })
-        .then((r) => setCouriers(r.data.data || []))
-        .catch(() => setCouriers([]));
-    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [role, user?.id]);
 
@@ -211,8 +200,6 @@ export default function DeliveryTracking({ role = "vendor", initialTab = "active
   };
 
   const advance = (o, status) => act(o, () => ordersApi.updateVendorOrderStatus({ orderId: o.id, status }), "Updated. The buyer has been notified.");
-  const pickUp = (o) => act(o, () => client.patch(`/orders/${o.id}/out-for-delivery`).then((r) => r.data), "Marked as out for delivery. The buyer has been notified.");
-  const assign = (o, courierId) => act(o, () => client.patch(`/orders/${o.id}/courier`, { courierId: courierId || null }).then((r) => r.data), "Courier updated.");
   const confirm = (o) => {
     const code = (codes[o.id] || "").trim();
     if (code.length !== 6) return;
@@ -233,7 +220,7 @@ export default function DeliveryTracking({ role = "vendor", initialTab = "active
 
     <div className="metric-grid">
       <div className="metric"><div className="metric-icon"><Icon name="box" /></div><div><span>In progress</span><strong>{counts.active}</strong><small>{wholesale ? "Wholesale orders" : "Parcels on the way"}</small></div></div>
-      <div className="metric"><div className="metric-icon"><Icon name="shield" /></div><div><span>Held until delivery</span><strong>{money(heldTotal)}</strong><small>Protected by MVEC</small></div></div>
+      <div className="metric"><div className="metric-icon"><Icon name="shield" /></div><div><span>Held until delivery</span><strong>{money(heldTotal)}</strong><small>Protected by Ikiguzi</small></div></div>
       {role === "vendor" && balance
         ? <>
             <div className="metric"><div className="metric-icon"><Icon name="wallet" /></div><div><span>Available balance</span><strong>{money(balance.availableBalance)}</strong><small><Link to="/vendor/payouts">Withdraw →</Link></small></div></div>
@@ -248,7 +235,7 @@ export default function DeliveryTracking({ role = "vendor", initialTab = "active
     <div className="dlv-howto">
       {(wholesale
         ? [["shield", "Vendor pays", "Funds are locked in escrow."], ["box", "You ship", "Mark the order as shipped."], ["check", "Vendor confirms", "Payment is released to you."]]
-        : [["shield", "Buyer pays", "MVEC holds the money."], ["box", "Parcel delivered", "The buyer shares their 6-digit code."], ["wallet", "Funds released", "The amount moves to the seller's balance."]]
+        : [["shield", "Buyer pays", "Ikiguzi holds the money."], ["box", "Parcel delivered", "The buyer shares their 6-digit code."], ["wallet", "Funds released", "The amount moves to the seller's balance."]]
       ).map(([icon, t, d], i) => <div key={t}><span>{i + 1}</span><Icon name={icon} size={18} /><div><b>{t}</b><small>{d}</small></div></div>)}
     </div>
     {!wholesale && <div className="verified-box settlement-banner"><b>🔒 Protected funds</b><p>Only enter the buyer's code once they have the items in hand. Never accept the code over the phone before delivery.</p></div>}
@@ -278,7 +265,6 @@ export default function DeliveryTracking({ role = "vendor", initialTab = "active
               <small>{o.party}{o.phone ? ` · ${o.phone}` : ""} · {dateDMY(o.date)}</small>
               {o.place && <small>Deliver to: {o.place}</small>}
               {o.sellers && role !== "vendor" && <small>Seller: {o.sellers}</small>}
-              {o.courier && role === "admin" && <small>Courier: {nameOf(o.courier, "Assigned")}</small>}
             </div>
             <div className="dlv-money">
               <strong>{money(o.amount)}</strong>
@@ -289,7 +275,7 @@ export default function DeliveryTracking({ role = "vendor", initialTab = "active
 
           {o.attention && <div className="form-alert error dlv-attention">{o.attention}</div>}
           {o.closed
-            ? <p className="tiny dlv-closed-note">This order is {titleCase(o.raw.paymentStatus === "DISPUTED" ? "DISPUTED" : o.status).toLowerCase()} and will not be delivered{o.raw.paymentStatus === "DISPUTED" ? " until MVEC resolves the dispute" : ""}.</p>
+            ? <p className="tiny dlv-closed-note">This order is {titleCase(o.raw.paymentStatus === "DISPUTED" ? "DISPUTED" : o.status).toLowerCase()} and will not be delivered{o.raw.paymentStatus === "DISPUTED" ? " until Ikiguzi resolves the dispute" : ""}.</p>
             : <ol className="dlv-steps" style={{ "--steps": o.steps.length }}>
                 {o.steps.map((s, i) => <li key={s} className={i < o.step || (o.done && i === o.step) ? "done" : i === o.step ? "now" : ""}>
                   <i>{i < o.step || (o.done && i === o.step) ? <Icon name="check" size={12} /> : i + 1}</i>
@@ -302,13 +288,8 @@ export default function DeliveryTracking({ role = "vendor", initialTab = "active
             {o.eta && <span><Icon name="bell" size={14} />Promised: {o.eta}</span>}
           </div>}
 
-          {(o.next || o.canPickUp || (o.canAssign && couriers.length > 0)) && <div className="dlv-otp">
+          {o.next && <div className="dlv-otp">
             {o.next && <button type="button" className="outline-btn" disabled={busy} onClick={() => advance(o, o.next[0])}>{busy ? "Saving…" : o.next[1]}</button>}
-            {o.canPickUp && <button type="button" className="outline-btn" disabled={busy} onClick={() => pickUp(o)}>Picked up · out for delivery</button>}
-            {o.canAssign && couriers.length > 0 && <select className="inline-table-input" aria-label={`Courier for ${o.number}`} value={idOf(o.courier) === "null" ? "" : idOf(o.courier)} onChange={(e) => assign(o, e.target.value)} disabled={busy}>
-              <option value="">{couriers.length ? "Assign a courier…" : "No courier accounts yet"}</option>
-              {couriers.map((c) => <option key={c.id} value={String(c.id)}>{c.Fullname || c.fullName || c.phone}</option>)}
-            </select>}
           </div>}
 
           {o.canConfirm && <div className="dlv-otp">

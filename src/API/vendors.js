@@ -18,7 +18,7 @@ export const vendorsApi = {
     client.get("/vendors/me/profile").then((r) => r.data),
   updateMyProfile: (payload) =>
     client.patch("/vendors/me/profile", payload).then((r) => r.data),
-  // MVEC's commission for this seller in every category.
+  // Ikiguzi's commission for this seller in every category.
   getMyFees: () =>
     client.get("/vendors/me/fees").then((r) => r.data),
 };

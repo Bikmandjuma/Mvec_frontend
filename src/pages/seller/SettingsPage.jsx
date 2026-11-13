@@ -5,7 +5,8 @@ import { vendorsApi } from '../../API/vendors';
 import { useAuth } from '../../context/AuthContext';
 import CategorySelect from '../../components/CategorySelect';
 import { payoutsApi } from '../../API/payouts';
-import { PageHead, Loading, StatusPill, useLoader, useNotice } from './shared';
+import { PageHead, Loading, StatusPill, useNotice } from './shared';
+import { useLoader } from '../../lib/useLoader';
 
 const SHORTCUTS = [
   ['/vendor/stores', 'Storefront', 'Logo, description and store contact details', 'shop'],
@@ -20,7 +21,7 @@ export default function SettingsPage() {
   const { refresh } = useAuth();
   const [fees, setFees] = useState(null);
   useEffect(() => { vendorsApi.getMyFees().then(setFees).catch(() => setFees(null)); }, []);
-  const { data, loading, error, notFound, setData } = useLoader(() =>
+  const { data, loading, error, notFound, setData } = useLoader(['vendor', 'settings'], () =>
     Promise.all([vendorsApi.getMyProfile(), payoutsApi.getBalance().catch(() => null)])
       .then(([p, b]) => ({ vendor: p.vendor, commissionRate: b?.commissionRate })));
   const [form, setForm] = useState({ businessName: '', category: '', email: '', phone: '', location: '', description: '' });
@@ -49,7 +50,7 @@ export default function SettingsPage() {
   return <>
     <PageHead title="Settings" desc="Business profile, verification status and shortcuts to every store setting." />
     {notice.banner}
-    {vendor?.verificationStatus === 'REJECTED' && <div className="form-alert error"><b>MVEC asked for changes:</b> {vendor.verificationNote || 'Check your business details.'} Save your profile to send it back for review.</div>}
+    {vendor?.verificationStatus === 'REJECTED' && <div className="form-alert error"><b>Ikiguzi asked for changes:</b> {vendor.verificationNote || 'Check your business details.'} Save your profile to send it back for review.</div>}
     {loading && <Loading />}
     {!loading && error && <div className="form-error">{notFound ? 'No business profile yet. Create your store first from My Store.' : error}</div>}
     {!loading && vendor && <div className="dash-grid">
@@ -67,14 +68,14 @@ export default function SettingsPage() {
       </form>
       <div>
         <div className="data-card">
-          <div className="data-card-head"><div><h3>Account status</h3><span>Managed by MVEC</span></div></div>
+          <div className="data-card-head"><div><h3>Account status</h3><span>Managed by Ikiguzi</span></div></div>
           <div className="seller-kv"><span>Account</span><StatusPill value={vendor.status || 'ACTIVE'} /></div>
           <div className="seller-kv"><span>Verification</span><StatusPill value={vendor.verificationStatus || 'PENDING'} /></div>
-          <div className="seller-kv"><span>MVEC commission</span><b>{fees ? `${fees.defaultPercent}% unless your category differs` : data.commissionRate || '—'}</b></div>
+          <div className="seller-kv"><span>Ikiguzi commission</span><b>{fees ? `${fees.defaultPercent}% unless your category differs` : data.commissionRate || '—'}</b></div>
           <div className="seller-kv"><span>Rating</span><b>{Number(vendor.ratingAvg || 0).toFixed(1)} / 5</b></div>
         </div>
         {fees && fees.categories.some(c => c.percent !== fees.defaultPercent) && <div className="data-card">
-          <div className="data-card-head"><div><h3>Your MVEC commission by category</h3><span>Taken from each sale when the buyer pays. Payment provider fees are paid by {fees.gatewayFeePayer === 'SELLER' ? 'you' : 'MVEC'}.</span></div></div>
+          <div className="data-card-head"><div><h3>Your Ikiguzi commission by category</h3><span>Taken from each sale when the buyer pays. Payment provider fees are paid by {fees.gatewayFeePayer === 'SELLER' ? 'you' : 'MVEC'}.</span></div></div>
           {fees.categories.filter(c => c.percent !== fees.defaultPercent).map(c => <div className="seller-kv" key={c.categoryId}><span>{c.category}<small className="block-small">{c.source}</small></span><b>{c.percent}%</b></div>)}
           <div className="seller-kv"><span>Every other category</span><b>{fees.defaultPercent}%</b></div>
         </div>}

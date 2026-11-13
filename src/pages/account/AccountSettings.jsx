@@ -19,7 +19,7 @@ const NOTIFY = [
   ['orders', 'Orders & deliveries', 'New orders, status changes and delivery updates'],
   ['payouts', 'Money', 'Payments, payouts, refunds and charges'],
   ['messages', 'Messages', 'Buyer, seller and support conversations'],
-  ['marketing', 'Tips & offers', 'Product news and promotions from MVEC'],
+  ['marketing', 'Tips & offers', 'Product news and promotions from Ikiguzi'],
 ];
 const CHANNELS = [['email', 'Email'], ['sms', 'SMS']];
 const LANGUAGES = [['en', 'English'], ['rw', 'Kinyarwanda'], ['fr', 'Français']];
@@ -96,7 +96,7 @@ function ProfileTab({ notice }) {
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  useEffect(() => { setForm(initial); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [user.id]);
+  useEffect(() => { setForm(initial);   }, [user.id]);
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const normPhone = p => String(p || '').replace(/\D/g, '').replace(/^250/, '0');
@@ -122,7 +122,7 @@ function ProfileTab({ notice }) {
   };
 
   return <form className="data-card account-card" onSubmit={save}>
-    <div className="data-card-head"><div><h3>Personal details</h3><span>How you appear across MVEC</span></div></div>
+    <div className="data-card-head"><div><h3>Personal details</h3><span>How you appear across Ikiguzi</span></div></div>
     {error && <div className="form-error">{error}</div>}
     <div className="seller-form-grid">
       <label className="field"><span>Full name *</span><input value={form.fullName} onChange={e => set('fullName', e.target.value)} required minLength={2} /></label>
@@ -166,7 +166,7 @@ function SecurityTab({ notice }) {
     finally { setBusy(''); }
   };
   const logoutAll = async () => {
-    if (!window.confirm('Sign out of MVEC on every other phone and computer? You stay signed in here.')) return;
+    if (!window.confirm('Sign out of Ikiguzi on every other phone and computer? You stay signed in here.')) return;
     setBusy('all');
     try { const res = await authApi.logoutAll(); replaceToken(res.token); notice.success(res.message); }
     catch (err) { notice.fail(err); }
@@ -194,11 +194,11 @@ function SecurityTab({ notice }) {
     </div>
 
     <div className="data-card account-card">
-      <div className="data-card-head"><div><h3>Account</h3><span>Details managed by MVEC</span></div></div>
+      <div className="data-card-head"><div><h3>Account</h3><span>Details managed by Ikiguzi</span></div></div>
       <div className="activity-row"><div><b>Account type</b><small>{user.isStaff ? `Staff login for ${user.staffStoreName || 'a store'}` : 'Your own account'}</small></div><strong>{user.isStaff ? STAFF_ROLE_LABEL[user.staffRole] : ROLE_LABEL[user.role] || user.role}</strong></div>
       <div className="activity-row"><div><b>Sign-in methods</b><small>How you can sign in</small></div><strong>{[user.hasPassword && 'Password', user.googleLinked && 'Google'].filter(Boolean).join(' · ') || '—'}</strong></div>
       {user.createdAt && <div className="activity-row"><div><b>Member since</b><small>Account created</small></div><strong>{dateDMY(user.createdAt)}</strong></div>}
-      <div className="activity-row"><div><b>Status</b><small>Contact MVEC support if this looks wrong</small></div><StatusPill value="ACTIVE" /></div>
+      <div className="activity-row"><div><b>Status</b><small>Contact Ikiguzi support if this looks wrong</small></div><StatusPill value="ACTIVE" /></div>
       {user.isStaff && <p className="tiny">Your store access is managed by the store owner from Team / Staff.</p>}
     </div>
   </>;
@@ -285,7 +285,7 @@ function PreferencesTab({ notice }) {
 
   return <>
     <div className="data-card account-card">
-      <div className="data-card-head"><div><h3>Notifications</h3><span>What MVEC tells you about. Important security and account messages are always sent.</span></div></div>
+      <div className="data-card-head"><div><h3>Notifications</h3><span>What Ikiguzi tells you about. Important security and account messages are always sent.</span></div></div>
       {NOTIFY.map(([k, label, help]) => <label className="account-toggle" key={k}>
         <span><b>{label}</b><small>{help}</small></span>
         <input type="checkbox" checked={prefs.notifications?.[k] !== false} disabled={busy} onChange={e => save({ notifications: { [k]: e.target.checked } })} />

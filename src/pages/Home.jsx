@@ -38,7 +38,7 @@ export default function Home() {
   }, []);
 
   // Paid placements: the hero and the scrolling strip only ever show
-  // products whose ad campaign an MVEC admin approved and that is live now.
+  // products whose ad campaign an Ikiguzi admin approved and that is live now.
   // Newly added products appear in their category, Popular, Deals and Shop.
   const [heroAds, setHeroAds] = useState([]);
   const [featuredAds, setFeaturedAds] = useState([]);
@@ -68,12 +68,9 @@ export default function Home() {
   const heroProducts = heroAds.slice(0, 6);
   const deals = products.filter((p) => p.oldPrice > p.price && p.stock > 0);
   const bannerProducts = (deals.length ? deals : products).slice(0, 4);
-  // Only categories that actually have products get a home-page section.
-  const categoryNames = catalog.categories.map((c) => (typeof c === "string" ? c : c.name)).filter(Boolean);
-  const populatedCategories = categoryNames.filter((c) => products.some((p) => p.category === c));
   const loading = status === "loading";
   // Vendors go straight to campaigns; guests sign up as a vendor; anyone
-  // else signed in can ask MVEC support about advertising.
+  // else signed in can ask Ikiguzi support about advertising.
   const advertiseLink = user?.role === "vendor" ? "/vendor/advertisements" : user ? "/buyer/support" : "/signup";
   const sellerHome = { vendor: "/vendor", supplier: "/supplier", affiliate: "/affiliate", super_admin: "/admin" }[user?.role];
 
@@ -82,7 +79,7 @@ export default function Home() {
       <main className="home-page">
         <section className="hero-market hero-modern">
           <div className="hero-copy hero-enter-left">
-            <span className="eyebrow">MVEC MARKETPLACE</span>
+            <span className="eyebrow">Ikiguzi MARKETPLACE</span>
             <h1 className="hero-animated-title">
               <span>Shop.</span> <span>Sell.</span>
               <br />
@@ -204,7 +201,7 @@ export default function Home() {
         {bannerProducts.length > 0 && (
           <section className="visual-banner">
             <div>
-              <span className="eyebrow">MVEC DEAL DAYS</span>
+              <span className="eyebrow">Ikiguzi DEAL DAYS</span>
               <h2>
                 More products.
                 <br />

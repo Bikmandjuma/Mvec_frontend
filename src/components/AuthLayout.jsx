@@ -4,13 +4,13 @@ export default function AuthLayout({ title, subtitle, children }) {
   return (
     <main className="alibaba-auth-page">
       <header className="alibaba-header">
-        <Link to="/" className="mvec-logo">MVEC</Link>
+        <Link to="/" className="mvec-logo">Ikiguzi</Link>
         <ThemeToggle className="auth-theme-toggle"/>
       </header>
 
       <section className="alibaba-auth-content">
         <div className="promo-panel">
-          <div className="promo-label">MVEC MARKETPLACE</div>
+          <div className="promo-label">Ikiguzi MARKETPLACE</div>
           <h1>Smart shopping<br />starts here.</h1>
           <p>Discover products from trusted vendors, all in one place.</p>
 
@@ -20,7 +20,7 @@ export default function AuthLayout({ title, subtitle, children }) {
             <div className="shopping-box">
               <div className="box-handle" />
               <div className="box-face">
-                <strong>MVEC</strong>
+                <strong>Ikiguzi</strong>
                 <span>SHOP • SELL • GROW</span>
               </div>
             </div>

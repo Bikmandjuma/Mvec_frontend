@@ -242,7 +242,7 @@ export default function VendorNetwork() {
       {loading && <div className="empty-state"><h3>Loading suppliers…</h3></div>}
       {!loading && !rows.length && <div className="data-card empty-state">
         <h3>{q ? "No suppliers match your search" : "No verified suppliers yet"}</h3>
-        <p>{q ? "Try a different name or location." : "Verified suppliers will appear here as they join MVEC."}</p>
+        <p>{q ? "Try a different name or location." : "Verified suppliers will appear here as they join Ikiguzi."}</p>
       </div>}
       {!loading && rows.length > 0 && (
         <div className="b2b-grid">
@@ -255,10 +255,10 @@ export default function VendorNetwork() {
                   <h3>{s.businessName}</h3>
                   <span className="tiny">{locationOf(s)}</span>
                 </div>
-                <em className="status active" title="Verified by MVEC">✓</em>
+                <em className="status active" title="Verified by Ikiguzi">✓</em>
               </div>
               <Rating value={s.ratingAvg} />
-              <p className="b2b-card-desc">{s.description || "Wholesale supplier on MVEC."}</p>
+              <p className="b2b-card-desc">{s.description || "Wholesale supplier on Ikiguzi."}</p>
               <div className="b2b-card-actions">
                 <button type="button" className="gradient-btn" onClick={() => { setError(""); setOpen(s); }}><Icon name="box" size={16} />View catalog</button>
                 <button type="button" className="outline-btn" title="Message supplier" disabled={contacting === id} onClick={() => contactSupplier(s)}>
@@ -270,7 +270,7 @@ export default function VendorNetwork() {
         </div>
       )}
       {filtered.length > perPage && <Pagination page={safePage} setPage={setPage} total={filtered.length} perPage={perPage} />}
-      <div className="verified-box"><b>✓ B2B trust</b><p>Every supplier here is verified by MVEC. Minimum order quantities and stock are checked when you order, and your payment stays in escrow until you confirm the delivery.</p></div>
+      <div className="verified-box"><b>✓ B2B trust</b><p>Every supplier here is verified by Ikiguzi. Minimum order quantities and stock are checked when you order, and your payment stays in escrow until you confirm the delivery.</p></div>
       {open && <CatalogModal supplier={open} onClose={() => setOpen(null)} onMessage={contactSupplier} messaging={contacting === idOf(open)} messageError={error} />}
     </DashboardLayout>
   );

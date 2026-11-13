@@ -12,7 +12,7 @@ export default function Cart() {
   const [busyId, setBusyId] = useState('');
 
   const subtotal = cart.reduce((s, x) => s + (Number(x.price) || 0) * (x.qty || 1), 0);
-  const grouped = cart.reduce((acc, x) => { (acc[x.vendor || 'MVEC Seller'] ??= []).push(x); return acc; }, {});
+  const grouped = cart.reduce((acc, x) => { (acc[x.vendor || 'Ikiguzi Seller'] ??= []).push(x); return acc; }, {});
   const unavailable = cart.filter((x) => (x.status && x.status !== 'ACTIVE') || (Number.isFinite(x.stock) && x.stock <= 0));
   const overStock = cart.filter((x) => Number(x.stock) > 0 && x.qty > x.stock);
   const blocked = unavailable.length > 0 || overStock.length > 0;
@@ -65,7 +65,7 @@ export default function Cart() {
         <div className="grand"><span>Subtotal</span><strong>{money(subtotal)}</strong></div>
         <button type="button" className="gradient-btn full" disabled={blocked} onClick={() => navigate('/checkout')}>Proceed to checkout</button>
         {blocked && <p className="tiny danger-text">Fix the highlighted items to continue.</p>}
-        <p className="tiny">Your payment is held by MVEC until you confirm delivery.</p>
+        <p className="tiny">Your payment is held by Ikiguzi until you confirm delivery.</p>
       </aside>
     </div>}
   </main></Storefront>;

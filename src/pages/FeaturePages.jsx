@@ -19,7 +19,6 @@ import {WholesaleOrders} from './Wholesale';
 
 const money=n=>new Intl.NumberFormat('en-RW').format(Number(n)||0)+' RWF';
 const dateDMY=d=>d?new Date(d).toLocaleDateString('en-GB'):'—';
-const titleCaseText=s=>String(s||'').toLowerCase().replace(/_/g,' ').replace(/^./,c=>c.toUpperCase());
 
 function Header({eyebrow,title,desc,action}){return <div className="dash-page-head"><div><span className="eyebrow">{eyebrow}</span><h1>{title}</h1><p>{desc}</p></div>{action}</div>}
 function Metric({label,value,sub,icon='chart'}){return <div className="metric"><div className="metric-icon"><Icon name={icon}/></div><div><span>{label}</span><strong>{value}</strong><small>{sub}</small></div></div>}
@@ -27,21 +26,21 @@ function SettingCard({title,desc,children}){return <div className="data-card"><h
 
 const moduleConfig={
  vendor:{
-  support:['support','MVEC Support','Contact MVEC directly about payments, delivery, orders or marketplace issues.'],
+  support:['support','Ikiguzi Support','Contact Ikiguzi directly about payments, delivery, orders or marketplace issues.'],
   purchases:['purchases','Purchases','Track stock purchased from suppliers and supplier order history.'],
   refunds:['refunds','Refunds','Review buyer refund requests and their evidence.'],
   messages:['messages','Messages','Keep buyer and supplier conversations organized.']
  },
  supplier:{
-  support:['support','MVEC Support','Contact MVEC directly about payments, delivery, supply orders or marketplace issues.'],
+  support:['support','Ikiguzi Support','Contact Ikiguzi directly about payments, delivery, supply orders or marketplace issues.'],
   transactions:['transactions','Transactions','Every supplier payment and settlement has an auditable record.'],
   messages:['messages','Messages','Communicate with vendors about products and deliveries.'],
   reviews:['reviews','Reviews','Review supplier feedback and reliability indicators.']
  },
- delivery:{support:['support','MVEC Support','Contact MVEC about deliveries, pickups or your account.']},
- affiliate:{support:['support','MVEC Support','Contact MVEC directly about payments, delivery, commissions or marketplace issues.'],fraud:['fraud','Fraud Protection','Review flagged clicks, self-referrals and suspicious conversions.']},
+ delivery:{support:['support','Ikiguzi Support','Contact Ikiguzi about deliveries, pickups or your account.']},
+ affiliate:{support:['support','Ikiguzi Support','Contact Ikiguzi directly about payments, delivery, commissions or marketplace issues.'],fraud:['fraud','Fraud Protection','Review flagged clicks, self-referrals and suspicious conversions.']},
  admin:{
-  support:['support','MVEC Support','Contact MVEC directly about platform issues and escalations.'],
+  support:['support','Ikiguzi Support','Contact Ikiguzi directly about platform issues and escalations.'],
   payments:['payments','Payments','Monitor payment confirmations and protected settlement states.'],
   refunds:['refunds','Refunds','Review marketplace refund requests and financial return records.'],
   advertising:['advertising','Advertising','Manage sponsored products, campaigns and marketplace placements.'],
@@ -49,7 +48,7 @@ const moduleConfig={
   languages:['languages','Languages','Manage multilingual marketplace content and language availability.'],
   locations:['locations','Locations','Manage Rwanda provinces, districts, sectors and delivery rules.'],
   security:['security','Security','Review platform security controls and role permissions.'],
-  audit:['audit-logs','Audit Logs','Trace important changes and financial events across MVEC.'],
+  audit:['audit-logs','Audit Logs','Trace important changes and financial events across Ikiguzi.'],
   notifications:['notifications','Notifications','Monitor marketplace notifications and delivery status messages.'],
   recommendations:['recommendations','Recommendations','Manage product recommendation signals and rules.'],
   matching:['matching','Supplier Matching','Help vendors discover suppliers using transparent matching signals.'],
@@ -68,14 +67,14 @@ function SupplierLiveModule({type}){
 
 
 const DISPUTE_REASON={ITEM_NOT_RECEIVED:'Item not received',DAMAGED_GOODS:'Damaged goods',WRONG_ITEM:'Wrong item',INCOMPLETE_ORDER:'Incomplete order',SLA_BREACH:'Late delivery',OTHER:'Other'};
-const DISPUTE_STATUS={OPEN:['Waiting for seller','warning'],EVIDENCE_SUBMITTED:['Seller responded','pending'],UNDER_REVIEW:['MVEC deciding','pending'],RESOLVED_BUYER_REFUNDED:['Buyer refunded','danger'],RESOLVED_VENDOR_RELEASED:['Seller paid','active'],RESOLVED_SPLIT:['Split','active'],REJECTED:['Rejected','danger'],WITHDRAWN:['Withdrawn by buyer','active']};
+const DISPUTE_STATUS={OPEN:['Waiting for seller','warning'],EVIDENCE_SUBMITTED:['Seller responded','pending'],UNDER_REVIEW:['Ikiguzi deciding','pending'],RESOLVED_BUYER_REFUNDED:['Buyer refunded','danger'],RESOLVED_VENDOR_RELEASED:['Seller paid','active'],RESOLVED_SPLIT:['Split','active'],REJECTED:['Rejected','danger'],WITHDRAWN:['Withdrawn by buyer','active']};
 const disputeOpen=s=>['OPEN','UNDER_REVIEW','EVIDENCE_SUBMITTED'].includes(s);
 function DisputeStatus({value}){const s=DISPUTE_STATUS[value];return <em className={'status '+(s?.[1]||'warning')}>{s?.[0]||value}</em>}
 
 function DisputesList({role}){
  const admin=role==='admin';
  const [rows,setRows]=useState([]);const [loading,setLoading]=useState(true);const [error,setError]=useState('');
- const [open,setOpen]=useState(null);const [reply,setReply]=useState('');const [sending,setSending]=useState(false);const [notice,setNotice]=useState('');
+ const [open,setOpen]=useState(null);
  const load=()=>(admin?disputesApi.getAll({pageSize:100}):disputesApi.getMine()).then(res=>{setRows(res.data||[]);setError('')}).catch(err=>setError(extractErrorMessage(err))).finally(()=>setLoading(false));
  useEffect(()=>{load()},[]);// eslint-disable-line react-hooks/exhaustive-deps
  const caseParam=new URLSearchParams(useLocation().search).get('case');
@@ -83,11 +82,6 @@ function DisputesList({role}){
  const active=rows.filter(r=>disputeOpen(r.status));
  const atStake=active.reduce((n,r)=>n+(Number(r.disputedAmount)||0),0);
  const needsReply=active.filter(r=>r.status==='OPEN').length;
- const respond=async()=>{
-  if(!reply.trim())return;setSending(true);setError('');
-  try{await disputesApi.submitEvidence(open._id||open.id,{message:reply.trim()});setNotice(`Your response to ${open.disputeNumber} was sent to MVEC.`);setOpen(null);setReply('');await load()}
-  catch(err){setError(extractErrorMessage(err))}finally{setSending(false)}
- };
  const columns=[
   {key:'disputeNumber',label:'Case',render:r=><div><b>{r.disputeNumber}</b><small className="tiny seller-block">{dateDMY(r.createdAt)}</small></div>},
   {key:'order',label:'Order',render:r=>r.order?.orderNumber||'—'},
@@ -97,17 +91,16 @@ function DisputesList({role}){
   {key:'status',label:'Status',render:r=><DisputeStatus value={r.status}/>}
  ];
  const actions=r=><span className="row-actions">
-  {disputeOpen(r.status)&&<button type="button" className="table-action-btn primary" onClick={()=>{setOpen(r);setReply('')}}>{admin?(r.status==='UNDER_REVIEW'?'Decide':'Open case'):'Respond'}</button>}
-  <button type="button" title="View case" onClick={()=>{setOpen(r);setReply('')}}><Icon name="eye" size={16}/></button>
+  {disputeOpen(r.status)&&<button type="button" className="table-action-btn primary" onClick={()=>setOpen(r)}>{admin?(r.status==='UNDER_REVIEW'?'Decide':'Open case'):'Respond'}</button>}
+  <button type="button" title="View case" onClick={()=>setOpen(r)}><Icon name="eye" size={16}/></button>
  </span>;
- return <><Header eyebrow={`${role.toUpperCase()} · REFUNDS`} title="Refunds & disputes" desc={admin?'Review reported problems, evidence and their resolution.':'Problems buyers reported with your orders. Respond with your side so MVEC can resolve them fairly.'}/>
+ return <><Header eyebrow={`${role.toUpperCase()} · REFUNDS`} title="Refunds & disputes" desc={admin?'Review reported problems, evidence and their resolution.':'Problems buyers reported with your orders. Respond with your side so Ikiguzi can resolve them fairly.'}/>
   {error&&<div className="form-error">{error}</div>}
-  {notice&&<div className="form-alert success">{notice}</div>}
   {!loading&&rows.length>0&&<div className="metric-grid">
    <Metric icon="bell" label="Open cases" value={active.length} sub={`${rows.length} in total`}/>
    <Metric icon="edit" label={admin?'Awaiting evidence':'Need your response'} value={needsReply} sub="Not yet answered"/>
    <Metric icon="shield" label="Amount at stake" value={money(atStake)} sub="Held until resolved"/>
-   <Metric icon="check" label="Resolved" value={rows.length-active.length} sub="Closed by MVEC"/>
+   <Metric icon="check" label="Resolved" value={rows.length-active.length} sub="Closed by Ikiguzi"/>
   </div>}
   <div className="data-card">{loading&&<div className="empty-state"><h3>Loading…</h3></div>}
    {!loading&&!error&&!rows.length&&<div className="empty-state"><h3>No refund requests</h3><p>{admin?'Disputes raised by buyers will appear here.':'Good news: no buyer has reported a problem with your orders.'}</p></div>}
@@ -143,7 +136,7 @@ function SupportModule({role}){
  const [cases,setCases]=useState([]);const [loading,setLoading]=useState(true);
  const [open,setOpen]=useState(null);const [reply,setReply]=useState('');const [replying,setReplying]=useState(false);
  const load=()=>supportApi.listCases({pageSize:50}).then(res=>setCases(res.cases||[])).catch(err=>setError(extractErrorMessage(err))).finally(()=>setLoading(false));
- useEffect(()=>{load()},[]);// eslint-disable-line react-hooks/exhaustive-deps
+ useEffect(()=>{load()},[]); 
  const update=e=>setForm(f=>({...f,[e.target.name]:e.target.value}));
  const submit=async e=>{
   e.preventDefault();if(!form.subject.trim()||!form.description.trim())return;
@@ -151,7 +144,7 @@ function SupportModule({role}){
   try{
    const description=form.reference.trim()?`Reference: ${form.reference.trim()}\n\n${form.description.trim()}`:form.description.trim();
    const res=await supportApi.createCase({subject:form.subject.trim(),category:form.category,priority:form.priority,description});
-   setNotice(`Ticket ${res.case?.ticketNumber||''} created. MVEC support will reply here.`);setForm(blank);await load();
+   setNotice(`Ticket ${res.case?.ticketNumber||''} created. Ikiguzi support will reply here.`);setForm(blank);await load();
   }catch(err){setError(extractErrorMessage(err))}finally{setSending(false)}
  };
  const view=c=>{setReply('');setOpen(c);supportApi.getCaseById(c._id||c.id).then(res=>setOpen(res.case||c)).catch(()=>{})};
@@ -167,7 +160,7 @@ function SupportModule({role}){
   {key:'comments',label:'Replies',render:c=>c.comments?.length||0},
   {key:'status',label:'Status',render:c=><CaseStatus value={c.status}/>}
  ];
- return <><Header eyebrow={`${role.toUpperCase()} · SUPPORT`} title="MVEC Support" desc="Contact the MVEC team about payments, deliveries, orders or your account, and follow every request here."/>
+ return <><Header eyebrow={`${role.toUpperCase()} · SUPPORT`} title="Ikiguzi Support" desc="Contact the Ikiguzi team about payments, deliveries, orders or your account, and follow every request here."/>
   {notice&&<div className="form-alert success">{notice}</div>}
   {error&&<div className="form-error">{error}</div>}
   <div className="dash-grid support-grid">
@@ -175,17 +168,17 @@ function SupportModule({role}){
     <h3>New request</h3>
     <div className="seller-form-grid">
      <label className="field"><span>Subject *</span><input name="subject" value={form.subject} onChange={update} required placeholder="e.g. Payout not received"/></label>
-     <label className="field half"><span>Topic</span><select name="category" value={form.category} onChange={update}>{SUPPORT_CATEGORIES.map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></label>{role==='buyer'&&form.category==='ORDER'&&<p className="tiny field-note">Problem with a specific order? Open it in <Link to="/orders">My orders</Link> and choose Report a problem. The seller and MVEC both receive it, and the payment stays on hold until it's resolved.</p>}
+     <label className="field half"><span>Topic</span><select name="category" value={form.category} onChange={update}>{SUPPORT_CATEGORIES.map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></label>{role==='buyer'&&form.category==='ORDER'&&<p className="tiny field-note">Problem with a specific order? Open it in <Link to="/orders">My orders</Link> and choose Report a problem. The seller and Ikiguzi both receive it, and the payment stays on hold until it's resolved.</p>}
      <label className="field half"><span>Urgency</span><select name="priority" value={form.priority} onChange={update}><option value="LOW">Low</option><option value="MEDIUM">Normal</option><option value="HIGH">High</option><option value="URGENT">Urgent: money or orders blocked</option></select></label>
      <label className="field"><span>Order or transaction ID</span><input name="reference" value={form.reference} onChange={update} placeholder="Optional"/></label>
      <label className="field"><span>Message *</span><textarea name="description" rows="5" value={form.description} onChange={update} required placeholder="Describe the issue and what you've already tried…"/></label>
     </div>
-    <div className="support-actions"><button className="gradient-btn" type="submit" disabled={sending||!form.subject.trim()||!form.description.trim()}>{sending?'Sending…':'Send to MVEC'}</button></div>
+    <div className="support-actions"><button className="gradient-btn" type="submit" disabled={sending||!form.subject.trim()||!form.description.trim()}>{sending?'Sending…':'Send to Ikiguzi'}</button></div>
    </form>
    <div className="data-card">
     <div className="data-card-head"><div><h3>Your requests</h3><span>{cases.filter(c=>c.status==='OPEN'||c.status==='IN_PROGRESS').length} open</span></div></div>
     {loading&&<div className="empty-state"><h3>Loading…</h3></div>}
-    {!loading&&!cases.length&&<div className="empty-state"><h3>No requests yet</h3><p>Requests you send will appear here with MVEC's replies.</p></div>}
+    {!loading&&!cases.length&&<div className="empty-state"><h3>No requests yet</h3><p>Requests you send will appear here with Ikiguzi's replies.</p></div>}
     {!loading&&cases.length>0&&<SmartTable columns={columns} rows={cases} rowKey={c=>c._id||c.id} pageSize={5} enableTools={cases.length>5} actions={c=><span className="row-actions"><button type="button" title="Open ticket" onClick={()=>view(c)}><Icon name="eye" size={16}/></button></span>}/>}
    </div>
   </div>
@@ -196,7 +189,7 @@ function SupportModule({role}){
    <div className="case-thread">
     <div className="case-quote mine"><small>You · {dateDMY(open.createdAt)}</small><p>{open.description}</p></div>
     {(open.comments||[]).map((c,i)=>{const staff=c.author&&typeof c.author==='object'&&c.author.role!==undefined&&!['vendor','supplier','buyer','affiliate'].includes(c.author.role);
-     return <div key={c._id||i} className={'case-quote'+(staff?'':' mine')}><small>{staff?'MVEC support':'You'} · {dateDMY(c.createdAt)}</small><p>{c.message}</p></div>})}
+     return <div key={c._id||i} className={'case-quote'+(staff?'':' mine')}><small>{staff?'Ikiguzi support':'You'} · {dateDMY(c.createdAt)}</small><p>{c.message}</p></div>})}
    </div>
    {!['RESOLVED','CLOSED'].includes(open.status)&&<label className="field"><span>Reply</span><textarea rows="3" value={reply} onChange={e=>setReply(e.target.value)} placeholder="Add more details…"/></label>}
    <div className="modal-actions"><button type="button" className="outline-btn" onClick={()=>setOpen(null)}>Close</button>
@@ -336,7 +329,7 @@ function BuyerSubscription(){
    <SettingCard title="Free" desc="Free forever · ads are shown">
     {current==='FREE'||!premiumActive?<span className="role-chip">Your plan</span>:<button className="outline-btn" disabled={busy} onClick={cancel}>Switch to Free</button>}
    </SettingCard>
-   <SettingCard title={premium?.plan||'Buyer Ad Removal'} desc={`${money(data?.plans?.buyerPremiumPrice||premium?.price||5000)} · ${premium?.billing||'Monthly'} · no ads anywhere on MVEC`}>
+   <SettingCard title={premium?.plan||'Buyer Ad Removal'} desc={`${money(data?.plans?.buyerPremiumPrice||premium?.price||5000)} · ${premium?.billing||'Monthly'} · no ads anywhere on Ikiguzi`}>
     {premiumActive?<>
      <span className="role-chip">Your plan</span>
      <p className="tiny">Active until {data.subscription.renewal}. Pay again any time to add 30 more days.</p>
@@ -359,8 +352,8 @@ function BuyerSubscription(){
 const FAQ=[
  ['How do I track my order?','Open My orders and choose the order. You see each step (paid, preparing, shipped, on the way) and get a notification when it changes.'],
  ['How are delivery fees calculated?','Each seller sets fees for your district. You see the exact fee for every parcel at checkout, before you pay.'],
- ['How do refunds work?','You can cancel within 30 minutes of paying for a full refund. After that, use Report a problem on the order; MVEC holds the seller\'s payment while it reviews. Refunds go back to the mobile money number or card you paid with.'],
- ['When does the seller get my money?','MVEC holds your payment until you give the courier your 6-digit delivery code. Only give the code when the items are in your hands.'],
+ ['How do refunds work?','You can cancel within 30 minutes of paying for a full refund. After that, use Report a problem on the order; Ikiguzi holds the seller\'s payment while it reviews. Refunds go back to the mobile money number or card you paid with.'],
+ ['When does the seller get my money?','Ikiguzi holds your payment until you give the courier your 6-digit delivery code. Only give the code when the items are in your hands.'],
  ['How can I contact a seller?','Open Messages and search for the store, or use the Messages link on the order.'],
 ];
 

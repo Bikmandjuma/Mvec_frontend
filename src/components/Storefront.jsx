@@ -82,9 +82,9 @@ export default function Storefront({ children }) {
   const isSeller = ['vendor', 'supplier'].includes(user?.role);
 
   return <>
-    <div className="top-strip"><div>Welcome to <b>MVEC</b>, Rwanda&apos;s multi-vendor marketplace</div><div className="top-links"><Link to="/buyer/support">{t('help')}</Link>{!user && <Link to="/signup" state={{ role: 'vendor' }}>{t('becomeVendor')}</Link>}</div></div>
+    <div className="top-strip"><div>Welcome to <b>Ikiguzi</b>, Rwanda&apos;s multi-vendor marketplace</div><div className="top-links"><Link to="/buyer/support">{t('help')}</Link>{!user && <Link to="/signup" state={{ role: 'vendor' }}>{t('becomeVendor')}</Link>}</div></div>
     <header className="market-header">
-      <Link to="/" className="mvec-brand">MVEC</Link>
+      <Link to="/" className="mvec-brand">Ikiguzi</Link>
       <div className="market-search-wrap" ref={searchRef}>
         <form className="market-search" role="search" onSubmit={(e) => { e.preventDefault(); submitSearch(); }}>
           <Icon name="search" />
@@ -144,10 +144,10 @@ export default function Storefront({ children }) {
     {cartNotice && <div className="form-alert error site-notice" role="alert">{cartNotice} <button type="button" className="text-btn" onClick={dismissCartNotice}>Dismiss</button></div>}
     {children}
     <footer className="market-footer">
-      <div><div className="mvec-brand footer-brand">MVEC</div><p>Multi-vendor commerce built for buyers and sellers across Rwanda.</p></div>
+      <div><div className="mvec-brand footer-brand">Ikiguzi</div><p>Multi-vendor commerce built for buyers and sellers across Rwanda.</p></div>
       <div><h4>Marketplace</h4><Link to="/shop">Shop</Link><Link to="/vendors">Stores</Link><Link to="/wishlist">Wishlist</Link></div>
       <div><h4>Customer service</h4><Link to="/profile">My account</Link><Link to="/orders">Orders</Link><Link to="/buyer/support">Help &amp; Support</Link>{!user && <Link to="/login">Sign in</Link>}</div>
-      <div><h4>Sell on MVEC</h4>{isSeller || dashboard ? <Link to={dashboard}>Seller dashboard</Link> : <Link to="/signup" state={{ role: 'vendor' }}>Become a vendor</Link>}</div>
+      <div><h4>Sell on Ikiguzi</h4>{isSeller || dashboard ? <Link to={dashboard}>Seller dashboard</Link> : <Link to="/signup" state={{ role: 'vendor' }}>Become a vendor</Link>}</div>
     </footer>
   </>;
 }

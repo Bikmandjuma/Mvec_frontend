@@ -9,7 +9,8 @@ import Pagination from '../components/Pagination';
 import ProductImage from '../components/ProductImage';
 import { suppliersApi } from '../API/suppliers';
 import { wholesaleApi } from '../API/wholesale';
-import { PageHead, Loading, EmptyState, Metric, FormModal, money, matches, personName, useLoader, useNotice } from './seller/shared';
+import { PageHead, Loading, EmptyState, Metric, FormModal, money, matches, personName, useNotice } from './seller/shared';
+import { useLoader } from '../lib/useLoader';
 import useUrlQuery from '../components/useUrlQuery';
 
 const PER_PAGE = 10;
@@ -30,7 +31,7 @@ const STATE_TONE = { ok: 'active', low: 'warning', moq: 'danger', out: 'danger' 
 const MODES = [['add', 'Add stock (restock)'], ['remove', 'Remove stock'], ['set', 'Set exact count']];
 const DEFAULT_REASONS = {
   add: ['Restock', 'Produced or harvested', 'Vendor return', 'Other'],
-  remove: ['Damaged', 'Lost or stolen', 'Expired', 'Sold outside MVEC', 'Other'],
+  remove: ['Damaged', 'Lost or stolen', 'Expired', 'Sold outside Ikiguzi', 'Other'],
   set: ['Stock count correction', 'Other'],
 };
 const MOVEMENT_LABEL = { RESTOCK: 'Restock', REMOVE: 'Removed', COUNT: 'Count', TRANSFER: 'Moved' };
@@ -58,7 +59,7 @@ function AdjustModal({ product, reasons, onClose, onDone }) {
 }
 
 export default function SupplierInventory() {
-  const { data, loading, error, reload } = useLoader(() => Promise.all([
+  const { data, loading, error, reload } = useLoader(['supplier', 'inventory'], () => Promise.all([
     suppliersApi.getMyProducts().then(r => r.products || []),
     suppliersApi.getStockMovements({ limit: 200 }).catch(() => ({ movements: [], reasons: null })),
     wholesaleApi.getMine({ status: 'PENDING_PAYMENT', limit: 100 }).then(r => r.orders || []).catch(() => []),

@@ -11,7 +11,7 @@ let cachedAt = 0;
 let inflight = null;
 
 const PLACEHOLDER_IMG =
-  'https://placehold.co/600x600?text=MVEC+Product';
+  'https://placehold.co/600x600?text=Ikiguzi+Product';
 
 export function mapBackendProduct(p) {
   if (!p) return null;
@@ -32,7 +32,7 @@ export function mapBackendProduct(p) {
     name: p.name || '',
     category: category.name || (typeof p.category === 'string' ? p.category : 'Uncategorized'),
     brand: p.brand || '',
-    vendor: vendor.companyName || vendor.Fullname || vendor.fullName || 'MVEC Seller',
+    vendor: vendor.companyName || vendor.Fullname || vendor.fullName || 'Ikiguzi Seller',
     vendorId: String(vendor._id || vendor.id || (typeof p.vendor === 'string' ? p.vendor : '') || p.vendorId || ''),
     price: activePrice,
     oldPrice: discountPrice > 0 && discountPrice < rawPrice ? rawPrice : 0,

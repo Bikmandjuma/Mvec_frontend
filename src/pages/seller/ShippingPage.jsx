@@ -4,7 +4,8 @@ import { shippingApi } from '../../API/shipping';
 import { storesApi } from '../../API/stores';
 import { extractErrorMessage } from '../../API/client';
 import { RWANDA_LOCATIONS, PROVINCES } from '../../data/rwandaLocations';
-import { PageHead, Loading, EmptyState, StatusPill, money, useLoader, useNotice } from './shared';
+import { PageHead, Loading, EmptyState, StatusPill, money, useNotice } from './shared';
+import { useLoader } from '../../lib/useLoader';
 
 const idOf = v => String(v?._id || v?.id || v || '');
 const lc = v => String(v || '').toLowerCase();
@@ -168,14 +169,14 @@ function PreviewCard({ storeId }) {
       ? <div className="seller-preview-result ok">
           <strong>{result.fee === 0 ? 'Free delivery' : money(result.fee)}</strong>
           <span>{result.method !== form.method ? `${form.method.toLowerCase()} not offered, ${result.method.toLowerCase()} used · ` : ''}{result.zoneName} · {result.eta}</span>
-          {result.source !== 'seller' && <small>You have no zones yet, so MVEC standard rates apply.</small>}
+          {result.source !== 'seller' && <small>You have no zones yet, so Ikiguzi standard rates apply.</small>}
         </div>
       : <div className="seller-preview-result no"><strong>Not delivered</strong><span>No active zone covers {result.address?.district}. Buyers there can't order from this store.</span></div>)}
   </div>;
 }
 
 export default function ShippingPage() {
-  const { data, loading, error, reload } = useLoader(() => Promise.all([
+  const { data, loading, error, reload } = useLoader(['vendor', 'shipping'], () => Promise.all([
     shippingApi.getMyZones().then(r => r.data || []),
     storesApi.getMyStores().then(r => r.stores || []).catch(() => []),
   ]).then(([zones, stores]) => ({ zones, stores })));
@@ -217,7 +218,7 @@ export default function ShippingPage() {
         </button>)}
       </div>}
 
-      {!allZones.length && <div className="verified-box"><b>Using MVEC standard rates</b><p>Until you add a zone, buyers pay MVEC standard delivery: free in Kigali City and 5,000 RWF elsewhere (express 10,000 RWF). Add zones to set your own fees and coverage.</p></div>}
+      {!allZones.length && <div className="verified-box"><b>Using Ikiguzi standard rates</b><p>Until you add a zone, buyers pay Ikiguzi standard delivery: free in Kigali City and 5,000 RWF elsewhere (express 10,000 RWF). Add zones to set your own fees and coverage.</p></div>}
       {usingOtherStores && <div className="verified-box"><b>No zones for this store yet</b><p>Checkout uses your other stores' zones for its items until you add zones here.</p></div>}
 
       <div className="data-card">
@@ -248,12 +249,12 @@ export default function ShippingPage() {
 
       <div className="dash-grid">
         <div className="data-card">
-          <div className="data-card-head"><div><h3>Coverage</h3><span>{allZones.length ? (uncovered ? `${uncovered} of 30 districts not delivered` : 'All 30 districts delivered') : 'MVEC standard rates apply'}</span></div></div>
+          <div className="data-card-head"><div><h3>Coverage</h3><span>{allZones.length ? (uncovered ? `${uncovered} of 30 districts not delivered` : 'All 30 districts delivered') : 'Ikiguzi standard rates apply'}</span></div></div>
           <div className="seller-coverage">
             {coverage.map(c => <div key={c.province}>
               <h5>{c.province}</h5>
               <div>{c.districts.map(d => <span key={d.district} className={!allZones.length ? 'default' : d.zone ? 'yes' : 'no'}
-                title={d.zone ? `${d.zone.name}: ${Number(d.zone.fee) === 0 ? 'free' : money(d.zone.fee)}` : allZones.length ? 'Not delivered' : 'MVEC standard rate'}>
+                title={d.zone ? `${d.zone.name}: ${Number(d.zone.fee) === 0 ? 'free' : money(d.zone.fee)}` : allZones.length ? 'Not delivered' : 'Ikiguzi standard rate'}>
                 {d.district}{d.zone && <small>{Number(d.zone.fee) === 0 ? 'Free' : `${Math.round(d.zone.fee / 1000 * 10) / 10}k`}</small>}
               </span>)}</div>
             </div>)}

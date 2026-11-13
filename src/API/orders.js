@@ -28,17 +28,6 @@ const checkoutBody = ({ shippingAddress = {}, recipient = {}, deliveryMethod = "
   couponCode: couponCode || undefined,
 });
 
-// city = district and state = province, as the backend Order model expects.
-const mapAddress = (a = {}) => ({
-  street: a.street || a.address || "",
-  city: a.district || a.city || "",
-  state: a.province || a.state || "",
-  province: a.province || a.state || "",
-  district: a.district || a.city || "",
-  sector: a.sector || "",
-  country: a.country || "Rwanda",
-  postalCode: a.postalCode || "",
-});
 
 export const ordersApi = {
   checkout: (payload) =>
@@ -54,11 +43,6 @@ export const ordersApi = {
   // All marketplace orders (super_admin only).
   getAll: () =>
     client.get("/orders").then((r) => ({ ...r.data, orders: (r.data.orders || []).map(withOrderId) })),
-  getDeliverable: () =>
-    client.get("/orders/deliverable").then((r) => ({
-      ...r.data,
-      orders: (r.data.orders || []).map(withOrderId),
-    })),
   getById: (id) => {
     if (!id || id === "undefined") return Promise.reject(new Error("A valid order ID is required."));
     return client.get(`/orders/${id}`).then((r) => ({ ...r.data, order: withOrderId(r.data.order) }));

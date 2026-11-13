@@ -10,8 +10,9 @@ import { payoutsApi } from '../../API/payouts';
 import { vendorServicesApi } from '../../API/vendorServices';
 import {
   PageHead, Loading, Metric, StatusPill, BarChart, money, dateDMY, titleCase, personName,
-  parsePercent, summarizeOrders, monthlyRevenue, isRevenueOrder, useLoader,
+  parsePercent, summarizeOrders, monthlyRevenue, isRevenueOrder,
 } from './shared';
+import { useLoader } from '../../lib/useLoader';
 
 const loadVendorData = () => Promise.all([
   ordersApi.getVendorOrders().then(r => r.orders || []),
@@ -26,7 +27,7 @@ const channelOf = o => (o.affiliateCode ? 'AFFILIATE' : o.coupon?.code ? 'COUPON
 
 export function AnalyticsPage() { return <PremiumGate feature="advancedAnalytics" title="Advanced analytics"><AnalyticsPageInner /></PremiumGate>; }
 function AnalyticsPageInner() {
-  const { data, loading, error } = useLoader(() => Promise.all([
+  const { data, loading, error } = useLoader(['vendor', 'analytics'], () => Promise.all([
     loadVendorData(),
     vendorServicesApi.getAdvertisements().then(r => r.data || []).catch(() => []),
   ]).then(([vendor, ads]) => ({ ...vendor, ads })));
@@ -83,7 +84,7 @@ function AnalyticsPageInner() {
           <div className="data-card-head"><div><h3>Growth spend</h3><span>What marketing cost you</span></div><Link to="/vendor/advertisements">Advertisements</Link></div>
           <div className="activity-row"><div><b>Coupon discounts</b><small>Given on your items</small></div><strong>{money(growth.discount)}</strong></div>
           <div className="activity-row"><div><b>Ad spend</b><small>{growth.adClicks.toLocaleString()} clicks · {growth.liveAds} live campaign{growth.liveAds === 1 ? '' : 's'}</small></div><strong>{money(growth.adSpend)}</strong></div>
-          <div className="activity-row"><div><b>Affiliate commission</b><small>Paid by MVEC, not you</small></div><strong>{money(0)}</strong></div>
+          <div className="activity-row"><div><b>Affiliate commission</b><small>Paid by Ikiguzi, not you</small></div><strong>{money(0)}</strong></div>
         </div>
       </div>
       <div className="data-card">
@@ -99,7 +100,7 @@ const RANGES = [['7', 'Last 7 days'], ['30', 'Last 30 days'], ['90', 'Last 90 da
 
 export function ReportsPage() { return <PremiumGate feature="advancedAnalytics" title="Advanced reports"><ReportsPageInner /></PremiumGate>; }
 function ReportsPageInner() {
-  const { data, loading, error } = useLoader(loadVendorData);
+  const { data, loading, error } = useLoader(['vendor', 'reports'], loadVendorData);
   const [range, setRange] = useState('30');
 
   const orders = useMemo(() => {

@@ -102,7 +102,7 @@ export default function Signup() {
   return (
     <AuthLayout
       title="Create your account"
-      subtitle="Join MVEC with your phone number. Email is optional."
+      subtitle="Join Ikiguzi with your phone number. Email is optional."
     >
       {error && <div className="form-alert error" role="alert">{error}</div>}
       <form onSubmit={submit} className="auth-form" noValidate>

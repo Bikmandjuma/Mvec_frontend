@@ -1,5 +1,5 @@
 // Admin pages built on live marketplace data: verification of sellers and
-// suppliers, supply requests and supplier payouts, payments, MVEC earnings,
+// suppliers, supply requests and supplier payouts, payments, Ikiguzi earnings,
 // the ledger, analytics, risk signals, trust scores, subscriptions, platform
 // settings and the audit log. Every number comes from the backend; nothing is
 // stored in the browser.
@@ -92,7 +92,7 @@ export function AttentionQueue() {
 // ─── Verification (sellers and suppliers) ──────────────────────────────────
 const QUICK_REASONS = ["The logo is missing or unclear.", "The phone number could not be reached.", "The business description is too short to understand what you sell.", "The location is incomplete: add your district and sector.", "The business name does not match the documents or products."];
 
-function checklist(p, kind) {
+function checklist(p) {
   const loc = typeof p.location === "object" && p.location ? Object.values(p.location).filter(Boolean).join(", ") : p.location;
   return [
     ["Business name", p.businessName],
@@ -110,7 +110,7 @@ function ReviewModal({ kind, profile, onClose, onDone }) {
   const [busy, setBusy] = useState("");
   const [notice, setNotice] = useState(null);
   const history = useLoad(() => adminApi.getAuditLogs({ targetId: profile._id || profile.id, pageSize: 10 }), [profile]);
-  const items = checklist(profile, kind);
+  const items = checklist(profile);
   const missing = items.filter(([, v]) => !v).map(([k]) => k);
   const id = profile._id || profile.id;
   const decide = async (decision) => {
@@ -233,7 +233,7 @@ function WholesaleOversight({ onChanged }) {
     catch (err) { setNotice({ ok: false, text: extractErrorMessage(err) }); } finally { setBusy(""); }
   };
   return <div className="data-card">
-    <div className="data-card-head"><div><h3>Wholesale orders</h3><span>Vendors buying stock from suppliers. MVEC holds the money until the vendor confirms receipt; problems are decided here.</span></div>
+    <div className="data-card-head"><div><h3>Wholesale orders</h3><span>Vendors buying stock from suppliers. Ikiguzi holds the money until the vendor confirms receipt; problems are decided here.</span></div>
       <select className="inline-table-input" aria-label="Show" value={status} onChange={(e) => setStatus(e.target.value)}><option value="DISPUTED">Problem reported</option><option value="ESCROW_HELD">Paid, not shipped</option><option value="SHIPPED">Shipped</option><option value="PENDING_PAYMENT">Waiting for payment</option><option value="CONFIRMED_RELEASED">Completed</option><option value="">All</option></select></div>
     <Notice notice={notice} />
     {loading ? <Loading what="wholesale orders" /> : error ? <Failed error={error} retry={reload} /> : rows.length === 0 ? <div className="empty-state"><h3>{status === "DISPUTED" ? "No reported problems" : "No orders here"}</h3></div>
@@ -293,7 +293,7 @@ function SupplierPayouts({ onChanged }) {
     } catch (err) { setNotice({ ok: false, text: extractErrorMessage(err) }); } finally { setBusy(""); }
   };
   return <div className="data-card">
-    <div className="data-card-head"><div><h3>Supplier bank payouts</h3><span>Mobile money payouts are sent automatically. Bank transfers: send from MVEC's account, then mark paid. The supplier is notified.</span></div><button type="button" className="outline-btn" onClick={() => reload()}>Refresh</button></div>
+    <div className="data-card-head"><div><h3>Supplier bank payouts</h3><span>Mobile money payouts are sent automatically. Bank transfers: send from Ikiguzi's account, then mark paid. The supplier is notified.</span></div><button type="button" className="outline-btn" onClick={() => reload()}>Refresh</button></div>
     <Notice notice={notice} />
     {loading ? <Loading what="payouts" /> : error ? <Failed error={error} retry={reload} /> : rows.length === 0 ? <div className="empty-state"><h3>No payouts waiting</h3></div>
       : <div className="orders-list">{rows.map((p) => <div className="order-row" key={p._id || p.id}>
@@ -367,8 +367,8 @@ export function AdminPaymentsPage() {
   </DashboardLayout>;
 }
 
-// ─── MVEC earnings ─────────────────────────────────────────────────────────
-// MVEC's own balance. MVEC does not send this money itself: an admin moves it
+// ─── Ikiguzi earnings ─────────────────────────────────────────────────────────
+// Ikiguzi's own balance. Ikiguzi does not send this money itself: an admin moves it
 // from the payment provider's account to the company bank and records it here.
 function MvecWallet() {
   const wallet = useLoad(() => Promise.all([adminApi.getMvecWallet(), adminApi.getMvecWithdrawals()]), []);
@@ -384,7 +384,7 @@ function MvecWallet() {
     catch (err) { setNotice({ ok: false, text: extractErrorMessage(err) }); } finally { setBusy(false); }
   };
   return <div className="data-card">
-    <div className="data-card-head"><div><h3>MVEC wallet</h3><span>What MVEC keeps after sellers, suppliers, affiliates and provider fees, plus ad and subscription income.</span></div>
+    <div className="data-card-head"><div><h3>Ikiguzi wallet</h3><span>What Ikiguzi keeps after sellers, suppliers, affiliates and provider fees, plus ad and subscription income.</span></div>
       {w && Number(w.availableBalance) > 0 && <button type="button" className="outline-btn" onClick={() => setOpen(!open)}>Record a withdrawal</button>}</div>
     <Notice notice={notice} />
     {wallet.loading ? <Loading what="the wallet" /> : wallet.error ? <Failed error={wallet.error} retry={wallet.reload} /> : <div className="metric-grid">
@@ -393,7 +393,7 @@ function MvecWallet() {
       <Metric icon="box" label="Withdrawn" value={money(w?.totalWithdrawn)} sub={`${history.length} recorded`} />
     </div>}
     {open && <form onSubmit={save}>
-      <p className="tiny">The money sits in MVEC's payment provider accounts (Paypack, Flutterwave, K-Pay). Move it to the company bank there, then record it here so the books match.</p>
+      <p className="tiny">The money sits in Ikiguzi's payment provider accounts (Paypack, Flutterwave, K-Pay). Move it to the company bank there, then record it here so the books match.</p>
       <div className="form-row"><label className="field"><span>Amount moved (RWF)</span><input type="number" min="1" max={w?.availableBalance} value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} required /></label>
         <label className="field"><span>Moved to</span><input value={form.destination} onChange={(e) => setForm({ ...form, destination: e.target.value })} placeholder="e.g. BK account 000400012345" required /></label></div>
       <label className="field"><span>Note (optional)</span><input value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} placeholder="Provider reference, purpose…" /></label>
@@ -409,21 +409,21 @@ export function AdminEarnings() {
   const { loading, data, error, reload } = useLoad(() => adminApi.getEarnings({ days, page, pageSize: 25 }), [days, page]);
   const t = data?.totals;
   return <DashboardLayout admin>
-    <Head eyebrow="ORDERS & PAYMENTS" title="MVEC earnings" desc="What MVEC earns on every sale, and where the rest of the money goes." action={<Period value={days} onChange={(d) => { setDays(d); setPage(1); }} />} />
+    <Head eyebrow="ORDERS & PAYMENTS" title="Ikiguzi earnings" desc="What Ikiguzi earns on every sale, and where the rest of the money goes." action={<Period value={days} onChange={(d) => { setDays(d); setPage(1); }} />} />
     <MvecWallet />
     {t && <>
       <div className="metric-grid">
         <Metric icon="chart" label="Sales" value={money(t.gross)} sub="Paid order lines, excluding refunds" />
-        <Metric icon="wallet" label="MVEC commission" value={money(t.platformFee)} sub="From the commission rules" />
-        <Metric icon="shop" label="MVEC keeps" value={money(t.mvecNet)} sub={`${money(t.released)} earned · ${money(t.held)} until delivery`} />
-        <Metric icon="users" label="Sellers' share" value={money(t.sellers)} sub="After MVEC's fee; theirs to withdraw once delivered" />
+        <Metric icon="wallet" label="Ikiguzi commission" value={money(t.platformFee)} sub="From the commission rules" />
+        <Metric icon="shop" label="Ikiguzi keeps" value={money(t.mvecNet)} sub={`${money(t.released)} earned · ${money(t.held)} until delivery`} />
+        <Metric icon="users" label="Sellers' share" value={money(t.sellers)} sub="After Ikiguzi's fee; theirs to withdraw once delivered" />
       </div>
       {(t.adRevenue > 0 || t.subscriptionRevenue > 0) && <div className="metric-grid">
-        <Metric icon="tag" label="Ad clicks" value={money(t.adRevenue)} sub="Sponsored products, MVEC income" />
-        <Metric icon="wallet" label="Subscriptions" value={money(t.subscriptionRevenue)} sub="Premium plans, MVEC income" />
+        <Metric icon="tag" label="Ad clicks" value={money(t.adRevenue)} sub="Sponsored products, Ikiguzi income" />
+        <Metric icon="wallet" label="Subscriptions" value={money(t.subscriptionRevenue)} sub="Premium plans, Ikiguzi income" />
       </div>}
-      <div className="data-card"><div className="data-card-head"><div><h3>Where MVEC's fee goes</h3><span>From {money(t.platformFee)} in fees</span></div></div>
-        {[["Affiliates (paid by MVEC)", Math.max(0, t.affiliates - t.affiliatesPaidBySellers)], ["Payment provider fees", t.gatewayFees], ["MVEC keeps", t.mvecNet]].map(([label, v]) =>
+      <div className="data-card"><div className="data-card-head"><div><h3>Where Ikiguzi's fee goes</h3><span>From {money(t.platformFee)} in fees</span></div></div>
+        {[["Affiliates (paid by Ikiguzi)", Math.max(0, t.affiliates - t.affiliatesPaidBySellers)], ["Payment provider fees", t.gatewayFees], ["Ikiguzi keeps", t.mvecNet]].map(([label, v]) =>
           <div className="progress-row" key={label}><span>{label}</span><div><i style={{ width: `${t.platformFee ? Math.round((v / t.platformFee) * 100) : 0}%` }} /></div><b>{money(v)}</b></div>)}
         {t.affiliatesPaidBySellers > 0 && <p className="tiny">Sellers also paid affiliates {money(t.affiliatesPaidBySellers)} from their own share.</p>}
       </div>
@@ -437,7 +437,7 @@ export function AdminEarnings() {
           { key: "gross", label: "Sale", render: (r) => money(r.gross) },
           { key: "platformFee", label: "Commission", render: (r) => `${money(r.platformFee)}${r.rate ? ` (${r.rate}%)` : ""}` },
           { key: "affiliate", label: "Affiliate", render: (r) => (r.affiliate ? money(r.affiliate) : "—") },
-          { key: "mvecNet", label: "MVEC keeps", render: (r) => money(r.mvecNet) },
+          { key: "mvecNet", label: "Ikiguzi keeps", render: (r) => money(r.mvecNet) },
           { key: "status", label: "Status", render: (r) => <Status value={r.status} label={{ HELD: "Until delivery", RELEASED: "Earned", ADMIN_HOLD: "On hold", REFUNDED: "Refunded", CANCELLED: "Cancelled" }[r.status]} /> },
         ]} />}
       {(data?.meta?.total || 0) > 25 && <Pagination page={page} setPage={setPage} total={data.meta.total} perPage={25} />}
@@ -446,19 +446,19 @@ export function AdminEarnings() {
 }
 
 // ─── Ledger ────────────────────────────────────────────────────────────────
-const ENTRY = { PAYMENT_RECEIVED: "Buyer payment received", PAYMENT_ESCROW_LOCK: "Buyer payment received", ESCROW_RELEASE_VENDOR: "Seller paid (delivery)", PLATFORM_COMMISSION_DEDUCTION: "MVEC commission", AFFILIATE_COMMISSION: "Affiliate commission", GATEWAY_FEE: "Payment provider fee", BUYER_REFUND: "Refund to buyer", PAYOUT_SENT: "Withdrawal sent", AD_BUDGET_RESERVED: "Ad budget reserved", AD_BUDGET_RETURNED: "Ad budget returned", AD_CLICK_REVENUE: "Ad click (MVEC income)", SUBSCRIPTION_FEE: "Subscription fee (MVEC income)", COURIER_FEE_PAYOUT: "Courier fee", ADMIN_MANUAL_ADJUSTMENT: "Correction" };
-const ACCOUNT = { BUYER_PAYMENTS: "Buyer payments", ESCROW_HOLDING: "MVEC holding", PLATFORM_REVENUE: "MVEC revenue", ADMIN_REVENUE: "MVEC revenue", DEVELOPER_REVENUE: "MVEC revenue", VENDOR_PAYABLE: "Seller balances", SUPPLIER_PAYABLE: "Supplier balances", COURIER_PAYABLE: "Courier balances", AFFILIATE_COMMISSION: "Affiliate commission", GATEWAY_FEES: "Provider fees", AD_BUDGETS: "Ad budgets", BUYER_REFUND_HOLD: "Refunded to buyers", PAID_OUT: "Paid out" };
+const ENTRY = { PAYMENT_RECEIVED: "Buyer payment received", PAYMENT_ESCROW_LOCK: "Buyer payment received", ESCROW_RELEASE_VENDOR: "Seller paid (delivery)", PLATFORM_COMMISSION_DEDUCTION: "Ikiguzi commission", AFFILIATE_COMMISSION: "Affiliate commission", GATEWAY_FEE: "Payment provider fee", BUYER_REFUND: "Refund to buyer", PAYOUT_SENT: "Withdrawal sent", AD_BUDGET_RESERVED: "Ad budget reserved", AD_BUDGET_RETURNED: "Ad budget returned", AD_CLICK_REVENUE: "Ad click (Ikiguzi income)", SUBSCRIPTION_FEE: "Subscription fee (Ikiguzi income)", COURIER_FEE_PAYOUT: "Courier fee", ADMIN_MANUAL_ADJUSTMENT: "Correction" };
+const ACCOUNT = { BUYER_PAYMENTS: "Buyer payments", ESCROW_HOLDING: "Ikiguzi holding", PLATFORM_REVENUE: "Ikiguzi revenue", ADMIN_REVENUE: "Ikiguzi revenue", DEVELOPER_REVENUE: "Ikiguzi revenue", VENDOR_PAYABLE: "Seller balances", SUPPLIER_PAYABLE: "Supplier balances", COURIER_PAYABLE: "Courier balances", AFFILIATE_COMMISSION: "Affiliate commission", GATEWAY_FEES: "Provider fees", AD_BUDGETS: "Ad budgets", BUYER_REFUND_HOLD: "Refunded to buyers", PAID_OUT: "Paid out" };
 // What each balance means, in the order money flows.
 const BALANCE_ROWS = [
   ["BUYER_PAYMENTS", "Total buyers have paid in (shown negative: it came from outside)"],
-  ["ESCROW_HOLDING", "Held by MVEC until delivery"],
+  ["ESCROW_HOLDING", "Held by Ikiguzi until delivery"],
   ["VENDOR_PAYABLE", "Earned by sellers and suppliers, not yet withdrawn"],
-  ["PLATFORM_REVENUE", "Earned by MVEC, not yet withdrawn"],
+  ["PLATFORM_REVENUE", "Earned by Ikiguzi, not yet withdrawn"],
   ["AFFILIATE_COMMISSION", "Earned by affiliates, not yet withdrawn"],
   ["GATEWAY_FEES", "Payment provider fees"],
   ["AD_BUDGETS", "Ad budgets reserved, not yet spent"],
   ["BUYER_REFUND_HOLD", "Refunded to buyers"],
-  ["PAID_OUT", "Sent out to sellers, suppliers, affiliates and MVEC"],
+  ["PAID_OUT", "Sent out to sellers, suppliers, affiliates and Ikiguzi"],
 ];
 
 export function AdminLedgerPage() {
@@ -468,7 +468,7 @@ export function AdminLedgerPage() {
   return <DashboardLayout admin>
     <Head eyebrow="ORDERS & PAYMENTS" title="Financial ledger" desc="Every movement of money goes from one account to another and both balances change together, so the books always add up. Entries are written automatically and can't be edited." />
     {data?.balances && <div className="data-card">
-      <div className="data-card-head"><div><h3>Where the money is</h3><span>Real money sits in MVEC's payment provider account; this says whose it is.</span></div>
+      <div className="data-card-head"><div><h3>Where the money is</h3><span>Real money sits in Ikiguzi's payment provider account; this says whose it is.</span></div>
         <em className={"status " + (data.balanced ? "active" : "warning")}>{data.balanced ? "Books balance" : "Books do not balance"}</em></div>
       <div className="ledger-balances">{BALANCE_ROWS.map(([k, label]) => <div key={k}><span>{ACCOUNT[k]}<small>{label}</small></span><b>{money(k === "PLATFORM_REVENUE" ? (data.balances.PLATFORM_REVENUE || 0) + (data.balances.ADMIN_REVENUE || 0) + (data.balances.DEVELOPER_REVENUE || 0) : k === "VENDOR_PAYABLE" ? (data.balances.VENDOR_PAYABLE || 0) + (data.balances.SUPPLIER_PAYABLE || 0) : data.balances[k] || 0)}</b></div>)}</div>
       <p className="tiny">Should match your Paypack balance: buyer payments − refunds − money paid out.</p>
@@ -515,7 +515,7 @@ export function AdminAnalyticsPage() {
       <div className="metric-grid">
         <Metric icon="chart" label="Sales" value={money(t.gmv)} sub={t.gmvChange === null ? "No sales in the period before" : `${t.gmvChange >= 0 ? "▲" : "▼"} ${Math.abs(t.gmvChange)}% vs the period before`} />
         <Metric icon="cart" label="Paid orders" value={t.paidOrders} sub={`${t.orders} placed · ${t.conversion}% paid`} />
-        <Metric icon="wallet" label="Average order" value={money(t.averageOrder)} sub={`MVEC kept ${money(t.mvecEarned)}`} />
+        <Metric icon="wallet" label="Average order" value={money(t.averageOrder)} sub={`Ikiguzi kept ${money(t.mvecEarned)}`} />
         <Metric icon="users" label="New accounts" value={t.newUsers} sub={`Refund rate ${pct(t.refundRate)} · ${t.disputes} dispute${t.disputes === 1 ? "" : "s"}`} />
       </div>
       <div className="data-card"><div className="data-card-head"><div><h3>Daily sales</h3><span>Hover a bar to see the day</span></div></div><Bars series={data.series} /></div>
@@ -586,7 +586,7 @@ export function AdminTrust() {
 }
 
 // ─── Subscriptions ─────────────────────────────────────────────────────────
-// The subscription program: off until MVEC has enough users. While off,
+// The subscription program: off until Ikiguzi has enough users. While off,
 // nobody is charged and every seller/supplier has every tool.
 function SubscriptionProgram() {
   const ops = useLoad(() => Promise.all([adminApi.getOperationsSettings(), adminApi.getPlanInfo()]), []);
@@ -661,7 +661,7 @@ function AutoReleaseSetting({ onSaved }) {
   const save = async (e) => {
     e.preventDefault();
     setBusy(true); setNotice(null);
-    try { await adminApi.updateOperationsSettings({ autoReleaseDays: Number(days), disputeResponseDays: Number(replyDays) }); setNotice({ ok: true, text: `Saved. ${Number(days) > 0 ? `Sellers are paid automatically ${days} day${Number(days) === 1 ? "" : "s"} after shipping if no problem is reported.` : "Automatic release is off."} Sellers have ${replyDays} day${Number(replyDays) === 1 ? "" : "s"} to answer a problem report before MVEC steps in.` }); onSaved?.(); }
+    try { await adminApi.updateOperationsSettings({ autoReleaseDays: Number(days), disputeResponseDays: Number(replyDays) }); setNotice({ ok: true, text: `Saved. ${Number(days) > 0 ? `Sellers are paid automatically ${days} day${Number(days) === 1 ? "" : "s"} after shipping if no problem is reported.` : "Automatic release is off."} Sellers have ${replyDays} day${Number(replyDays) === 1 ? "" : "s"} to answer a problem report before Ikiguzi steps in.` }); onSaved?.(); }
     catch (err) { setNotice({ ok: false, text: extractErrorMessage(err) }); }
     finally { setBusy(false); }
   };
@@ -680,7 +680,7 @@ function AutoReleaseSetting({ onSaved }) {
 export function AdminPlatform() {
   const { loading, data, error, reload } = useLoad(adminApi.getPlatform, []);
   return <DashboardLayout admin>
-    <Head eyebrow="PLATFORM" title="Platform settings" desc="How MVEC is set up right now, read live from the server." />
+    <Head eyebrow="PLATFORM" title="Platform settings" desc="How Ikiguzi is set up right now, read live from the server." />
     {loading ? <Loading what="settings" /> : error ? <Failed error={error} retry={reload} /> : <>
       <div className="settings-grid">
         <div className="data-card"><h3>Fees</h3>{data.fees.map((f) => <div className="setting-line" key={f.label}><span><b>{f.label}</b><small>{f.detail}</small></span><strong>{f.value}</strong></div>)}</div>
@@ -769,7 +769,7 @@ function RuleForm({ rule, sellers, maxRate, onClose, onSaved }) {
       {form.ruleType === "VENDOR" && <SellerSelect required label={form.scope === "WHOLESALE" ? "Supplier" : "Seller"} sellers={sellers} value={form.targetVendor} onChange={(v) => set("targetVendor", v)} />}
       {form.ruleType !== "GLOBAL" && <CategorySelect label={form.ruleType === "VENDOR" ? "Only in this category (optional)" : "Category"} placeholder={form.ruleType === "VENDOR" ? "All categories" : "Choose a category"} value={form.targetCategory} onChange={(v) => set("targetCategory", v)} required={form.ruleType === "CATEGORY"} />}
       <div className="form-row">
-        <label className="field"><span>MVEC commission (%) *</span><input type="number" min="0" max={maxRate} step="0.1" value={form.rateValue} onChange={(e) => set("rateValue", e.target.value)} required /></label>
+        <label className="field"><span>Ikiguzi commission (%) *</span><input type="number" min="0" max={maxRate} step="0.1" value={form.rateValue} onChange={(e) => set("rateValue", e.target.value)} required /></label>
         <label className="field"><span>Priority</span><input type="number" step="1" value={form.priority} onChange={(e) => set("priority", e.target.value)} /></label>
       </div>
       <p className="tiny">Most specific wins: a seller override for a category, then a seller override, then the category rate, then the default. When two rules are equally specific, the higher priority wins.</p>
@@ -798,12 +798,12 @@ function CommissionSettings({ settings, onSaved }) {
     <div className="form-row">
       <label className="field"><span>Default retail commission (%)</span><input type="number" min="0" max="50" step="0.1" value={form.defaultCommissionPercent} onChange={(e) => setForm({ ...form, defaultCommissionPercent: e.target.value })} /></label>
       <label className="field"><span>Default wholesale commission (%)</span><input type="number" min="0" max="50" step="0.1" value={form.defaultWholesaleCommissionPercent ?? 0} onChange={(e) => setForm({ ...form, defaultWholesaleCommissionPercent: e.target.value })} /></label>
-      <label className="field"><span>Payment provider fees paid by</span><select value={form.gatewayFeePayer} onChange={(e) => setForm({ ...form, gatewayFeePayer: e.target.value })}><option value="MVEC">MVEC (out of the commission)</option><option value="SELLER">The seller (out of their share)</option></select></label>
+      <label className="field"><span>Payment provider fees paid by</span><select value={form.gatewayFeePayer} onChange={(e) => setForm({ ...form, gatewayFeePayer: e.target.value })}><option value="MVEC">Ikiguzi (out of the commission)</option><option value="SELLER">The seller (out of their share)</option></select></label>
     </div>
     <div className="form-row">
       <label className="field"><span>Affiliate share (% of the commission)</span><input type="number" min="0" max="100" step="1" value={form.affiliateSharePercent} onChange={(e) => setForm({ ...form, affiliateSharePercent: e.target.value })} /></label>
     </div>
-    <p className="tiny">Example, 100,000 RWF sale at the default rate: MVEC commission {money(example)} → affiliate {money(example * n("affiliateSharePercent") / 100)} (only if the buyer came through an affiliate link), MVEC keeps the rest{form.gatewayFeePayer === "MVEC" ? " minus the payment provider fee" : ""}.</p>
+    <p className="tiny">Example, 100,000 RWF sale at the default rate: Ikiguzi commission {money(example)} → affiliate {money(example * n("affiliateSharePercent") / 100)} (only if the buyer came through an affiliate link), Ikiguzi keeps the rest{form.gatewayFeePayer === "MVEC" ? " minus the payment provider fee" : ""}.</p>
     <button className="gradient-btn" disabled={busy}>{busy ? "Saving…" : "Save settings"}</button>
   </form>;
 }
@@ -826,8 +826,8 @@ function SplitPreview({ sellers, scope }) {
     {error && <p className="danger-text">{error}</p>}
     {data && <div className="split-preview">
       <p><b>{data.commissionPercent}% commission</b> · {data.source}{data.rule ? ` (“${data.rule.name}”)` : ""}</p>
-      {[[scope === "WHOLESALE" ? "Supplier receives" : "Seller receives", data.vendorNet], ["MVEC commission", data.totalPlatformFee], ["  → Affiliate (paid by MVEC)", data.platformAffiliateShare], ["  → MVEC keeps", (Number(data.adminShare) || 0) + (Number(data.developerShare) || 0)], ["Payment provider fee", data.gatewayFee]].map(([k, v]) => <div className="setting-line" key={k}><span><b>{k.trim()}</b>{k.startsWith(" ") && <small>part of the commission</small>}</span><strong>{money(v)}</strong></div>)}
-      <p className="tiny">Provider fee paid by {data.gatewayFeePayer === "SELLER" ? "the seller" : "MVEC"}.</p>
+      {[[scope === "WHOLESALE" ? "Supplier receives" : "Seller receives", data.vendorNet], ["Ikiguzi commission", data.totalPlatformFee], ["  → Affiliate (paid by Ikiguzi)", data.platformAffiliateShare], ["  → Ikiguzi keeps", (Number(data.adminShare) || 0) + (Number(data.developerShare) || 0)], ["Payment provider fee", data.gatewayFee]].map(([k, v]) => <div className="setting-line" key={k}><span><b>{k.trim()}</b>{k.startsWith(" ") && <small>part of the commission</small>}</span><strong>{money(v)}</strong></div>)}
+      <p className="tiny">Provider fee paid by {data.gatewayFeePayer === "SELLER" ? "the seller" : "Ikiguzi"}.</p>
     </div>}
   </div>;
 }
@@ -851,7 +851,7 @@ export function AdminCommissionRules() {
     try { await fn(); setNotice({ ok: true, text: okText }); reload(); } catch (err) { setNotice({ ok: false, text: extractErrorMessage(err) }); } finally { setBusy(""); }
   };
   return <DashboardLayout admin>
-    <Head eyebrow="MONEY" title="Commission rules" desc="MVEC's commission per category, with optional special rates for individual sellers (retail) or suppliers (wholesale). Changes apply to new orders; paid orders keep their rate." action={<button type="button" className="gradient-btn" onClick={() => setEditing({ scope })}><Icon name="plus" /> New rule</button>} />
+    <Head eyebrow="MONEY" title="Commission rules" desc="Ikiguzi's commission per category, with optional special rates for individual sellers (retail) or suppliers (wholesale). Changes apply to new orders; paid orders keep their rate." action={<button type="button" className="gradient-btn" onClick={() => setEditing({ scope })}><Icon name="plus" /> New rule</button>} />
     <Tabs label="Which sales" value={scope} onChange={(v) => { setScope(v); setTab("CATEGORY"); }} tabs={[["RETAIL", "Retail: buyers ← sellers"], ["WHOLESALE", "Wholesale: vendors ← suppliers"]]} />
     <Notice notice={notice} />
     {loading && !data ? <Loading what="commission rules" /> : error ? <Failed error={error} retry={reload} /> : <>
@@ -908,7 +908,7 @@ function CaseThread({ id, onChanged, onClose }) {
     <div className="case-meta"><Status value={c.status} label={CASE_STATUS.find(([v]) => v === c.status)?.[1]} /> <span className={`status ${PRIORITY_TONE[c.priority] || ""}`}>{statusLabel(c.priority)} priority</span> <span className="status">{statusLabel(c.category)}</span>{c.assignedTo && <small> · handled by {c.assignedTo.Fullname}</small>}</div>
     <div className="case-messages">
       <div className="case-message from-user"><b>{c.openedBy?.Fullname}</b><small>{dateTime(c.createdAt)}</small><p>{c.description}</p></div>
-      {(c.comments || []).map((m, i) => { const mine = m.author?.role === "super_admin"; return <div key={i} className={`case-message ${mine ? "from-mvec" : "from-user"}`}><b>{mine ? `MVEC · ${m.author?.Fullname}` : m.author?.Fullname}</b><small>{dateTime(m.createdAt)}</small><p>{m.message}</p></div>; })}
+      {(c.comments || []).map((m, i) => { const mine = m.author?.role === "super_admin"; return <div key={i} className={`case-message ${mine ? "from-mvec" : "from-user"}`}><b>{mine ? `Ikiguzi · ${m.author?.Fullname}` : m.author?.Fullname}</b><small>{dateTime(m.createdAt)}</small><p>{m.message}</p></div>; })}
     </div>
     {c.status !== "CLOSED" && <form onSubmit={send}>
       <label className="field"><span>Your reply</span><textarea rows={3} value={reply} onChange={(e) => setReply(e.target.value)} placeholder="Write the answer they will see…" /></label>

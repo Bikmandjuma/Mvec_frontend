@@ -3,7 +3,8 @@ import { Link } from 'react-router-dom';
 import Icon from '../../components/Icon';
 import { categoriesApi } from '../../API/categories';
 import { productsApi } from '../../API/products';
-import { PageHead, Loading, EmptyState, Metric, FormModal, matches, useLoader, useNotice } from './shared';
+import { PageHead, Loading, EmptyState, Metric, FormModal, matches, useNotice } from './shared';
+import { useLoader } from '../../lib/useLoader';
 
 const idOf = c => String(c?.id || c?._id || c || '');
 
@@ -21,7 +22,7 @@ export function buildCategoryTree(categories) {
 }
 
 export default function CategoriesPage() {
-  const { data, loading, error, reload } = useLoader(() => Promise.all([
+  const { data, loading, error, reload } = useLoader(['vendor', 'categories'], () => Promise.all([
     categoriesApi.getAll({ withCounts: true }).then(r => r.categories || []),
     productsApi.getVendorProducts().then(r => r.products || []).catch(() => []),
   ]).then(([categories, products]) => ({ categories, products })));
@@ -69,7 +70,7 @@ export default function CategoriesPage() {
   const productsLink = id => `/vendor/products?category=${id}`;
 
   return <>
-    <PageHead title="Categories" desc="Marketplace categories your products can be listed in. Categories are shared across MVEC; editing and removing them is handled by MVEC admins."
+    <PageHead title="Categories" desc="Marketplace categories your products can be listed in. Categories are shared across Ikiguzi; editing and removing them is handled by Ikiguzi admins."
       action={<button type="button" className="gradient-btn" onClick={() => setAdding({ parentId: '' })}><Icon name="plus" /> Add category</button>} />
     {notice.banner}
     {loading && !data && <Loading />}
@@ -87,7 +88,7 @@ export default function CategoriesPage() {
         ? <EmptyState title="No categories yet" text="Add the first category for your products." />
         : <div className="data-card seller-cat-card">
           <div className="seller-cat-row seller-cat-head" aria-hidden="true">
-            <span>Category</span><span>Your products</span><span>On MVEC</span><span />
+            <span>Category</span><span>Your products</span><span>On Ikiguzi</span><span />
           </div>
           {shown.length === 0 && <p className="tiny seller-cat-empty">No categories match “{q}”.</p>}
           {shown.map(root => {

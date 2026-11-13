@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { client } from "../API/client";
 import { useAuth } from "../context/AuthContext";
 
-// Shows its content when the account may use `feature`. While MVEC's paid
+// Shows its content when the account may use `feature`. While Ikiguzi's paid
 // plans are off (the default) everyone may use everything, so this only
 // matters after an admin switches the subscription program on.
 let cached = null;
