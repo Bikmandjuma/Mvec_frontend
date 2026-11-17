@@ -19,6 +19,7 @@ npm run build
 - `src/pages/` holds the role dashboards: `VendorDashboard` (with `pages/seller/*`), `SupplierDashboard`, `AffiliateDashboard`, `RiderDashboard`, `AdminDashboard` and `AdminOps` (with `pages/admin/*`). `App.jsx` routes them behind `RequireAuth roles={...}`.
 - **Loading data:** use `useLoader(key, load)` from `src/lib/useLoader.js`. It's react-query underneath (cached per key, refreshed in the background), and returns `{ data, loading, error, notFound, reload, setData }`. The key must name everything the load depends on. Older pages still load in `useEffect`. Move a page over when you touch it.
 - `src/context/` holds sign-in, theme, language and the marketplace (cart, wishlist, catalog).
+- **Styles:** `src/styles.css` is the older sheet (dashboards, forms). `src/site.css` loads after it and holds the shop frame (`components/Storefront.jsx`, `AuthLayout.jsx`), the home page, product cards and the palette tokens (`--site-*`, sage/blush/cream, serif titles). Put new shop styles there.
 - `components/PinPicker.jsx` is the MapLibre map pin, using the free CARTO basemap. It's used for a store's pickup pin and the buyer's delivery pin. Rider delivery needs both.
 
 ## Rules
