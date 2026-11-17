@@ -39,8 +39,9 @@ export const authApi = {
       .then((r) => ({ ...mapAuthResponse(r.data), guest: Boolean(r.data.guest) })),
   // Phone code for any existing account (riders have no password), or to
   // prove a phone before signing up: purpose "login" | "registration".
-  sendCode: (phone, purpose) =>
-    client.post("/auth/send-otp", { phone, purpose }).then((r) => r.data),
+  // Until SMS is set up, a rider's code can come back as `devCode` to show on screen.
+  sendCode: (phone, purpose, role) =>
+    client.post("/auth/send-otp", { phone, purpose, ...(role ? { role } : {}) }).then((r) => r.data),
   // purpose "login" returns { token, user }; "registration" returns { verificationToken }.
   verifyCode: ({ phone, code, purpose, role }) =>
     client.post("/auth/verify-otp", { phone, code, purpose, ...(role ? { role } : {}) }).then((r) => r.data),
