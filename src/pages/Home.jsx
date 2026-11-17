@@ -185,7 +185,7 @@ export default function Home() {
 
         {products.length > 0 && (
           <section className="home-promos">
-            <Link to={deals.length ? "/shop?deal=true" : "/shop"} className="home-promo blush">
+            <Link to={deals.length ? "/shop?deal=true" : "/shop"} className="home-promo pink">
               <span>
                 <h3>{deals.length ? "Deal days" : "New every day"}</h3>
                 <p>{deals.length ? `${deals.length} product${deals.length === 1 ? " is" : "s are"} on sale right now.` : "Fresh products from sellers across Rwanda."}</p>
@@ -193,7 +193,7 @@ export default function Home() {
               </span>
               {dealImage && <ProductImage src={dealImage} alt="" />}
             </Link>
-            <Link to={sellerHome || "/signup"} state={sellerHome ? undefined : { role: "vendor" }} className="home-promo sage">
+            <Link to={sellerHome || "/signup"} state={sellerHome ? undefined : { role: "vendor" }} className="home-promo brand">
               <span>
                 <h3>{sellerHome ? "Your store" : "Sell on Ikiguzi"}</h3>
                 <p>{sellerHome ? "Orders, payouts and advertising in one place." : "Open a store free and reach buyers across Rwanda."}</p>
