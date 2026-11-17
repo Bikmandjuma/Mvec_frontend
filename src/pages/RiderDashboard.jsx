@@ -5,6 +5,8 @@ import DashboardLayout from "../components/DashboardLayout";
 import { riderApi } from "../API/rider";
 import { extractErrorMessage } from "../API/client";
 import { PageHead, Metric, Loading, EmptyState, StatusPill, money, dateDMY } from "./seller/shared";
+import LiveMap from "../components/LiveMap";
+import { parcelPoints, minutesLeft, kmLeft } from "../utils/liveTracking";
 
 const BOARD = ["rider", "board"];
 const STEP_LABEL = { PICKED_UP: "I have the parcel", OUT_FOR_DELIVERY: "Start the delivery" };
@@ -29,11 +31,18 @@ function useSharedLocation(online) {
     const watch = navigator.geolocation.watchPosition((p) => {
       const now = Date.now();
       const fix = { lat: p.coords.latitude, lng: p.coords.longitude, at: now };
+      const { heading, speed, accuracy } = p.coords;
       const prev = last.current;
       const moved = prev ? Math.hypot((fix.lat - prev.lat) * 111320, (fix.lng - prev.lng) * 111320 * Math.cos((fix.lat * Math.PI) / 180)) : Infinity;
       if (prev && (now - prev.at < 4000 || (moved < 8 && now - prev.at < 15000))) return;
       last.current = fix;
-      riderApi.sendLocation(fix.lat, fix.lng).catch(() => {});
+      riderApi.sendLocation({
+        lat: fix.lat, lng: fix.lng,
+        // Heading is only meaningful while moving.
+        heading: Number.isFinite(heading) && speed > 0.5 ? heading : null,
+        speedMps: Number.isFinite(speed) ? speed : null,
+        accuracyM: Number.isFinite(accuracy) ? accuracy : null,
+      }).catch(() => {});
     }, () => {}, { enableHighAccuracy: true, maximumAge: 10000 });
     return () => navigator.geolocation.clearWatch(watch);
   }, [online]);
@@ -95,6 +104,28 @@ function Home({ board, refresh }) {
   );
 }
 
+/** The trip's map: where the rider is, the road to go, the next turn and time left. */
+function Navigation({ job }) {
+  const { data: nav } = useQuery({
+    queryKey: ["rider", "navigation", job.id, job.status],
+    queryFn: () => riderApi.navigation(job.id),
+    refetchInterval: (q) => (q.state.data?.refreshAfterS || 4) * 1000,
+  });
+  if (!nav?.active) return null;
+  const next = nav.route?.steps?.find((s) => s.distanceM > 0) || nav.route?.steps?.[0];
+  return (
+    <div className="data-card live-track">
+      <div className="live-track-head">
+        <h3>{nav.target === "store" ? `To ${nav.store.name}` : "To the buyer"}</h3>
+        {nav.route && <div className="live-track-eta"><b>{minutesLeft(nav.route.durationS)} min</b><small className="tiny">{kmLeft(nav.route.distanceM)}</small></div>}
+      </div>
+      {next && nav.route.source !== "straight" && <div className="live-track-turn">{next.instruction}{next.distanceM > 0 ? ` in ${kmLeft(next.distanceM)}` : ""}</div>}
+      {!nav.rider.location && <p className="tiny">Allow location in your browser so the map can follow you.</p>}
+      <LiveMap points={parcelPoints(nav)} route={nav.route?.geometry} height={320} />
+    </div>
+  );
+}
+
 function Trip({ board, refresh }) {
   const navigate = useNavigate();
   const [code, setCode] = useState("");
@@ -112,6 +143,7 @@ function Trip({ board, refresh }) {
     <>
       <PageHead eyebrow={`DELIVERY · ${job.orderNumber}`} title={job.statusLabel} desc={`You earn ${money(job.fee)} for this parcel (${job.distanceKm} km).`} />
       {error && <div className="form-error">{error}</div>}
+      <Navigation job={job} />
       <div className="data-card"><h3>{job.status === "ASSIGNED" ? "Pick up here" : "Picked up from"}</h3><p><b>{job.pickup.name}</b> · {job.pickup.address}</p>{job.status === "ASSIGNED" && directions(job.pickup)}</div>
       <div className="data-card">
         <h3>Deliver to</h3>

@@ -251,3 +251,24 @@
 /* ---------- dashboards: same brand mark and titles as the shop ---------- */
 .sb-logo { font: 600 24px/1 var(--site-serif); letter-spacing: -.5px; background: none; color: var(--site-ink); -webkit-text-fill-color: currentColor; }
 .dash-page-head h1 { font-family: var(--site-serif); font-weight: 500; letter-spacing: -.01em; }
+
+/* ---------- live delivery maps (rider, buyer, seller, admin) ---------- */
+.live-map { width: 100%; border-radius: 12px; overflow: hidden; margin-top: 10px; }
+.live-pin { position: relative; width: 22px; height: 22px; }
+.live-pin.rider .live-pin-dot { position: absolute; inset: 3px; border-radius: 50%; background: #0b6580; border: 3px solid #fff; box-shadow: 0 0 0 6px rgba(11, 101, 128, .22); }
+.live-pin.rider .live-pin-arrow { position: absolute; inset: -9px; transform-origin: 50% 50%; }
+.live-pin.rider .live-pin-arrow::before { content: ""; position: absolute; left: 50%; top: 0; margin-left: -6px; border: 6px solid transparent; border-bottom: 9px solid #0b6580; border-top: 0; }
+.live-pin.rider.stale .live-pin-dot { background: #8a969c; box-shadow: none; }
+.live-pin.rider.stale .live-pin-arrow { display: none; }
+.live-pin.store span { position: absolute; inset: 2px; border-radius: 5px; background: #12232b; border: 3px solid #fff; box-shadow: 0 2px 6px rgba(0, 0, 0, .3); }
+.live-pin.buyer { width: 24px; height: 30px; }
+.live-pin.buyer span { position: absolute; left: 2px; top: 0; width: 20px; height: 20px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); background: #e0457b; border: 3px solid #fff; box-shadow: 0 2px 6px rgba(0, 0, 0, .3); }
+.live-track { display: grid; gap: 14px; }
+.live-track-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+.live-track-head h3 { margin: 0 0 4px; }
+.live-track-eta { text-align: right; }
+.live-track-eta b { display: block; font-size: 20px; }
+.live-track-rider { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.live-track-turn { padding: 10px 12px; border-radius: 10px; background: var(--site-soft); font-weight: 600; }
+@media (max-width: 640px) { .live-track-eta { text-align: left; } }
+.live-track-head p { margin: 0; padding: 0; }

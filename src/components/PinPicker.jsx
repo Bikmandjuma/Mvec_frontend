@@ -1,15 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { Map as MapLibreMap, Marker, NavigationControl, setWorkerUrl } from "maplibre-gl";
-import maplibreWorkerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?url";
-import "maplibre-gl/dist/maplibre-gl.css";
+import { Map as MapLibreMap, Marker, NavigationControl, STYLE_URL, KIGALI } from "../lib/maplibre";
 
-// MapLibre resolves its worker next to its own bundle, which Vite's
-// pre-bundling breaks: point it at the file Vite serves.
-setWorkerUrl(maplibreWorkerUrl);
-
-// CARTO's free vector basemap (as KitchenLink uses), no key needed.
-const STYLE_URL = "https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json";
-const KIGALI = { lat: -1.9441, lng: 30.0619 };
 const round = (n) => Math.round(n * 1e6) / 1e6;
 
 /**

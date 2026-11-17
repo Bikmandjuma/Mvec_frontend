@@ -2,6 +2,7 @@ import { Suspense, lazy } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import RequireAuth from "./components/RequireAuth";
 import DeliveryTracking from "./components/DeliveryTracking";
+import AdminLiveDeliveries from "./components/AdminLiveDeliveries";
 import DashboardLayout from "./components/DashboardLayout";
 import NotificationPanel from "./components/NotificationPanel";
 import MobileBottomNav from "./components/MobileBottomNav";
@@ -62,6 +63,7 @@ const SupplierSubscription = lazy(() => Promise.all([import("./pages/seller/Grow
 function DashboardDelivery({ role }) {
   return (
     <DashboardLayout admin={role === "admin"}>
+      {role === "admin" && <AdminLiveDeliveries />}
       <DeliveryTracking role={role} />
     </DashboardLayout>
   );

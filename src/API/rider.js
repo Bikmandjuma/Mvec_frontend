@@ -9,7 +9,12 @@ export const riderApi = {
   me: () => client.get("/rider/me").then(data),
   stats: () => client.get("/rider/stats").then(data),
   setOnline: (isOnline) => client.patch("/rider/availability", { isOnline }).then(data),
-  sendLocation: (lat, lng) => client.patch("/rider/location", { lat, lng }).then(data),
+  // A GPS fix: { lat, lng, heading?, speedMps?, accuracyM? }.
+  sendLocation: (fix) => client.patch("/rider/location", fix).then(data),
+  // The trip's live view: where to go, the road route, turn-by-turn steps and time left.
+  navigation: (id) => client.get(`/rider/deliveries/${id}/navigation`).then(data),
+  // Buyers, sellers and admins: the riders carrying an order's parcels.
+  orderLive: (orderId) => client.get(`/orders/${orderId}/live`).then(data),
   available: () => client.get("/rider/deliveries/available").then(data),
   active: () => client.get("/rider/deliveries/active").then(data),
   history: () => client.get("/rider/deliveries/history").then(data),
@@ -26,4 +31,7 @@ export const riderApi = {
 export const ridersAdminApi = {
   list: (status) => client.get("/admin/riders", { params: status ? { status } : {} }).then(data),
   review: (id, status, note) => client.patch(`/admin/riders/${id}`, { status, note }).then(data),
+  // Parcels on the way now, and handing one back before pickup.
+  deliveries: () => client.get("/admin/deliveries").then(data),
+  release: (id, note) => client.post(`/admin/deliveries/${id}/release`, { note }).then(data),
 };
