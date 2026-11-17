@@ -1,9 +1,11 @@
-import { client } from "./client";
+import { client, mapAuthResponse } from "./client";
 
 const data = (r) => r.data;
 
 /** Ikiguzi riders (`/api/rider/*`), same calls as the mobile app. */
 export const riderApi = {
+  // After the phone check: { verificationToken, fullName, email?, vehicleType, plateNumber? } -> { token, user }.
+  register: (payload) => client.post("/rider/register", payload).then((r) => mapAuthResponse(r.data)),
   me: () => client.get("/rider/me").then(data),
   stats: () => client.get("/rider/stats").then(data),
   setOnline: (isOnline) => client.patch("/rider/availability", { isOnline }).then(data),

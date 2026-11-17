@@ -5,15 +5,19 @@ import FormField from "../components/FormField";
 import GoogleButton from "../components/GoogleButton";
 import { useAuth } from "../context/AuthContext";
 import { extractErrorMessage } from "../API/client";
+import { authApi } from "../API/auth";
+import { riderApi } from "../API/rider";
 import { isRwandanPhone } from "../utils/delivery";
 import { afterSignIn, safeRedirect } from "../utils/redirect";
 
-const ROLES = ["buyer", "vendor", "supplier", "affiliate"];
+const ROLES = ["buyer", "vendor", "supplier", "affiliate", "delivery"];
+const VEHICLES = [["MOTORBIKE", "Motorbike"], ["BICYCLE", "Bicycle"], ["CAR", "Car"], ["ON_FOOT", "On foot"]];
+const needsPlate = (vehicle) => ["MOTORBIKE", "CAR"].includes(vehicle);
 
 export default function Signup() {
   const navigate = useNavigate(),
     location = useLocation();
-  const { register, loginWithGoogle } = useAuth();
+  const { register, loginWithGoogle, startSession } = useAuth();
   const [form, setForm] = useState({
     fullName: "",
     telephone: "",
@@ -23,10 +27,18 @@ export default function Signup() {
     companyName: "",
     password: "",
     confirmPassword: "",
+    vehicleType: "MOTORBIKE",
+    plateNumber: "",
   });
+  // Delivery workers have no password: a code to their phone proves it instead.
+  const [riderCode, setRiderCode] = useState(null); // { code, sentTo }
+  const isRider = form.role === "delivery";
   const [error, setError] = useState(""),
     [loading, setLoading] = useState(false);
-  const update = (e) => setForm({ ...form, [e.target.name]: e.target.value });
+  const update = (e) => {
+    setForm({ ...form, [e.target.name]: e.target.value });
+    if (["telephone", "role"].includes(e.target.name)) setRiderCode(null);
+  };
   async function submit(e) {
     e.preventDefault();
     setError("");
@@ -42,6 +54,7 @@ export default function Signup() {
       setError("Enter a valid email address or leave it empty.");
       return;
     }
+    if (isRider) return riderSignup();
     if (["vendor", "supplier"].includes(form.role) && !form.companyName.trim()) {
       setError("Please enter your business name.");
       return;
@@ -60,6 +73,39 @@ export default function Signup() {
       const user = await register({ ...payload, fullName: form.fullName.trim(), email: form.email.trim() || undefined, gender: form.gender || undefined });
       const returnTo = safeRedirect(location.state?.from);
       navigate(afterSignIn(user, returnTo), { replace: true });
+    } catch (err) {
+      setError(extractErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  }
+  // Riders: send a code, then check it and create the account (it waits for admin approval).
+  async function riderSignup() {
+    if (needsPlate(form.vehicleType) && form.plateNumber.trim().length < 4) {
+      setError("Enter your plate number.");
+      return;
+    }
+    setLoading(true);
+    try {
+      if (!riderCode) {
+        const res = await authApi.sendCode(form.telephone.trim(), "registration");
+        setRiderCode({ code: "", sentTo: res.message || "" });
+        return;
+      }
+      if (!/^\d{6}$/.test(riderCode.code)) {
+        setError("Enter the 6-digit code we sent you.");
+        return;
+      }
+      const { verificationToken } = await authApi.verifyCode({ phone: form.telephone.trim(), code: riderCode.code, purpose: "registration", role: "delivery" });
+      const session = await riderApi.register({
+        verificationToken,
+        fullName: form.fullName.trim(),
+        email: form.email.trim() || undefined,
+        vehicleType: form.vehicleType,
+        plateNumber: needsPlate(form.vehicleType) ? form.plateNumber.trim() : undefined,
+      });
+      startSession(session);
+      navigate("/delivery", { replace: true });
     } catch (err) {
       setError(extractErrorMessage(err));
     } finally {
@@ -97,6 +143,10 @@ export default function Signup() {
     affiliate: [
       "Affiliate account",
       "Promote products and earn commission on qualifying sales.",
+    ],
+    delivery: [
+      "Delivery worker",
+      "Carry parcels from sellers to buyers and earn the delivery fee. Ikiguzi checks your details before your first job, and you sign in with a code sent to your phone.",
     ],
   };
   return (
@@ -151,6 +201,7 @@ export default function Signup() {
               <option value="vendor">Vendor</option>
               <option value="supplier">Supplier</option>
               <option value="affiliate">Affiliate marketer</option>
+              <option value="delivery">Delivery worker</option>
             </select>
           </label>
         </div>
@@ -168,7 +219,33 @@ export default function Signup() {
             required
           />
         )}
-        <div className="two-col">
+        {isRider && (
+          <div className="two-col">
+            <label className="field">
+              <span>Vehicle</span>
+              <select name="vehicleType" value={form.vehicleType} onChange={update}>
+                {VEHICLES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+              </select>
+            </label>
+            {needsPlate(form.vehicleType) && (
+              <FormField label="Plate number" name="plateNumber" placeholder="RAB 123 A" value={form.plateNumber} onChange={update} maxLength={20} />
+            )}
+          </div>
+        )}
+        {isRider && riderCode && (
+          <>
+            <FormField
+              label="6-digit code"
+              name="riderCode"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              value={riderCode.code}
+              onChange={(e) => setRiderCode((c) => ({ ...c, code: e.target.value.replace(/\D/g, "").slice(0, 6) }))}
+            />
+            {riderCode.sentTo && <p className="tiny" role="status">{riderCode.sentTo}</p>}
+          </>
+        )}
+        {!isRider && <div className="two-col">
           <FormField
             label="Create password"
             name="password"
@@ -188,7 +265,7 @@ export default function Signup() {
             onChange={update}
             autoComplete="new-password"
           />
-        </div>
+        </div>}
         <div className="role-info">
           <div className="role-icon">◎</div>
           <div>
@@ -197,10 +274,10 @@ export default function Signup() {
           </div>
         </div>
         <button className="submit-btn" type="submit" disabled={loading}>
-          {loading ? "Creating account…" : "Create account"}
+          {loading ? "Please wait…" : isRider && !riderCode ? "Send me a code" : "Create account"}
         </button>
       </form>
-      <GoogleButton text="signup_with" onCredential={handleGoogle} onError={() => setError("Google sign-up was cancelled or failed. Try again.")} />
+      {!isRider && <GoogleButton text="signup_with" onCredential={handleGoogle} onError={() => setError("Google sign-up was cancelled or failed. Try again.")} />}
       <p className="switch-text">
         Already have an account?{" "}
         <Link to="/login" state={location.state}>

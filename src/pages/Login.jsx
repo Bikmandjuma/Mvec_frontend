@@ -3,7 +3,7 @@ import { Link, useNavigate, useLocation, useSearchParams } from "react-router-do
 import AuthLayout from "../components/AuthLayout";
 import FormField from "../components/FormField";
 import GoogleButton from "../components/GoogleButton";
-import { extractErrorMessage } from "../API/client";
+import { extractErrorMessage, mapAuthResponse } from "../API/client";
 import { authApi } from "../API/auth";
 import { useAuth } from "../context/AuthContext";
 import { afterSignIn, safeRedirect } from "../utils/redirect";
@@ -18,7 +18,7 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const returnTo = safeRedirect(location.state?.from) || safeRedirect(params.get("next"));
   const update = (e) => setForm({ ...form, [e.target.name]: e.target.value });
-  // Guests (and buyers who prefer it) log in with a one-time code.
+  // Guests, delivery workers (no password) and anyone who prefers it log in with a one-time code.
   const [codeLogin, setCodeLogin] = useState(null); // { phone, code, sent, sentTo }
 
   async function sendLoginCode(e) {
@@ -26,7 +26,7 @@ export default function Login() {
     setError("");
     setLoading(true);
     try {
-      const res = await authApi.guestSendCode(codeLogin.phone.trim());
+      const res = await authApi.sendCode(codeLogin.phone.trim(), "login");
       setCodeLogin((c) => ({ ...c, sent: true, sentTo: res.message || "" }));
     } catch (err) {
       if (err.response?.status === 429) setCodeLogin((c) => ({ ...c, sent: true }));
@@ -41,12 +41,11 @@ export default function Login() {
     setError("");
     setLoading(true);
     try {
-      const session = await authApi.guestVerify({ phone: codeLogin.phone.trim(), code: codeLogin.code.trim() });
+      const session = mapAuthResponse(await authApi.verifyCode({ phone: codeLogin.phone.trim(), code: codeLogin.code.trim(), purpose: "login" }));
       startSession(session);
       navigate(afterSignIn(session.user, returnTo || "/orders"), { replace: true });
     } catch (err) {
-      const message = extractErrorMessage(err);
-      setError(/full name/i.test(message) ? "No order or account uses this number yet. Shop and check out to get started." : message);
+      setError(err.response?.status === 404 ? "No account uses this number yet. Create one, or shop and check out to get started." : extractErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -106,7 +105,7 @@ export default function Login() {
             <button className="submit-btn" type="submit" disabled={loading}>{loading ? "Please wait…" : codeLogin.sent ? "Log in" : "Send me a code"}</button>
             <button type="button" className="text-btn" onClick={() => setCodeLogin(null)}>Use my password instead</button>
           </form>
-        : <p className="switch-text">Ordered as a guest? <button type="button" className="text-btn" onClick={() => { setError(""); setCodeLogin({ phone: "", code: "", sent: false }); }}>Log in with a code</button></p>}
+        : <p className="switch-text">Guest or delivery worker? <button type="button" className="text-btn" onClick={() => { setError(""); setCodeLogin({ phone: "", code: "", sent: false }); }}>Log in with a code</button></p>}
       <GoogleButton onCredential={handleGoogle} onError={() => setError("Google sign-in was cancelled or failed. Try again.")} />
       <p className="switch-text">
         Don&apos;t have an account? <Link to="/signup" state={location.state || (returnTo ? { from: returnTo } : undefined)}>Create one</Link>
