@@ -7,8 +7,9 @@ import { ordersApi } from '../../API/orders';
 import ManualOrderModal from './ManualOrderModal';
 import {
   PageHead, Loading, EmptyState, Metric, StatusPill, FormModal, money, dateDMY, matches, personName, titleCase,
-  sellerNextStatuses, canRecordCash, stepLabelFor, ORDER_TABS, isRevenueOrder, useLoader, useNotice,
+  sellerNextStatuses, canRecordCash, stepLabelFor, ORDER_TABS, isRevenueOrder, useNotice,
 } from './shared';
+import { useLoader } from '../../lib/useLoader';
 
 const PER_PAGE = 10;
 const RANGES = [['all', 'All time'], ['7', 'Last 7 days'], ['30', 'Last 30 days'], ['90', 'Last 90 days']];
@@ -46,7 +47,7 @@ export function exportOrdersCsv(rows) {
 // basePath is where order details open, and they don't record manual sales.
 export default function OrdersPage({ basePath = '/vendor/orders', allowManual = true, eyebrow, title = 'Orders', desc = 'Online orders for your products and the sales you record yourself.' }) {
   const navigate = useNavigate();
-  const { data, loading, error, reload } = useLoader(() => ordersApi.getVendorOrders().then((r) => r.orders || []));
+  const { data, loading, error, reload } = useLoader(['vendor', 'orders'], () => ordersApi.getVendorOrders().then((r) => r.orders || []));
   const [tab, setTab] = useState('all');
   const [q, setQ] = useState('');
   useUrlQuery((v) => { setQ(v); setPage(1); });
@@ -164,7 +165,7 @@ export default function OrdersPage({ basePath = '/vendor/orders', allowManual = 
 
     {creating && <ManualOrderModal onClose={() => setCreating(false)} onCreated={(res) => { setCreating(false); navigate(`/vendor/orders/${res.order._id || res.order.id}`); }} />}
     {cancelling && <FormModal title={`Cancel ${cancelling.orderNumber}?`}
-      subtitle={cancelling.paymentStatus === 'PAID' && !cancelling.paidOffline ? 'The buyer paid through MVEC: they get a full refund, and your items go back into stock.' : 'Your items go back into stock. The customer is notified.'}
+      subtitle={cancelling.paymentStatus === 'PAID' && !cancelling.paidOffline ? 'The buyer paid through Ikiguzi: they get a full refund, and your items go back into stock.' : 'Your items go back into stock. The customer is notified.'}
       fields={[
         { name: 'reason', label: 'Reason', type: 'select', options: CANCEL_REASONS, required: true },
         { name: 'note', label: 'Note for the customer', placeholder: 'Optional' },

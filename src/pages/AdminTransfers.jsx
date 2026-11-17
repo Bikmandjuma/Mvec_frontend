@@ -3,7 +3,7 @@ import DashboardLayout from '../components/DashboardLayout';
 import { client, extractErrorMessage } from '../API/client';
 import { money, formatDate } from '../utils/format';
 
-// Money MVEC sends out: affiliate withdrawals that need approval, and every
+// Money Ikiguzi sends out: affiliate withdrawals that need approval, and every
 // automatic refund / withdrawal transfer with its status and a retry button.
 const METHOD = { MTN_MOMO: 'MTN MoMo', AIRTEL_MONEY: 'Airtel Money', BANK_TRANSFER: 'Bank transfer' };
 const TRANSFER_STATUS = { QUEUED: ['Queued', 'pending'], SENT: ['Waiting for provider', 'pending'], SUCCESS: ['Sent', 'active'], FAILED: ['Failed', 'failed'] };
@@ -32,7 +32,7 @@ export default function AdminTransfers() {
       .catch((err) => setNotice({ ok: false, text: extractErrorMessage(err) }))
       .finally(() => setLoading(false));
   };
-  useEffect(load, [filter]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(load, [filter]);  
 
   const processPayout = async (p, status) => {
     if (status === 'REJECTED' && !window.confirm('Reject this withdrawal? The amount returns to the affiliate\'s balance.')) return;
@@ -43,7 +43,7 @@ export default function AdminTransfers() {
       await client.post(`/affiliates/payouts/${p.id}/process`, {
         status,
         transactionReference: bankRef[p.id],
-        rejectionReason: status === 'REJECTED' ? 'Rejected by MVEC' : undefined,
+        rejectionReason: status === 'REJECTED' ? 'Rejected by Ikiguzi' : undefined,
       });
       setNotice({ ok: true, text: status === 'REJECTED' ? 'Withdrawal rejected.' : status === 'APPROVED' ? 'Approved and sent to mobile money.' : 'Marked as paid.' });
       load();

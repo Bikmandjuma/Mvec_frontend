@@ -11,7 +11,7 @@ import { money, matches } from './shared';
 const PAYMENTS = [
   ['COD', 'Cash on delivery', 'Customer pays when the order arrives.'],
   ['PAID_OFFLINE', 'Already paid', 'You received cash, MoMo or a bank transfer.'],
-  ['LINK', 'MVEC payment link', 'Customer pays online; needs an MVEC account with this phone or email.'],
+  ['LINK', 'Ikiguzi payment link', 'Customer pays online; needs an Ikiguzi account with this phone or email.'],
 ];
 
 export default function ManualOrderModal({ onClose, onCreated }) {
@@ -104,7 +104,7 @@ export default function ManualOrderModal({ onClose, onCreated }) {
     return createPortal(<div className="modal-backdrop" onMouseDown={() => onCreated(created)}>
       <div className="modal seller-modal" onMouseDown={e => e.stopPropagation()}>
         <h2>Order created</h2>
-        <p>{created.message} Send this link to the customer; they pay after signing in to MVEC.</p>
+        <p>{created.message} Send this link to the customer; they pay after signing in to Ikiguzi.</p>
         <div className="seller-link-box"><code>{link}</code>
           <button type="button" className="outline-btn" onClick={() => navigator.clipboard?.writeText(link)}><Icon name="copy" size={15} /> Copy</button>
         </div>
@@ -125,7 +125,7 @@ export default function ManualOrderModal({ onClose, onCreated }) {
         <div className="seller-form-grid">
           <label className="field half"><span>Name *</span><input value={customer.name} onChange={e => setCustomer(c => ({ ...c, name: e.target.value }))} required /></label>
           <label className="field half"><span>Phone *</span><input value={customer.phone} onChange={e => setCustomer(c => ({ ...c, phone: e.target.value }))} required placeholder="07xx xxx xxx" /></label>
-          <label className="field"><span>Email</span><input type="email" value={customer.email} onChange={e => setCustomer(c => ({ ...c, email: e.target.value }))} placeholder="Optional" /><small className="tiny">If the phone or email matches an MVEC buyer, the order appears in their account.</small></label>
+          <label className="field"><span>Email</span><input type="email" value={customer.email} onChange={e => setCustomer(c => ({ ...c, email: e.target.value }))} placeholder="Optional" /><small className="tiny">If the phone or email matches an Ikiguzi buyer, the order appears in their account.</small></label>
         </div>
       </section>
 
@@ -185,7 +185,7 @@ export default function ManualOrderModal({ onClose, onCreated }) {
           {[['CASH', 'Cash'], ['MOMO', 'Mobile Money'], ['BANK', 'Bank transfer']].map(([v, l]) =>
             <button type="button" role="radio" aria-checked={offlineMethod === v} key={v} className={offlineMethod === v ? 'active' : ''} onClick={() => setOfflineMethod(v)}>{l}</button>)}
         </div>}
-        {payment !== 'LINK' && <p className="tiny">You collect this payment yourself, so it isn't added to your MVEC balance.</p>}
+        {payment !== 'LINK' && <p className="tiny">You collect this payment yourself, so it isn't added to your Ikiguzi balance.</p>}
         <label className="field"><span>Note</span><textarea rows="2" value={note} onChange={e => setNote(e.target.value)} placeholder="Optional, e.g. gift wrap, call before delivery" maxLength={500} /></label>
       </section>
 

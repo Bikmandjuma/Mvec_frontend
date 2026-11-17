@@ -1,4 +1,4 @@
-import React, { Suspense, lazy } from "react";
+import { Suspense, lazy } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import RequireAuth from "./components/RequireAuth";
 import DeliveryTracking from "./components/DeliveryTracking";
@@ -26,7 +26,7 @@ const VendorDetail = lazy(() => import("./pages/VendorDetail"));
 const VendorDashboard = lazy(() => import("./pages/VendorDashboard"));
 const SupplierDashboard = lazy(() => import("./pages/SupplierDashboard"));
 const AffiliateDashboard = lazy(() => import("./pages/AffiliateDashboard"));
-const DeliveryDashboard = lazy(() => import("./pages/DeliveryDashboard"));
+const RiderDashboard = lazy(() => import("./pages/RiderDashboard"));
 const PlatformOperations = lazy(() => import("./pages/PlatformOperations"));
 const VendorNetwork = lazy(() => import("./pages/VendorNetwork"));
 const VendorAffiliate = lazy(() => import("./pages/VendorAffiliate"));
@@ -37,6 +37,7 @@ const AdminTransfers = lazy(() => import("./pages/AdminTransfers"));
 const VendorPayoutsAdmin = lazy(() => import("./pages/admin/VendorPayoutsAdmin"));
 const AccountSettings = lazy(() => import("./pages/account/AccountSettings"));
 const AdvertisingAdmin = lazy(() => import("./pages/admin/AdvertisingAdmin"));
+const RidersAdmin = lazy(() => import("./pages/admin/RidersAdmin"));
 const FeaturePages = lazy(() => import("./pages/FeaturePages"));
 const AdminDisputesPage = lazy(() => import("./pages/FeaturePages").then((m) => ({ default: m.AdminDisputesPage })));
 const VendorQuotes = lazy(() => import("./pages/Wholesale").then((m) => ({ default: m.VendorQuotes })));
@@ -69,7 +70,7 @@ export default function App() {
   return (
     <>
     <ReferralCapture />
-    <Suspense fallback={<div className="loading-screen">Loading MVEC…</div>}>
+    <Suspense fallback={<div className="loading-screen">Loading Ikiguzi…</div>}>
     <Routes>
       <Route path="/" element={<Home />} />
       <Route path="/login" element={<Login />} />
@@ -390,7 +391,7 @@ export default function App() {
         path="/delivery/*"
         element={
           <RequireAuth roles={["delivery"]}>
-            <DeliveryDashboard />
+            <RiderDashboard />
           </RequireAuth>
         }
       />
@@ -413,6 +414,14 @@ export default function App() {
         element={
           <RequireAuth roles={["super_admin"]}>
             <AdvertisingAdmin />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/admin/riders"
+        element={
+          <RequireAuth roles={["super_admin"]}>
+            <RidersAdmin />
           </RequireAuth>
         }
       />

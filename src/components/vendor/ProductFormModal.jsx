@@ -375,7 +375,7 @@ export default function ProductFormModal({ product, onSave, onClose, saving = fa
             <div>
               <span className="eyebrow">PRODUCT CATALOG</span>
               <h2>{editing ? "Edit product" : "Add product"}</h2>
-              <p>Complete product information before publishing it to the MVEC marketplace.</p>
+              <p>Complete product information before publishing it to the Ikiguzi marketplace.</p>
             </div>
             <button className="outline-btn" type="button" onClick={onClose}>
               Cancel

@@ -6,7 +6,8 @@ import Icon from '../../components/Icon';
 import SmartTable from '../../components/SmartTable';
 import { staffApi } from '../../API/staff';
 import { STAFF_ROLE_LABEL } from '../../data/staffAccess';
-import { PageHead, Loading, Metric, StatusPill, FormModal, dateDMY, useLoader, useNotice } from './shared';
+import { PageHead, Loading, Metric, StatusPill, FormModal, dateDMY, useNotice } from './shared';
+import { useLoader } from '../../lib/useLoader';
 
 const ROLE_HELP = {
   STORE_MANAGER: 'Runs the store day to day: products, orders, marketing, analytics, settings.',
@@ -26,13 +27,13 @@ const ago = d => {
 };
 
 export default function TeamPage() {
-  const { data, loading, error, reload } = useLoader(() => staffApi.getAll());
+  const { data, loading, error, reload } = useLoader(['staff'], () => staffApi.getAll());
   const [modal, setModal] = useState(null); // { kind: 'add'|'access'|'details'|'password', row }
   const [tab, setTab] = useState('MEMBERS');
   const [activityFor, setActivityFor] = useState('');
   const [busyId, setBusyId] = useState('');
   const notice = useNotice();
-  const activity = useLoader(() => (tab === 'ACTIVITY' ? staffApi.activity({ staffId: activityFor || undefined, limit: 100 }) : Promise.resolve(null)), [tab, activityFor]);
+  const activity = useLoader(['staff', 'activity', tab, activityFor], () => (tab === 'ACTIVITY' ? staffApi.activity({ staffId: activityFor || undefined, limit: 100 }) : Promise.resolve(null)));
 
   const members = data?.staff || [];
   const staff = members.filter(m => m.role !== 'OWNER');

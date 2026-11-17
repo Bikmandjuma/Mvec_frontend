@@ -88,7 +88,7 @@ export default function SellerOrderDetail() {
           <div className="order-summary-lines">
             <span>Subtotal <b>{money(gross)}</b></span>
             {couponDiscount > 0 && <span>Coupon {order.coupon?.code} <b>-{money(couponDiscount)}</b></span>}
-            <span>MVEC platform fee ({commission}%) <b>-{money(fee)}</b></span>
+            <span>Ikiguzi platform fee ({commission}%) <b>-{money(fee)}</b></span>
             <span>Delivery{parcels[0]?.method ? ` · ${titleCase(parcels[0].method)}` : ''}{parcels[0]?.zoneName ? ` · ${parcels[0].zoneName}` : ''} <b>{delivery ? `+${money(delivery)}` : parcels.some(p => p.originalFee > 0) ? `Free (coupon, ${money(parcels.reduce((s, p) => s + Number(p.originalFee || 0), 0))} waived)` : 'Free'}</b></span>
             <span className="grand">{isAdmin ? 'Vendor settlement' : 'You receive'} <b>{money(Math.max(0, subtotal - fee) + delivery)}</b></span>
           </div>
@@ -100,7 +100,7 @@ export default function SellerOrderDetail() {
             <b>{order.customer?.name || personName(order.user)}</b>
             {order.customer?.phone && <span>{order.customer.phone}</span>}
             {(order.customer?.email || order.user?.email) && <span>{order.customer?.email || order.user.email}</span>}
-            {order.source === 'MANUAL' && <span className="tiny">{order.user ? 'Linked to the customer\u2019s MVEC account' : 'Guest customer (no MVEC account)'}</span>}
+            {order.source === 'MANUAL' && <span className="tiny">{order.user ? 'Linked to the customer\u2019s Ikiguzi account' : 'Guest customer (no Ikiguzi account)'}</span>}
             <span>{order.shippingMethod === 'PICKUP' ? 'The buyer collects this order from your store. Ask for their delivery code when you hand it over.' : [address.street, address.sector, address.district || address.city, address.province || address.state, address.country].filter(Boolean).join(', ') || 'No address provided'}</span>
             {parcels[0]?.eta && <span>Delivery promised: {parcels[0].eta}</span>}
           </div>
@@ -140,7 +140,7 @@ export default function SellerOrderDetail() {
         </div>
       </section>
       {cancelling && <FormModal title={`Cancel ${order.orderNumber}?`}
-        subtitle={order.paymentStatus === 'PAID' && !order.paidOffline ? 'The buyer paid through MVEC: they get a full refund, and your items go back into stock.' : 'Your items go back into stock.'}
+        subtitle={order.paymentStatus === 'PAID' && !order.paidOffline ? 'The buyer paid through Ikiguzi: they get a full refund, and your items go back into stock.' : 'Your items go back into stock.'}
         fields={[
           { name: 'reason', label: 'Reason', type: 'select', required: true, options: ['Out of stock', 'Customer asked to cancel', 'Cannot deliver to this address', 'Pricing error', 'Other'].map(r => [r, r]) },
           { name: 'note', label: 'Note for the customer', placeholder: 'Optional' },

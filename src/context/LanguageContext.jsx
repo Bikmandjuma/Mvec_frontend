@@ -1,6 +1,6 @@
 import { createContext, useContext } from 'react';
 
-// MVEC is English-only. This context is kept (rather than removed) so
+// Ikiguzi is English-only. This context is kept (rather than removed) so
 // existing components can keep calling useLanguage()/t() without changes,
 // but it no longer stores a language preference, offers a switcher, or
 // rewrites page text, it always resolves to plain English.

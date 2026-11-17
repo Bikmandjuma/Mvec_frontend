@@ -191,7 +191,7 @@ export default function CommandPalette({ open, onClose, admin, user, onLogout })
         <span><kbd>↑</kbd><kbd>↓</kbd> navigate</span>
         <span><kbd>↵</kbd> open</span>
         <span><kbd>esc</kbd> close</span>
-        <span className="cmdk-foot-right">{query.length >= 2 && remote.query === query ? `${recordCount} record${recordCount === 1 ? '' : 's'}` : 'MVEC search'}</span>
+        <span className="cmdk-foot-right">{query.length >= 2 && remote.query === query ? `${recordCount} record${recordCount === 1 ? '' : 's'}` : 'Ikiguzi search'}</span>
       </div>
     </div>
   </div>, document.body);

@@ -126,7 +126,7 @@ export function confirmPayment(id, method) {
       recipient: order.vendor,
       type: "payment",
       title: "Order paid successfully",
-      message: `${order.id} was successfully paid. MVEC has recorded the funds as HELD pending delivery confirmation.`,
+      message: `${order.id} was successfully paid. Ikiguzi has recorded the funds as HELD pending delivery confirmation.`,
       reference: order.id,
     });
     addNotification({
@@ -144,7 +144,7 @@ export function confirmPayment(id, method) {
         recipient: order.supplier,
         type: "payment",
         title: "Supplier order paid successfully",
-        message: `${order.id} was successfully paid. MVEC has recorded the funds as HELD pending supply delivery confirmation.`,
+        message: `${order.id} was successfully paid. Ikiguzi has recorded the funds as HELD pending supply delivery confirmation.`,
         reference: order.id,
       });
     }
@@ -173,7 +173,7 @@ function refundOrderInternal(order, reason="Delivery deadline exceeded") {
     recordLedgerEntry({type:"AFFILIATE_COMMISSION_CANCELLED",orderId:order.id,transactionId:order.transactionId,amount:Number(order.affiliateCommission||0),status:"CANCELLED",affiliate:order.affiliateCode||""});
   }
   addNotification({role:"buyer",recipient:order.buyerEmail||order.buyerPhone,type:"refund",title:"Full refund approved",message:`${order.id} was cancelled and a full refund of RWF ${amount.toLocaleString()} is due because the delivery window expired.`,reference:order.id});
-  addNotification({role:"vendor",recipient:order.vendor,type:"refund",title:"Order cancelled and refunded",message:`${order.id} was automatically cancelled after the delivery deadline. MVEC recorded a full refund for the buyer.`,reference:order.id});
+  addNotification({role:"vendor",recipient:order.vendor,type:"refund",title:"Order cancelled and refunded",message:`${order.id} was automatically cancelled after the delivery deadline. Ikiguzi recorded a full refund for the buyer.`,reference:order.id});
   if(order.supplier) addNotification({role:"supplier",recipient:order.supplier,type:"refund",title:"Supply order cancelled and refunded",message:`${order.id} was automatically cancelled after the delivery deadline.`,reference:order.id});
   addNotification({role:"admin",type:"refund",title:"Automatic order cancellation",message:`${order.id} exceeded the 3-hour delivery window and was fully refunded.`,reference:order.id});
   return updated;
@@ -207,7 +207,7 @@ export function verifyDeliveryOtp(id, otp) {
     status: "Delivered",
   });
   addNotification({role:"buyer",recipient:updated.buyerEmail||updated.buyerPhone,type:"delivery",title:"Delivery confirmed",message:`${updated.id} was successfully delivered using the correct OTP.`,reference:updated.id});
-  addNotification({role:"vendor",recipient:updated.vendor,type:"delivery",title:"Order delivered successfully",message:`${updated.id} was delivered and the buyer OTP was verified. MVEC can now release the protected funds.`,reference:updated.id});
+  addNotification({role:"vendor",recipient:updated.vendor,type:"delivery",title:"Order delivered successfully",message:`${updated.id} was delivered and the buyer OTP was verified. Ikiguzi can now release the protected funds.`,reference:updated.id});
   if(updated.supplier) addNotification({role:"supplier",recipient:updated.supplier,type:"delivery",title:"Supply delivery confirmed",message:`${updated.id} was received and the delivery OTP was verified.`,reference:updated.id});
   return releaseSettlement(id,"delivery-otp");
 }
@@ -270,8 +270,8 @@ export function releaseSettlement(id, actor = "delivery") {
       recordLedgerEntry({type:"AFFILIATE_COMMISSION",orderId:order.id,transactionId:order.transactionId,amount:affiliateCommission,status:"PAYABLE",affiliate:order.affiliateCode});
       addNotification({role:"affiliate",recipient:order.affiliateEmail||"affiliate@mvec.rw",type:"commission",title:"Commission approved",message:`Commission of RWF ${affiliateCommission.toLocaleString()} is now available for ${order.id}.`,reference:order.id});
     }
-    addNotification({ role:"vendor", recipient:order.vendor, type:"settlement", title:"MVEC released protected funds", message:`Funds for ${order.id} were released after delivery confirmation.`, reference:order.id });
-    if (order.supplier) addNotification({ role:"supplier", recipient:order.supplier, type:"settlement", title:"MVEC released protected funds", message:`Funds for ${order.id} were released after supply receipt confirmation.`, reference:order.id });
+    addNotification({ role:"vendor", recipient:order.vendor, type:"settlement", title:"Ikiguzi released protected funds", message:`Funds for ${order.id} were released after delivery confirmation.`, reference:order.id });
+    if (order.supplier) addNotification({ role:"supplier", recipient:order.supplier, type:"settlement", title:"Ikiguzi released protected funds", message:`Funds for ${order.id} were released after supply receipt confirmation.`, reference:order.id });
     addNotification({ role:"admin", type:"settlement", title:"Protected settlement released", message:`${order.id} was released after ${actor} confirmation.`, reference:order.id });
   }
   return order;
@@ -305,7 +305,7 @@ export function requestAffiliateWithdrawal(amount, method = "MTN MoMo", account 
   const request = { id:`AFF-PAY-${Date.now()}`, amount:value, method, account, status:"Pending review", requestedAt:new Date().toISOString() };
   const next = {...wallet, available:wallet.available-value, withdrawn:Number(wallet.withdrawn||0)+value, withdrawals:[request,...(wallet.withdrawals||[])]};
   saveAffiliateWallet(next);
-  addNotification({ role:"affiliate", recipient:"affiliate@mvec.rw", type:"payout", title:"Withdrawal request submitted", message:`Your RWF ${value.toLocaleString()} payout request is pending MVEC review.`, reference:request.id });
+  addNotification({ role:"affiliate", recipient:"affiliate@mvec.rw", type:"payout", title:"Withdrawal request submitted", message:`Your RWF ${value.toLocaleString()} payout request is pending Ikiguzi review.`, reference:request.id });
   return request;
 }
 

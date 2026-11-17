@@ -5,7 +5,7 @@ import { needsOnboarding } from './dashboard/RestrictedOverview';
 export default function RequireAuth({ children, roles }) {
   const { user, loading } = useAuth();
   const loc = useLocation();
-  if (loading) return <div className="loading-screen">Loading MVEC…</div>;
+  if (loading) return <div className="loading-screen">Loading Ikiguzi…</div>;
   if (!user) return <Navigate to="/login" state={{ from: `${loc.pathname}${loc.search}` }} replace />;
   const isAdminActingAsSeller = user.role === 'super_admin' && user.isSellerEnabled && roles?.includes('vendor');
   if (roles && !roles.includes(user.role) && !isAdminActingAsSeller) {

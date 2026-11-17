@@ -189,12 +189,12 @@ function GenericAdminTable({ title, subtitle, type }) {
     <DashboardLayout admin>
       <div className="dash-page-head"><div><span className="eyebrow">SUPER ADMIN</span><h1>{title}</h1><p>{subtitle}</p></div></div>
       {type === "users"
-        ? <div className="verified-box"><b>Who gets which role</b><p>Buyers sign up or check out as guests. Sellers, suppliers and affiliates choose their role when they sign up, and MVEC verifies sellers and suppliers on their own pages. Couriers and admins are added here as new accounts — a shopper's account is never turned into one, and roles are never switched.</p>
+        ? <div className="verified-box"><b>Who gets which role</b><p>Buyers sign up or check out as guests. Sellers, suppliers and affiliates choose their role when they sign up, and Ikiguzi verifies sellers and suppliers on their own pages. Couriers and admins are added here as new accounts — a shopper's account is never turned into one, and roles are never switched.</p>
             <div className="modal-actions" style={{ justifyContent: "flex-start", marginTop: 12 }}>
               <button type="button" className="gradient-btn compact-btn" onClick={() => { setNotice(""); setTeamForm("courier"); }}>+ Add courier</button>
               <button type="button" className="outline-btn compact-btn" onClick={() => { setNotice(""); setTeamForm("admin"); }}>+ Add admin</button>
             </div></div>
-        : <div className="verified-box"><b>Live marketplace data</b><p>This list is read directly from the MVEC database. User actions update the account record and take effect across the marketplace.</p></div>}
+        : <div className="verified-box"><b>Live marketplace data</b><p>This list is read directly from the Ikiguzi database. User actions update the account record and take effect across the marketplace.</p></div>}
       {notice && <div className="form-alert success" role="status">{notice}</div>}
       <div className="data-card">
         <div className="data-card-head">
@@ -239,7 +239,7 @@ function TeamAccountForm({ kind, onClose, onDone }) {
       <button type="button" className="modal-close" onClick={onClose} aria-label="Close" disabled={busy}>×</button>
       <h2>{admin ? "Add an admin" : "Add a courier"}</h2>
       <p>{admin
-        ? "Admins can see and change everything on MVEC. Only add MVEC staff, with their work email. This creates a new account; they choose their password from the email we send."
+        ? "Admins can see and change everything on Ikiguzi. Only add Ikiguzi staff, with their work email. This creates a new account; they choose their password from the email we send."
         : "Couriers deliver paid orders and confirm them with the buyer's code. This creates a new account for the delivery partner; they choose their password from the email we send."}</p>
       <label className="field"><span>Full name</span><input value={form.fullName} onChange={set("fullName")} autoFocus /></label>
       <label className="field"><span>Email</span><input type="email" value={form.email} onChange={set("email")} placeholder="name@example.com" /></label>
@@ -273,7 +273,7 @@ function AdminAccessForm({ admin, onClose, onDone }) {
       <button type="button" className="modal-close" onClick={onClose} aria-label="Close" disabled={busy}>×</button>
       <h2>{restoring ? "Restore admin access" : "Remove admin access"}</h2>
       <p>{restoring
-        ? `${admin.name} will be able to sign in and manage MVEC again.`
+        ? `${admin.name} will be able to sign in and manage Ikiguzi again.`
         : `${admin.name} will no longer be able to sign in. Everything they did stays in the activity log.`}</p>
       <label className="field"><span>Your password (to confirm)</span><input type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} autoFocus /></label>
       {error && <div className="form-alert error" role="alert">{error}</div>}
@@ -441,12 +441,12 @@ export default function AdminDashboard() {
       </div>
       {!overview && !dashLoading && <div className="form-error">Marketplace overview is unavailable: {dashError || "No data was returned."}</div>}
 
-      {/* MVEC REVENUE + PLATFORM ACTIVITY */}
+      {/* Ikiguzi REVENUE + PLATFORM ACTIVITY */}
       <div className="dash-grid">
         <div className="data-card chart-card">
           <div className="data-card-head">
             <div>
-              <h3>MVEC revenue</h3>
+              <h3>Ikiguzi revenue</h3>
               <span>Platform commission earned across all vendors</span>
             </div>
           </div>

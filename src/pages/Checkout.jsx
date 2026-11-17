@@ -10,6 +10,7 @@ import { productsApi } from "../API/products";
 import { ordersApi } from "../API/orders";
 import { addressesApi } from "../API/addresses";
 import { shippingApi } from "../API/shipping";
+import PinPicker from "../components/PinPicker";
 import { promotionsApi } from "../API/promotions";
 import { RWANDA_LOCATIONS, PROVINCES } from "../data/rwandaLocations";
 import { extractErrorMessage } from "../API/client";
@@ -20,7 +21,7 @@ import { isRwandanPhone } from "../utils/delivery";
 const FORM_KEY = "mvec_checkout_form";
 // fulfilment: "" until the buyer chooses; "pickup" or "delivery".
 // method: the delivery speed, used only for delivery.
-const EMPTY_FORM = { name: "", phone: "", email: "", fulfilment: "", province: "Kigali City", district: "", sector: "", street: "", method: "standard" };
+const EMPTY_FORM = { name: "", phone: "", email: "", fulfilment: "", province: "Kigali City", district: "", sector: "", street: "", method: "standard", pin: null };
 
 const readSavedForm = () => {
   try { return JSON.parse(sessionStorage.getItem(FORM_KEY) || "null"); } catch { return null; }
@@ -43,6 +44,7 @@ const fromAddress = (a) => ({
   sector: a.sector || "",
   street: [a.street, a.building, a.apartment].filter(Boolean).join(", "),
   phone: a.phone || "",
+  pin: a.lat != null ? { lat: a.lat, lng: a.lng } : null,
 });
 
 function validate(form) {
@@ -155,7 +157,7 @@ export default function Checkout() {
   const total = subtotal + delivery - discount;
 
   const quoteItems = useMemo(() => items.map((x) => ({ productId: x.id || x._id, qty: x.qty || 1 })), [items]);
-  const quoteKey = JSON.stringify([form.fulfilment, form.province, form.district, quoteItems]);
+  const quoteKey = JSON.stringify([form.fulfilment, form.province, form.district, form.pin, quoteItems]);
   useEffect(() => {
     const validDistrict = RWANDA_LOCATIONS[form.province]?.includes(form.district);
     if (!quoteItems.length || (isDelivery && !validDistrict) || !form.fulfilment) {
@@ -168,7 +170,7 @@ export default function Checkout() {
     const t = setTimeout(() => {
       const request = isPickup
         ? shippingApi.quote({ method: "PICKUP", items: quoteItems }).then((pickup) => ({ standard: null, express: null, pickup }))
-        : Promise.all(SPEEDS.map((m) => shippingApi.quote({ address: { province: form.province, district: form.district }, method: m.toUpperCase(), items: quoteItems })))
+        : Promise.all(SPEEDS.map((m) => shippingApi.quote({ address: { province: form.province, district: form.district, ...form.pin }, method: m.toUpperCase(), items: quoteItems })))
             .then(([standard, express]) => ({ standard, express, pickup: null }));
       request
         .then((next) => alive && setQuotes(next))
@@ -189,7 +191,7 @@ export default function Checkout() {
     try {
       const res = await promotionsApi.validate({
         code: code.trim(), items: quoteItems, shippingMethod: chosenMethod || "pickup",
-        shippingAddress: isDelivery && form.district ? { province: form.province, district: form.district } : undefined,
+        shippingAddress: isDelivery && form.district ? { province: form.province, district: form.district, ...form.pin } : undefined,
       });
       setCoupon(res);
       setCouponError("");
@@ -240,7 +242,7 @@ export default function Checkout() {
   async function submitOrder({ guestItems = null } = {}) {
     const payload = {
       shippingAddress: isDelivery
-        ? { street: form.street.trim(), district: form.district, sector: form.sector.trim(), province: form.province, country: "Rwanda" }
+        ? { street: form.street.trim(), district: form.district, sector: form.sector.trim(), province: form.province, country: "Rwanda", ...form.pin }
         : {},
       recipient: { name: form.name.trim(), phone: form.phone.trim(), email: form.email.trim() },
       deliveryMethod: chosenMethod,
@@ -255,7 +257,7 @@ export default function Checkout() {
     if (isDelivery && user && saveAddress && !addressId) {
       addressesApi.add({
         type: "HOME", country: "Rwanda", provinceState: form.province, cityDistrict: form.district,
-        sector: form.sector.trim(), street: form.street.trim(), phone: form.phone.trim(),
+        sector: form.sector.trim(), street: form.street.trim(), phone: form.phone.trim(), ...form.pin,
       }).catch(() => {});
     }
     clearCatalogCache(); // stock changed
@@ -361,7 +363,7 @@ export default function Checkout() {
     : quoting && !quote ? "…" : undeliverable || !quote ? "—" : delivery === 0 ? "FREE" : money(delivery);
 
   return <Storefront><main className="checkout-page">
-    <div className="page-title"><span className="eyebrow">CHECKOUT</span><h1>Complete your order</h1><p>Pay with mobile money or card. MVEC holds the payment until you confirm you have your items.</p></div>
+    <div className="page-title"><span className="eyebrow">CHECKOUT</span><h1>Complete your order</h1><p>Pay with mobile money or card. Ikiguzi holds the payment until you confirm you have your items.</p></div>
     <ol className="checkout-steps"><li className="active">1 Your details</li><li>2 Payment</li><li>3 Confirmation</li></ol>
     {error && <div className="form-alert error" role="alert" ref={errorRef}>{error}</div>}
     {!user && !authLoading && <div className="form-alert info">No account needed. We'll send a code to your phone (and to your email, if you add one) to confirm it's yours before you pay. <Link to="/login" state={{ from: `/checkout${pid ? `?product=${pid}&qty=${requestedQty}` : ""}`, checkoutReturn: true }}>Have an account? Log in</Link></div>}
@@ -382,7 +384,7 @@ export default function Checkout() {
           </label>
           <label className={isDelivery ? "selected" : ""}>
             <input type="radio" name="fulfilment" checked={isDelivery} onChange={() => chooseFulfilment("delivery")} />
-            <span><b>Deliver it to me</b><small>The seller or an MVEC courier brings it. A delivery fee applies.</small></span>
+            <span><b>Deliver it to me</b><small>The seller or an Ikiguzi courier brings it. A delivery fee applies.</small></span>
           </label>
         </div>
         {errors.fulfilment && <small className="field-error">{errors.fulfilment}</small>}
@@ -419,6 +421,13 @@ export default function Checkout() {
           <div className="two-col">
             {field("sector", "Sector (optional)", { placeholder: "e.g. Remera" })}
             {field("street", "Street / landmark", { placeholder: "e.g. KG 11 Ave, house 18", autoComplete: "street-address", required: true })}
+            <PinPicker
+              label="Pin your door (recommended)"
+              help="Stores using Ikiguzi riders deliver to this pin, often the same day, priced by distance."
+              allowGps
+              value={form.pin}
+              onChange={(pin) => { setForm((f) => ({ ...f, pin })); setAddressId(""); }}
+            />
           </div>
           {user && !addressId && <label className="filter-check"><input type="checkbox" checked={saveAddress} onChange={(e) => setSaveAddress(e.target.checked)} /> Save this address to my account</label>}
           <fieldset className="delivery-options">
@@ -470,7 +479,7 @@ export default function Checkout() {
         {submitting ? "Placing order…" : user ? "Continue to payment" : "Verify phone & continue"}
       </button>
       {!pid && <Link to="/cart" className="back-link">← Back to cart</Link>}
-      <div className="verified-box"><b>✓ Protected payment</b><p>You pay by MTN MoMo, Airtel Money or card (Visa/Mastercard) on the next step. MVEC holds the money and only releases it to the seller after you confirm you have your items with your code.</p></div>
+      <div className="verified-box"><b>✓ Protected payment</b><p>You pay by MTN MoMo, Airtel Money or card (Visa/Mastercard) on the next step. Ikiguzi holds the money and only releases it to the seller after you confirm you have your items with your code.</p></div>
     </aside></div></form>
 
     {verify && <div className="modal-backdrop" onMouseDown={() => !verify.busy && setVerify(null)}>

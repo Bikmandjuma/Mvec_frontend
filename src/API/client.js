@@ -56,7 +56,7 @@ export function extractErrorMessage(error, fallback) {
     if (error?.request || error?.code === "ERR_NETWORK") {
       return navigator.onLine === false
         ? "You are offline. Reconnect to the internet and try again."
-        : "We can't reach MVEC right now. Check your internet connection and try again in a moment.";
+        : "We can't reach Ikiguzi right now. Check your internet connection and try again in a moment.";
     }
     return error?.message || fallback || "Something went wrong. Please try again.";
   }
@@ -73,7 +73,7 @@ export function extractErrorMessage(error, fallback) {
   if (res.status >= 500) {
     const generic = !serverMessage || /^(internal )?server error$/i.test(serverMessage);
     const message = generic
-      ? fallback || "Something went wrong on our side, not yours. Please try again in a moment; if it keeps happening, contact MVEC support."
+      ? fallback || "Something went wrong on our side, not yours. Please try again in a moment; if it keeps happening, contact Ikiguzi support."
       : serverMessage;
     // The reference lets support find the exact failure in the server log.
     const ref = data?.reference;

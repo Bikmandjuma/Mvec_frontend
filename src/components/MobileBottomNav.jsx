@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import Icon from './Icon';
 import { useAuth } from '../context/AuthContext';
 import { navForRole, mobilePrimaryByRole } from '../data/navItems';
@@ -47,7 +47,6 @@ function useIsMobileViewport() {
 export default function MobileBottomNav() {
   const { user } = useAuth();
   const loc = useLocation();
-  const navigate = useNavigate();
   const isMobile = useIsMobileViewport();
   const [sheetOpen, setSheetOpen] = useState(false);
 

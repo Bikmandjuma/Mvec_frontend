@@ -6,7 +6,8 @@ import { vendorServicesApi } from '../../API/vendorServices';
 import { productsApi } from '../../API/products';
 import { payoutsApi } from '../../API/payouts';
 import { Link } from 'react-router-dom';
-import { PageHead, Loading, Metric, StatusPill, FormModal, money, dateDMY, toInputDate, useLoader, useNotice } from './shared';
+import { PageHead, Loading, Metric, StatusPill, FormModal, money, dateDMY, toInputDate, useNotice } from './shared';
+import { useLoader } from '../../lib/useLoader';
 
 const PLACEMENTS = [['HOMEPAGE_HERO', 'Homepage hero'], ['CATEGORY_BANNER', 'Category banner'], ['SEARCH_RESULTS', 'Search results'], ['FEATURED', 'Featured'], ['PROMOTION', 'Promotion']];
 
@@ -14,7 +15,7 @@ const MIN_AD_BUDGET = 5000;
 const AD_TABS = [['ALL', 'All'], ['LIVE', 'Live', ['ACTIVE']], ['REVIEW', 'In review', ['PENDING']], ['PAUSED', 'Paused', ['PAUSED']], ['ENDED', 'Ended', ['COMPLETED', 'REJECTED']]];
 
 export function AdvertisementsPage() {
-  const { data, loading, error, reload } = useLoader(() => Promise.all([
+  const { data, loading, error, reload } = useLoader(['vendor', 'advertising'], () => Promise.all([
     vendorServicesApi.getAdvertisements().then(r => r.data || []),
     productsApi.getVendorProducts().then(r => r.products || []).catch(() => []),
     payoutsApi.getBalance().catch(() => null),
@@ -76,9 +77,9 @@ export function AdvertisementsPage() {
         </div>
         <SmartTable columns={columns} rows={rows} rowKey={r => r.id} actions={actions} searchPlaceholder="Search campaigns…" exportName="mvec-advertisements" empty="No campaigns here. Create one to put a product in front of more buyers." />
       </div>
-      <div className="verified-box"><b>How ads work</b><p>Your budget is reserved from your available balance when you submit. MVEC reviews the campaign, usually within a day. Once live, each buyer click costs {money(cpc)}; views are free. When the end date passes, the budget runs out or you end it, any unspent amount returns to your balance.</p></div>
+      <div className="verified-box"><b>How ads work</b><p>Your budget is reserved from your available balance when you submit. Ikiguzi reviews the campaign, usually within a day. Once live, each buyer click costs {money(cpc)}; views are free. When the end date passes, the budget runs out or you end it, any unspent amount returns to your balance.</p></div>
     </>}
-    {creating && <FormModal title="New ad campaign" subtitle={`Paid from your available balance (${money(data?.available)}). Reviewed by MVEC before it goes live.`}
+    {creating && <FormModal title="New ad campaign" subtitle={`Paid from your available balance (${money(data?.available)}). Reviewed by Ikiguzi before it goes live.`}
       fields={[
         { name: 'productId', label: 'Product', type: 'select', required: true, placeholder: 'Select a product', options: products.map(p => [p.id || p._id, p.name]) },
         { name: 'placement', label: 'Where to show it', type: 'select', options: PLACEMENTS },
@@ -106,7 +107,7 @@ const PLAN_PERKS = {
 };
 
 export function SubscriptionPage({ api = vendorServicesApi, balanceLink = '/vendor/payouts' }) {
-  const { data, loading, error, reload } = useLoader(() => api.getSubscription());
+  const { data, loading, error, reload } = useLoader(['subscription'], () => api.getSubscription());
   const [busy, setBusy] = useState('');
   const notice = useNotice();
 
@@ -135,9 +136,9 @@ export function SubscriptionPage({ api = vendorServicesApi, balanceLink = '/vend
   const resumeRenew = () => run('PREMIUM');
 
   return <>
-    <PageHead title="Subscription" desc="Selling on MVEC is free. Premium adds visibility and advanced tools, paid monthly from your sales balance." />
+    <PageHead title="Subscription" desc="Selling on Ikiguzi is free. Premium adds visibility and advanced tools, paid monthly from your sales balance." />
     {notice.banner}
-    {data && !programActive && <div className="verified-box"><b>Every tool is free for now</b><p>While MVEC grows, you have everything, including the Premium tools, at no cost. Paid plans will start later, and you'll be told well before anything changes.</p></div>}
+    {data && !programActive && <div className="verified-box"><b>Every tool is free for now</b><p>While Ikiguzi grows, you have everything, including the Premium tools, at no cost. Paid plans will start later, and you'll be told well before anything changes.</p></div>}
     {loading && !data && <Loading />}
     {error && <div className="form-error">{error}</div>}
     {data && <>

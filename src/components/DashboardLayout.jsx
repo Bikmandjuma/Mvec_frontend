@@ -1,4 +1,4 @@
-import {useState,useEffect} from 'react';import {Link,useLocation,useNavigate} from 'react-router-dom';import {useAuth} from '../context/AuthContext';import {useTheme} from '../context/ThemeContext';import Icon from './Icon';import ThemeToggle from './ThemeToggle';import CommandPalette from './CommandPalette';
+import {useState,useEffect} from 'react';import {Link,useLocation,useNavigate} from 'react-router-dom';import {useAuth} from '../context/AuthContext';import Icon from './Icon';import ThemeToggle from './ThemeToggle';import CommandPalette from './CommandPalette';
 import {navGroupsForRole} from '../data/navItems';
 import {staffCan,STAFF_ROLE_LABEL} from '../data/staffAccess';
 import {PORTAL_PROFILE} from '../pages/Profile';
@@ -59,12 +59,12 @@ function Sidebar({admin,role,user,avatar,pathname,onNavigate,onLogout}){
   const groups=navGroupsForRole(role,admin).map(g=>({...g,items:g.items.filter(([href])=>admin||staffCan(user,href))})).filter(g=>g.items.length);
   return <aside className="dashboard-sidebar sb">
     <div className="sb-brand">
-      <Link to="/" className="sb-logo">MVEC</Link>
+      <Link to="/" className="sb-logo">Ikiguzi</Link>
       <span className="sb-platform">{platform}</span>
     </div>
     <Link to={admin?'/admin/profile':PORTAL_PROFILE[role]||'/profile'} className="sb-user" onClick={onNavigate}>
       <div className="dash-avatar sb-avatar">{avatar?<img src={resolveImageUrl(avatar)} alt="Profile"/>:(user?.fullName?.[0]||'M')}</div>
-      <div className="sb-user-text"><b>{user?.fullName||'MVEC User'}</b><small>{accountLabel}</small></div>
+      <div className="sb-user-text"><b>{user?.fullName||'Ikiguzi User'}</b><small>{accountLabel}</small></div>
     </Link>
     <GroupedNav groups={groups} pathname={pathname} onNavigate={onNavigate} badges={badges}/>
     <div className="sb-footer">
@@ -75,7 +75,7 @@ function Sidebar({admin,role,user,avatar,pathname,onNavigate,onLogout}){
   </aside>;
 }
 
-export default function DashboardLayout({admin=false,children}){const {user,logout}=useAuth(),loc=useLocation(),navigate=useNavigate(),{theme,toggleTheme}=useTheme();const [open,setOpen]=useState(false);const avatar=user?.avatarUrl||'';
+export default function DashboardLayout({admin=false,children}){const {user,logout}=useAuth(),loc=useLocation(),navigate=useNavigate();const [open,setOpen]=useState(false);const avatar=user?.avatarUrl||'';
 const [unread,setUnread]=useState(0);
 useEffect(()=>{let alive=true;const load=()=>notificationsApi.getAll({limit:1}).then(d=>{if(alive)setUnread(d.unreadCount||0)}).catch(()=>{});load();const t=setInterval(load,30000);return()=>{alive=false;clearInterval(t)}},[]);
 

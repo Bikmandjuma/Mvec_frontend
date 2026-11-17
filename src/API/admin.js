@@ -65,7 +65,7 @@ export const adminApi = {
   getPayments: (params) =>
     client.get("/admin/payments", { params }).then((r) => r.data),
   // Everything waiting for an admin, with per-page badge counts.
-  // MVEC's own wallet (what MVEC keeps) and withdrawals recorded by admins.
+  // Ikiguzi's own wallet (what Ikiguzi keeps) and withdrawals recorded by admins.
   getMvecWallet: () =>
     client.get("/admin/payouts/balance").then((r) => r.data),
   getMvecWithdrawals: () =>

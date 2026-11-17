@@ -226,7 +226,7 @@ export default function Messages() {
         <div>
           <span className="eyebrow">MESSAGES</span>
           <h1>Messages</h1>
-          <p>Chat with buyers, vendors, suppliers and MVEC in real time.</p>
+          <p>Chat with buyers, vendors, suppliers and Ikiguzi in real time.</p>
         </div>
       </div>
 

@@ -6,7 +6,8 @@ import SmartTable from '../../components/SmartTable';
 import { customersApi } from '../../API/customers';
 import { conversationsApi } from '../../API/conversations';
 import { extractErrorMessage } from '../../API/client';
-import { PageHead, Loading, EmptyState, Metric, StatusPill, money, dateDMY, useLoader } from './shared';
+import { PageHead, Loading, EmptyState, Metric, StatusPill, money, dateDMY } from './shared';
+import { useLoader } from '../../lib/useLoader';
 
 const waLink = (phone) => {
   const digits = String(phone || '').replace(/\D/g, '');
@@ -50,7 +51,7 @@ function CustomerDrawer({ customerKey, onClose }) {
           <span className="seller-customer-avatar">{(c.name || '?').charAt(0).toUpperCase()}</span>
           <div>
             <h2>{c.name}</h2>
-            <p>{c.guest ? 'Guest customer (no MVEC account)' : 'MVEC buyer'}{c.city ? ` · ${c.city}` : ''}</p>
+            <p>{c.guest ? 'Guest customer (no Ikiguzi account)' : 'Ikiguzi buyer'}{c.city ? ` · ${c.city}` : ''}</p>
           </div>
         </div>
         <div className="seller-customer-contact">
@@ -84,7 +85,7 @@ function CustomerDrawer({ customerKey, onClose }) {
 }
 
 export default function CustomersPage() {
-  const { data, loading, error } = useLoader(() => customersApi.getAll());
+  const { data, loading, error } = useLoader(['vendor', 'customers'], () => customersApi.getAll());
   const [type, setType] = useState('');
   const [open, setOpen] = useState(null);
 
@@ -107,7 +108,7 @@ export default function CustomersPage() {
   ];
 
   return <>
-    <PageHead title="Customers" desc="Everyone who bought from you: MVEC buyers and the guest customers from your manual orders." />
+    <PageHead title="Customers" desc="Everyone who bought from you: Ikiguzi buyers and the guest customers from your manual orders." />
     {loading && !data && <Loading />}
     {error && <div className="form-error">{error}</div>}
     {data && <>
@@ -122,7 +123,7 @@ export default function CustomersPage() {
         : <div className="data-card">
           <div className="dash-toolbar">
             <select className="table-filter-select" value={type} onChange={(e) => setType(e.target.value)} aria-label="Customer type">
-              <option value="">All customers</option><option value="buyer">MVEC buyers</option><option value="guest">Guests</option>
+              <option value="">All customers</option><option value="buyer">Ikiguzi buyers</option><option value="guest">Guests</option>
             </select>
           </div>
           <SmartTable columns={columns} rows={rows} rowKey={(c) => c.key || c.id} searchPlaceholder="Search name, phone, email or city…" exportName="mvec-customers"

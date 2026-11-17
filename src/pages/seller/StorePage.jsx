@@ -5,10 +5,12 @@ import SmartTable from '../../components/SmartTable';
 import { storesApi } from '../../API/stores';
 import { uploadsApi } from '../../API/uploads';
 import { extractErrorMessage } from '../../API/client';
-import { PageHead, Loading, EmptyState, StatusPill, dateDMY, useLoader, useNotice } from './shared';
+import PinPicker from '../../components/PinPicker';
+import { PageHead, Loading, EmptyState, StatusPill, dateDMY, useNotice } from './shared';
+import { useLoader } from '../../lib/useLoader';
 import { resolveImageUrl } from '../../utils/imageUrl';
 
-const EMPTY = { storeName: '', businessCategory: '', description: '', contactEmail: '', contactPhone: '', city: '', businessAddress: '', logo: '' };
+const EMPTY = { storeName: '', businessCategory: '', description: '', contactEmail: '', contactPhone: '', city: '', businessAddress: '', logo: '', pickup: null, riderDelivery: false };
 
 const fromStore = s => ({
   storeName: s.storeName || '',
@@ -19,13 +21,15 @@ const fromStore = s => ({
   city: s.address?.city || (typeof s.location === 'string' ? s.location : '') || '',
   businessAddress: s.businessAddress || s.address?.street || '',
   logo: s.logo || '',
+  pickup: s.pickupLat != null ? { lat: s.pickupLat, lng: s.pickupLng } : null,
+  riderDelivery: Boolean(s.riderDelivery),
 });
 
 // Vendors and suppliers share this page; `api` and `copy` say whose stores it shows.
 const VENDOR_COPY = {
   eyebrow: 'SELLER PLATFORM',
   desc: 'Run several storefronts from one seller account. Your primary store is shown on your vendor profile.',
-  newText: 'Each store gets its own name, logo and contact details on MVEC.',
+  newText: 'Each store gets its own name, logo and contact details on Ikiguzi.',
   editText: 'Update how this storefront appears to buyers.',
   placeholder: 'e.g. Kigali Tech Store',
   emptyText: 'Register your first store to start listing products and receiving orders.',
@@ -94,6 +98,18 @@ function StoreFormModal({ store, api, copy, onClose, onSaved }) {
         <label className="field half"><span>Contact email *</span><input type="email" name="contactEmail" value={form.contactEmail} onChange={update} required /></label>
         <label className="field half"><span>Contact phone *</span><input name="contactPhone" value={form.contactPhone} onChange={update} required placeholder="07xx xxx xxx" /></label>
         <label className="field"><span>Business address</span><input name="businessAddress" value={form.businessAddress} onChange={update} placeholder="Street, building" /></label>
+        {api === VENDOR_API && <>
+          <PinPicker
+            label="Pickup pin"
+            help="Where Ikiguzi riders collect your parcels. Tap the exact spot of the store on the map."
+            value={form.pickup}
+            onChange={pickup => setForm(f => ({ ...f, pickup, riderDelivery: pickup ? f.riderDelivery : false }))}
+          />
+          <label className="field check-field">
+            <input type="checkbox" checked={form.riderDelivery} disabled={!form.pickup} onChange={e => setForm(f => ({ ...f, riderDelivery: e.target.checked }))} />
+            <span>Deliver with Ikiguzi riders: buyers pay a fee by distance, and the nearest rider collects each parcel. Your own delivery zones still apply beyond 30 km.</span>
+          </label>
+        </>}
       </div>
       <div className="modal-actions">
         <button type="button" className="outline-btn" onClick={onClose}>Cancel</button>
@@ -105,7 +121,7 @@ function StoreFormModal({ store, api, copy, onClose, onSaved }) {
 
 export default function StorePage({ api = VENDOR_API, copy: copyOverride }) {
   const copy = { ...VENDOR_COPY, ...copyOverride };
-  const { data, loading, error, reload } = useLoader(() => api.list());
+  const { data, loading, error, reload } = useLoader(['stores', api === VENDOR_API ? 'vendor' : 'supplier'], () => api.list());
   const [modal, setModal] = useState(null);
   const [busyId, setBusyId] = useState('');
   const notice = useNotice();

@@ -25,8 +25,8 @@ const writeJson = (key, value) => {
 };
 
 const vendorNameOf = (vendor) => (vendor && typeof vendor === 'object'
-  ? vendor.companyName || vendor.Fullname || vendor.fullName || vendor.businessName || vendor.name || 'MVEC Seller'
-  : vendor || 'MVEC Seller');
+  ? vendor.companyName || vendor.Fullname || vendor.fullName || vendor.businessName || vendor.name || 'Ikiguzi Seller'
+  : vendor || 'Ikiguzi Seller');
 
 const effectivePrice = (p) => {
   const price = Number(p?.price) || 0;
@@ -144,7 +144,7 @@ export function MarketplaceProvider({ children }) {
       })
       .catch(() => alive && setWishlist(local.map((x) => ({ ...x, id: String(x.id || x._id) }))));
     return () => { alive = false; };
-  }, [userId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [userId]);  
 
   const saveGuestCart = (next) => {
     writeJson(GUEST_CART_KEY, next);
@@ -253,7 +253,7 @@ export function MarketplaceProvider({ children }) {
       .then((items) => setWishlist(items.map(fromServerWish)))
       .catch(() => setCartNotice('We could not update your wishlist. Please try again.'));
     return true;
-  }, [userId, wishlist]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [userId, wishlist]);  
 
   const isWishlisted = useCallback((id) => wishlist.some((x) => String(x.id) === String(id)), [wishlist]);
 

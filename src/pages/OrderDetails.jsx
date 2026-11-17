@@ -13,7 +13,7 @@ import { buyerStatus, canCancel, countdown, isAwaitingPayment, paidCancelRemaini
 // Who moves the order at each step, so the buyer knows what to expect.
 const STEPS = [
   { label: "Order placed", by: "You", statuses: ["PENDING"], text: "The items are reserved for you for 30 minutes while you pay." },
-  { label: "Payment confirmed", by: "Payment provider · automatic", statuses: ["CONFIRMED"], text: "Mobile money, card or K-Pay confirms your payment. MVEC holds the money; the seller is not paid yet." },
+  { label: "Payment confirmed", by: "Payment provider · automatic", statuses: ["CONFIRMED"], text: "Mobile money, card or K-Pay confirms your payment. Ikiguzi holds the money; the seller is not paid yet." },
   { label: "Preparing & packing", by: "Seller", statuses: ["PROCESSING", "READY_FOR_SHIPMENT"], text: "The seller prepares your items and marks them packed." },
   { label: "On the way", by: "Seller, then courier", statuses: ["SHIPPED", "OUT_FOR_DELIVERY"], text: "The seller hands the parcel over; the courier marks it out for delivery." },
   { label: "Delivered", by: "You, with your code", statuses: ["DELIVERED", "COMPLETED"], text: "When the items are in your hands, give the courier or seller your 6-digit code. That confirms delivery and releases the payment to the seller." },
@@ -26,7 +26,7 @@ const paidWith = (order) => {
   if (via?.gateway === "KPAY") return `K-Pay (${label})`;
   return method === "CARD" ? "Card" : label;
 };
-// K-Pay has no refund API: card and SPENN refunds are sent by MVEC's team.
+// K-Pay has no refund API: card and SPENN refunds are sent by Ikiguzi's team.
 const manualRefund = (order) => order.paidVia?.gateway === "KPAY" && ["CARD", "SPENN"].includes(order.paidVia?.method);
 const SUBSTATUS = { READY_FOR_SHIPMENT: "Packed, waiting for pickup", OUT_FOR_DELIVERY: "Out for delivery today", PROCESSING: "Being prepared", SHIPPED: "Handed to the courier" };
 const REASONS = [
@@ -112,7 +112,7 @@ export default function OrderDetails() {
 
   const cancel = async () => {
     const paid = order.paymentStatus === "PAID";
-    const backTo = manualRefund(order) ? "you through K-Pay by MVEC's team" : order.paymentMethod === "CARD" ? "the card you paid with" : "your mobile money";
+    const backTo = manualRefund(order) ? "you through K-Pay by Ikiguzi's team" : order.paymentMethod === "CARD" ? "the card you paid with" : "your mobile money";
     if (!window.confirm(paid ? `Cancel this order? Your payment is sent back to ${backTo}.` : "Cancel this order?")) return;
     setNotice(null);
     setCancelling(true);
@@ -223,7 +223,7 @@ export default function OrderDetails() {
         </div>
         <h3>Seller &amp; payment</h3>
         <div className="profile-detail">
-          <b>{vendors.join(", ") || "MVEC Seller"}</b>
+          <b>{vendors.join(", ") || "Ikiguzi Seller"}</b>
           <span>Payment: {order.paymentStatus === "PAID" ? `Paid${order.paidAt ? ` on ${formatDate(order.paidAt)}` : ""}` : buyerStatus(order)}</span>
           {order.paymentMethod && order.paymentStatus !== "PENDING" && <span>Method: {paidWith(order)}</span>}
         </div>
@@ -250,7 +250,7 @@ export default function OrderDetails() {
         <b>{order.paymentStatus === "REFUNDED" ? "Order cancelled · full refund recorded" : "Order cancelled"}</b>
         <p>{order.paymentStatus === "REFUNDED"
           ? (manualRefund(order)
-            ? `Your full refund is being sent back through K-Pay to the ${order.paidVia.method === "SPENN" ? "SPENN account" : "card"} you paid with. MVEC's team does this by hand, and you get a notification when it is sent.`
+            ? `Your full refund is being sent back through K-Pay to the ${order.paidVia.method === "SPENN" ? "SPENN account" : "card"} you paid with. Ikiguzi's team does this by hand, and you get a notification when it is sent.`
             : order.paymentMethod === "CARD"
             ? "Your full refund was sent back to the card you paid with. Banks usually show it within 5–10 working days."
             : "Your full refund was sent to the mobile money number you paid with. It usually arrives within minutes; you get an SMS when it does.")
@@ -307,7 +307,7 @@ export default function OrderDetails() {
     {order.paymentStatus === "PAID" && !cancelled && !caseOpen && (
       <section className="data-card">
         <h3>Report a problem</h3>
-        <p className="tiny">Use this if something is wrong with your order. The seller is told straight away and can refund you or make an offer; the payment stays on hold until it's resolved, and MVEC decides if you can't agree.</p>
+        <p className="tiny">Use this if something is wrong with your order. The seller is told straight away and can refund you or make an offer; the payment stays on hold until it's resolved, and Ikiguzi decides if you can't agree.</p>
         <form onSubmit={report}>
           <div className="two-col">
             <label className="field"><span>What went wrong?</span>

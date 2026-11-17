@@ -3,7 +3,7 @@ import { categoriesApi } from "../API/categories";
 import { extractErrorMessage } from "../API/client";
 import { useAuth } from "../context/AuthContext";
 
-// One category picker for the whole app. Categories come from MVEC's list;
+// One category picker for the whole app. Categories come from Ikiguzi's list;
 // if the right one is missing, sellers, suppliers and admins can add it right
 // here and it is selected at once and appears in every other picker.
 //

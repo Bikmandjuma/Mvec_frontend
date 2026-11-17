@@ -224,7 +224,7 @@ export default function Payment() {
       ) : stage === "confirmed" ? (
         <>
           <h2>Payment confirmed ✓</h2>
-          <p>Thank you! Your payment is held safely by MVEC. Taking you to your order…</p>
+          <p>Thank you! Your payment is held safely by Ikiguzi. Taking you to your order…</p>
           <Link className="gradient-btn" to={`/orders/${id}`}>View order</Link>
         </>
       ) : (
@@ -268,7 +268,7 @@ export default function Payment() {
               {provider && <small className="tiny">{provider}</small>}
             </label>
           ) : (
-            <p className="tiny payment-fields">You will enter your card on Flutterwave's secure page, then come back here automatically. MVEC never sees your card number.</p>
+            <p className="tiny payment-fields">You will enter your card on Flutterwave's secure page, then come back here automatically. Ikiguzi never sees your card number.</p>
           )}
           <button className="gradient-btn full" type="submit" disabled={stage === "waiting"}>
             {stage === "waiting"
@@ -294,9 +294,9 @@ export default function Payment() {
         <div className="grand"><span>Total</span><strong>{money(order.totalAmount)}</strong></div>
       </div>
       <div className="secure-icon" aria-hidden="true">✓</div>
-      <h3>How MVEC protects you</h3>
-      <p>Your payment is held by MVEC until you confirm delivery, then released to the seller.</p>
-      <div className="status-flow"><span>Payment</span><i>→</i><span>MVEC holds</span><i>→</i><span>Delivery</span><i>→</i><span>Release</span></div>
+      <h3>How Ikiguzi protects you</h3>
+      <p>Your payment is held by Ikiguzi until you confirm delivery, then released to the seller.</p>
+      <div className="status-flow"><span>Payment</span><i>→</i><span>Ikiguzi holds</span><i>→</i><span>Delivery</span><i>→</i><span>Release</span></div>
       <p className="tiny">After payment you get a delivery code in your order. Only give it to the courier when your order arrives.</p>
     </aside></div>
   </main></Storefront>;

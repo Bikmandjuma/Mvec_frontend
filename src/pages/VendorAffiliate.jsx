@@ -12,7 +12,7 @@ const STEPS = [
   ["You open your products", "Turn the program on for all your products or only the ones you choose, and set the commission you add."],
   ["Affiliates share tracked links", "Each affiliate gets a unique link. A visitor who clicks it is remembered for 30 days (the last link clicked wins)."],
   ["A buyer orders and pays", "The affiliate's commission is recorded as pending. Nothing is taken from you yet."],
-  ["The buyer confirms delivery", "Only then is the commission earned: your share is deducted from that sale, together with MVEC's fee."],
+  ["The buyer confirms delivery", "Only then is the commission earned: your share is deducted from that sale, together with Ikiguzi's fee."],
   ["Refunds reverse it", "If the order is cancelled or refunded, the affiliate's commission is taken back."],
 ];
 
@@ -133,7 +133,7 @@ export default function VendorAffiliate() {
             </label>
             <div className="program-example">
               <b>Affiliates earn {total}% per delivered sale</b>
-              <small>MVEC pays {platformPercent}% from its fee; you pay {rate}% from your earnings on that sale.</small>
+              <small>Ikiguzi pays {platformPercent}% from its fee; you pay {rate}% from your earnings on that sale.</small>
               <small>Example: on a {money(100000)} sale the affiliate earns {money(1000 * total)}; you pay {money(1000 * rate)}.</small>
             </div>
           </div>
