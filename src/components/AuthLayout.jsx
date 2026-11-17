@@ -1,43 +1,26 @@
-import { Link } from 'react-router-dom';import ThemeToggle from './ThemeToggle';
+import { Link } from 'react-router-dom';
+import ThemeToggle from './ThemeToggle';
 
+/** Sign-in, sign-up and password pages: a photo beside the form (form only on phones). */
 export default function AuthLayout({ title, subtitle, children }) {
   return (
-    <main className="alibaba-auth-page">
-      <header className="alibaba-header">
-        <Link to="/" className="mvec-logo">Ikiguzi</Link>
-        <ThemeToggle className="auth-theme-toggle"/>
-      </header>
-
-      <section className="alibaba-auth-content">
-        <div className="promo-panel">
-          <div className="promo-label">Ikiguzi MARKETPLACE</div>
-          <h1>Smart shopping<br />starts here.</h1>
-          <p>Discover products from trusted vendors, all in one place.</p>
-
-          <div className="promo-art">
-            <div className="sky-orb orb-one" />
-            <div className="sky-orb orb-two" />
-            <div className="shopping-box">
-              <div className="box-handle" />
-              <div className="box-face">
-                <strong>Ikiguzi</strong>
-                <span>SHOP • SELL • GROW</span>
-              </div>
-            </div>
-            <div className="promo-badge badge-one">✦</div>
-            <div className="promo-badge badge-two">✓</div>
-            <div className="promo-pill">BUYER + VENDOR</div>
-          </div>
+    <main className="auth">
+      <aside className="auth-photo">
+        <img src="/hero-standin.jpg" alt="" />
+        <div>
+          <Link to="/" className="site-logo">Ikiguzi</Link>
+          <p>Trusted sellers,<br /><em>everyday finds.</em></p>
         </div>
-
-        <div className="alibaba-form-side">
-          <div className="alibaba-form-card">
-            <div className="form-heading">
-              <h2>{title}</h2>
-              <p>{subtitle}</p>
-            </div>
-            {children}
-          </div>
+      </aside>
+      <section className="auth-side">
+        <header className="auth-bar">
+          <Link to="/" className="site-logo">Ikiguzi</Link>
+          <ThemeToggle />
+        </header>
+        <div className="auth-card">
+          <h1>{title}</h1>
+          {subtitle && <p className="auth-sub">{subtitle}</p>}
+          {children}
         </div>
       </section>
     </main>

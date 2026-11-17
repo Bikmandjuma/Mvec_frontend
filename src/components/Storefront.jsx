@@ -13,6 +13,7 @@ import { money } from '../utils/format';
 const DASHBOARD_BY_ROLE = { vendor: '/vendor', supplier: '/supplier', affiliate: '/affiliate', delivery: '/delivery', super_admin: '/admin' };
 const NOTIFICATIONS_BY_ROLE = { vendor: '/vendor/notifications', supplier: '/supplier/notifications', affiliate: '/affiliate/notifications', super_admin: '/admin/notifications' };
 
+/** The shop pages' frame: one header row, the page, a short footer. */
 export default function Storefront({ children }) {
   const { user, logout } = useAuth();
   const { cartCount, wishlistCount, cartNotice, dismissCartNotice } = useMarketplace();
@@ -20,23 +21,20 @@ export default function Storefront({ children }) {
   const navigate = useNavigate();
   const location = useLocation();
   const [search, setSearch] = useState('');
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [catOpen, setCatOpen] = useState(false);
-  const [allCategories, setAllCategories] = useState([]);
-  const [products, setProducts] = useState([]);
-  const [vendors, setVendors] = useState([]);
+  const [searchOpen, setSearchOpen] = useState(false); // the phone search row
+  const [suggestOpen, setSuggestOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [catalog, setCatalog] = useState({ categories: [], products: [], vendors: [] });
   const [unread, setUnread] = useState(0);
   const searchRef = useRef(null);
-  const catRef = useRef(null);
 
   useEffect(() => {
     let mounted = true;
-    loadCatalog().then((cat) => {
-      if (!mounted) return;
-      setAllCategories((cat.categories || []).map((c) => (typeof c === 'string' ? c : c.name)).filter(Boolean));
-      setProducts(cat.products || []);
-      setVendors(cat.vendors || []);
-    });
+    loadCatalog().then((cat) => mounted && setCatalog({
+      categories: (cat.categories || []).map((c) => (typeof c === 'string' ? c : c.name)).filter(Boolean),
+      products: cat.products || [],
+      vendors: cat.vendors || [],
+    }));
     return () => { mounted = false; };
   }, []);
 
@@ -50,104 +48,104 @@ export default function Storefront({ children }) {
     return () => { alive = false; clearInterval(timer); };
   }, [user]);
 
-  // Close the search suggestions and category menu on outside click / Escape.
+  // Suggestions close on an outside click; everything closes on Escape.
   useEffect(() => {
-    const onClick = (e) => {
-      if (searchRef.current && !searchRef.current.contains(e.target)) setSearchOpen(false);
-      if (catRef.current && !catRef.current.contains(e.target)) setCatOpen(false);
-    };
-    const onKey = (e) => { if (e.key === 'Escape') { setSearchOpen(false); setCatOpen(false); } };
+    const onClick = (e) => { if (searchRef.current && !searchRef.current.contains(e.target)) setSuggestOpen(false); };
+    const onKey = (e) => { if (e.key === 'Escape') { setSuggestOpen(false); setMenuOpen(false); setSearchOpen(false); } };
     document.addEventListener('mousedown', onClick);
     document.addEventListener('keydown', onKey);
     return () => { document.removeEventListener('mousedown', onClick); document.removeEventListener('keydown', onKey); };
   }, []);
 
-  // Close menus when the page changes.
-  useEffect(() => { setSearchOpen(false); setCatOpen(false); }, [location.pathname, location.search]);
+  useEffect(() => { setSuggestOpen(false); setMenuOpen(false); setSearchOpen(false); }, [location.pathname, location.search]);
 
   const query = search.trim().toLowerCase();
-  const suggestions = query ? products.filter((p) => `${p.name} ${p.brand || ''} ${p.vendor || ''} ${p.category || ''}`.toLowerCase().includes(query)).slice(0, 5) : [];
-  const vendorSuggestions = query ? vendors.filter((v) => `${v.name} ${v.category}`.toLowerCase().includes(query)).slice(0, 3) : [];
+  const suggestions = query ? catalog.products.filter((p) => `${p.name} ${p.brand || ''} ${p.vendor || ''} ${p.category || ''}`.toLowerCase().includes(query)).slice(0, 5) : [];
+  const storeSuggestions = query ? catalog.vendors.filter((v) => `${v.name} ${v.category}`.toLowerCase().includes(query)).slice(0, 3) : [];
   const submitSearch = () => {
     if (!search.trim()) return;
-    setSearchOpen(false);
+    setSuggestOpen(false);
     navigate(`/shop?q=${encodeURIComponent(search.trim())}`);
-  };
-  const onLogout = () => {
-    logout();
-    navigate('/');
   };
   const dashboard = DASHBOARD_BY_ROLE[user?.role];
   const notificationPath = NOTIFICATIONS_BY_ROLE[user?.role] || '/buyer/notifications';
-  const isSeller = ['vendor', 'supplier'].includes(user?.role);
+  const accountPath = dashboard || '/profile';
+  const links = [['/', t('home')], ['/shop', t('shop')], ['/shop?deal=true', t('deals')], ['/vendors', t('vendors')], ['/buyer/recommendations', t('forYou')]];
+  const isActive = (to) => (to.includes('?') ? `${location.pathname}${location.search}` === to : location.pathname === to && !location.search.includes('deal='));
 
-  return <>
-    <div className="top-strip"><div>Welcome to <b>Ikiguzi</b>, Rwanda&apos;s multi-vendor marketplace</div><div className="top-links"><Link to="/buyer/support">{t('help')}</Link>{!user && <Link to="/signup" state={{ role: 'vendor' }}>{t('becomeVendor')}</Link>}</div></div>
-    <header className="market-header">
-      <Link to="/" className="mvec-brand">Ikiguzi</Link>
-      <div className="market-search-wrap" ref={searchRef}>
-        <form className="market-search" role="search" onSubmit={(e) => { e.preventDefault(); submitSearch(); }}>
-          <Icon name="search" />
-          <input
-            value={search}
-            onChange={(e) => { setSearch(e.target.value); setSearchOpen(true); }}
-            onFocus={() => setSearchOpen(true)}
-            placeholder={`${t('search')} products, brands, vendors...`}
-            aria-label={t('search')}
-            maxLength={100}
-          />
-          <select
-            aria-label={t('allCategories')}
-            value=""
-            onChange={(e) => e.target.value && navigate(`/shop?category=${encodeURIComponent(e.target.value)}`)}
-          >
-            <option value="">{t('allCategories')}</option>
-            {allCategories.map((c) => <option key={c} value={c}>{c}</option>)}
-          </select>
-          <button type="submit">{t('search')}</button>
-        </form>
-        {searchOpen && query && <div className="global-search-results">
-          {suggestions.map((p) => <Link key={`p-${p.id}`} to={`/product/${p.id}`} onClick={() => setSearch('')}><ProductImage src={p.image} alt="" /><span><b>{p.name}</b><small>{p.category} · {money(p.price)}</small></span></Link>)}
-          {vendorSuggestions.map((v) => <Link key={`v-${v.id}`} to={`/vendors/${v.id}`} onClick={() => setSearch('')}><span className="search-avatar">{(v.name || 'V')[0]}</span><span><b>{v.name}</b><small>Store · {v.category}</small></span></Link>)}
-          {!suggestions.length && !vendorSuggestions.length && <div className="search-no-results">No matching products or stores</div>}
-          <button type="button" className="search-view-all" onClick={submitSearch}>View all results</button>
+  return <div className="site">
+    <header className="site-header">
+      <div className="site-bar">
+        <button type="button" className="site-icon site-menu-btn" onClick={() => setMenuOpen((v) => !v)} aria-expanded={menuOpen} aria-label="Menu">
+          <Icon name={menuOpen ? 'close' : 'menu'} />
+        </button>
+        <Link to="/" className="site-logo">Ikiguzi</Link>
+        <nav className="site-nav" aria-label="Main">
+          {links.map(([to, label]) => <Link key={to} to={to} className={isActive(to) ? 'active' : undefined} aria-current={isActive(to) ? 'page' : undefined}>{label}</Link>)}
+        </nav>
+        <div className={'site-search' + (searchOpen ? ' open' : '')} ref={searchRef}>
+          <form role="search" onSubmit={(e) => { e.preventDefault(); submitSearch(); }}>
+            <Icon name="search" size={17} />
+            <input
+              value={search}
+              onChange={(e) => { setSearch(e.target.value); setSuggestOpen(true); }}
+              onFocus={() => setSuggestOpen(true)}
+              placeholder="Search products and stores"
+              aria-label={t('search')}
+              maxLength={100}
+            />
+          </form>
+          {suggestOpen && query && <div className="site-suggest">
+            {suggestions.map((p) => <Link key={`p-${p.id}`} to={`/product/${p.id}`} onClick={() => setSearch('')}><ProductImage src={p.image} alt="" /><span><b>{p.name}</b><small>{p.category} · {money(p.price)}</small></span></Link>)}
+            {storeSuggestions.map((v) => <Link key={`v-${v.id}`} to={`/vendors/${v.id}`} onClick={() => setSearch('')}><span className="site-suggest-avatar">{(v.name || 'S')[0]}</span><span><b>{v.name}</b><small>Store · {v.category}</small></span></Link>)}
+            {!suggestions.length && !storeSuggestions.length && <p>No matching products or stores</p>}
+            <button type="button" onClick={submitSearch}>See all results</button>
+          </div>}
+        </div>
+        <div className="site-actions">
+          <button type="button" className="site-icon site-search-btn" onClick={() => setSearchOpen((v) => !v)} aria-expanded={searchOpen} aria-label={t('search')}><Icon name="search" /></button>
+          <ThemeToggle />
+          <Link className="site-icon site-hide-sm" to="/wishlist" aria-label={`Wishlist, ${wishlistCount} items`}><Icon name="heart" />{wishlistCount > 0 && <em>{wishlistCount}</em>}</Link>
+          {user && <Link className="site-icon site-hide-sm" to={notificationPath} aria-label={unread ? `Notifications, ${unread} unread` : 'Notifications'}><Icon name="bell" />{unread > 0 && <em>{unread > 9 ? '9+' : unread}</em>}</Link>}
+          {user
+            ? <Link className="site-icon site-hide-sm" to={accountPath} aria-label="My account"><Icon name="user" /></Link>
+            : <Link className="site-signin" to="/login" state={{ from: `${location.pathname}${location.search}` }}>{t('signIn')}</Link>}
+          <Link className="site-icon" to="/cart" aria-label={`Cart, ${cartCount} items`}><Icon name="cart" />{cartCount > 0 && <em>{cartCount}</em>}</Link>
+        </div>
+      </div>
+      {menuOpen && <div className="site-drawer">
+        <nav aria-label="Menu">
+          {links.map(([to, label]) => <Link key={to} to={to}>{label}</Link>)}
+          <Link to="/orders">{t('orders')}</Link>
+          {user && <Link to={accountPath}>{dashboard ? 'Dashboard' : 'My account'}</Link>}
+          {user && <button type="button" onClick={() => { logout(); navigate('/'); }}>Sign out</button>}
+        </nav>
+        {catalog.categories.length > 0 && <div className="site-drawer-cats">
+          <h4>{t('allCategories')}</h4>
+          {catalog.categories.map((c) => <Link key={c} to={`/shop?category=${encodeURIComponent(c)}`}>{c}</Link>)}
         </div>}
-      </div>
-      <div className="header-actions">
-        <ThemeToggle />
-        <Link className="count-link" to="/wishlist" title="Wishlist" aria-label={`Wishlist, ${wishlistCount} items`}><Icon name="heart" /><span className="nav-count">{wishlistCount}</span></Link>
-        {user && <Link className="count-link notification-link" to={notificationPath} title="Notifications" aria-label={unread ? `Notifications, ${unread} unread` : 'Notifications'}><Icon name="bell" />{unread > 0 && <span className="notification-dot" />}</Link>}
-        <Link className="count-link" to="/cart" title="Cart" aria-label={`Cart, ${cartCount} items`}><Icon name="cart" /><span className="nav-count">{cartCount}</span></Link>
-        {user
-          ? <div className="user-menu"><Link to={dashboard && user.role !== 'buyer' ? dashboard : '/profile'}><Icon name="user" /><span>{user.fullName?.split(' ')[0] || 'Account'}</span></Link><button onClick={onLogout} title="Log out" aria-label="Log out"><Icon name="logout" /></button></div>
-          : <Link className="login-link" to="/login" state={{ from: `${location.pathname}${location.search}` }}>{t('signIn')}</Link>}
-      </div>
+      </div>}
     </header>
-    <nav className="main-nav">
-      <div className="category-menu category-menu-dropdown" ref={catRef}>
-        <button type="button" onClick={() => setCatOpen((v) => !v)} aria-expanded={catOpen} aria-label={t('allCategories')}><Icon name="menu" /><span>{t('allCategories')}</span></button>
-        {catOpen && <div className="category-dropdown">
-          {allCategories.length === 0 && <span className="tiny" style={{ padding: '10px 14px', display: 'block' }}>No categories yet</span>}
-          {allCategories.map((c) => <Link onClick={() => setCatOpen(false)} key={c} to={`/shop?category=${encodeURIComponent(c)}`}>{c}</Link>)}
-        </div>}
-      </div>
-      <div className="main-nav-links">
-        <Link to="/"><Icon name="home" /><span>{t('home')}</span></Link>
-        <Link to="/shop"><Icon name="shop" /><span>{t('shop')}</span></Link>
-        <Link to="/buyer/recommendations"><Icon name="heart" /><span>{t('forYou')}</span></Link>
-        <Link to="/shop?deal=true"><Icon name="tag" /><span>{t('deals')}</span></Link>
-        <Link to="/vendors"><Icon name="users" /><span>{t('vendors')}</span></Link>
-        <Link to="/orders"><Icon name="box" /><span>{t('orders')}</span></Link>
-      </div>
-      {dashboard && <Link className="nav-admin" to={dashboard}>Dashboard</Link>}
-    </nav>
     {cartNotice && <div className="form-alert error site-notice" role="alert">{cartNotice} <button type="button" className="text-btn" onClick={dismissCartNotice}>Dismiss</button></div>}
-    {children}
-    <footer className="market-footer">
-      <div><div className="mvec-brand footer-brand">Ikiguzi</div><p>Multi-vendor commerce built for buyers and sellers across Rwanda.</p></div>
-      <div><h4>Marketplace</h4><Link to="/shop">Shop</Link><Link to="/vendors">Stores</Link><Link to="/wishlist">Wishlist</Link></div>
-      <div><h4>Customer service</h4><Link to="/profile">My account</Link><Link to="/orders">Orders</Link><Link to="/buyer/support">Help &amp; Support</Link>{!user && <Link to="/login">Sign in</Link>}</div>
-      <div><h4>Sell on Ikiguzi</h4>{isSeller || dashboard ? <Link to={dashboard}>Seller dashboard</Link> : <Link to="/signup" state={{ role: 'vendor' }}>Become a vendor</Link>}</div>
+    <div className="site-page">{children}</div>
+    <footer className="site-footer">
+      <ul className="site-promises">
+        <li><Icon name="truck" /><span><b>Delivered to you</b><small>Riders across Rwanda</small></span></li>
+        <li><Icon name="shield" /><span><b>Secure payment</b><small>Held until delivery</small></span></li>
+        <li><Icon name="phone" /><span><b>Mobile money</b><small>MTN and Airtel</small></span></li>
+        <li><Icon name="support" /><span><b>Help when you need it</b><small><Link to="/buyer/support">Contact support</Link></small></span></li>
+      </ul>
+      <div className="site-footer-bar">
+        <Link to="/" className="site-logo">Ikiguzi</Link>
+        <nav aria-label="Footer">
+          <Link to="/shop">Shop</Link>
+          <Link to="/vendors">Stores</Link>
+          <Link to="/orders">Orders</Link>
+          <Link to="/buyer/support">{t('help')}</Link>
+          {dashboard ? <Link to={dashboard}>Dashboard</Link> : <Link to="/signup" state={{ role: 'vendor' }}>{t('becomeVendor')}</Link>}
+        </nav>
+        <small>© {new Date().getFullYear()} Ikiguzi</small>
+      </div>
     </footer>
-  </>;
+  </div>;
 }
