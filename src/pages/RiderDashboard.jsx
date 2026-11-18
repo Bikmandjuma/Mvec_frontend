@@ -88,7 +88,7 @@ function Home({ board, refresh }) {
             {offers.map((o) => (
               <div key={o.id} className="list-row" style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", padding: "10px 0" }}>
                 <div>
-                  <b>{o.pickup.name}</b> · <b>{money(o.fee)}</b>
+                  <b>{o.pickup.name}</b> · <b>{money(o.fee)}</b>{o.waitingForSeller && <span className="rider-tag">Seller still preparing it</span>}
                   <p className="tiny">{[o.distanceToPickupKm != null && `${o.distanceToPickupKm} km from you`, `${o.distanceKm} km trip`, o.dropoff.address && `to ${o.dropoff.address}`].filter(Boolean).join(" · ")}</p>
                   <p className="tiny">{o.items.map((i) => `${i.quantity} × ${i.name}`).join(", ")}</p>
                 </div>
@@ -101,6 +101,20 @@ function Home({ board, refresh }) {
           </div>}
       </>}
     </>
+  );
+}
+
+/** The parcel's story, from order placed to delivered: the seller's steps first, then the rider's. */
+function Progress({ job }) {
+  if (!job.progress?.length) return null;
+  const at = (d) => d && new Date(d).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+  return (
+    <div className="data-card">
+      <h3>Order progress</h3>
+      <ol className="rider-progress">
+        {job.progress.map((p) => <li key={p.key} className={p.done ? "done" : ""}><span>{p.label}</span>{p.done && p.at && <small className="tiny">{at(p.at)}</small>}</li>)}
+      </ol>
+    </div>
   );
 }
 
@@ -143,7 +157,9 @@ function Trip({ board, refresh }) {
     <>
       <PageHead eyebrow={`DELIVERY · ${job.orderNumber}`} title={job.statusLabel} desc={`You earn ${money(job.fee)} for this parcel (${job.distanceKm} km).`} />
       {error && <div className="form-error">{error}</div>}
+      {job.waitingForSeller && <div className="form-alert"><b>The seller is still preparing this parcel.</b> Head over if you like: you'll get a message the moment it's ready to collect.</div>}
       <Navigation job={job} />
+      <Progress job={job} />
       <div className="data-card"><h3>{job.status === "ASSIGNED" ? "Pick up here" : "Picked up from"}</h3><p><b>{job.pickup.name}</b> · {job.pickup.address}</p>{job.status === "ASSIGNED" && directions(job.pickup)}</div>
       <div className="data-card">
         <h3>Deliver to</h3>
@@ -152,6 +168,7 @@ function Trip({ board, refresh }) {
         {job.customer?.phone && <a className="outline-btn compact-btn" href={`tel:${job.customer.phone}`}>Call the buyer</a>} {job.status !== "ASSIGNED" && directions(job.dropoff)}
       </div>
       {next && <button type="button" className="gradient-btn" disabled={busy} onClick={() => window.confirm(`${STEP_LABEL[next]}? This can't be undone.`) && run(() => riderApi.step(job.id, next))}>{busy ? "…" : STEP_LABEL[next]}</button>}
+      {job.status === "ASSIGNED" && <button type="button" className="outline-btn" disabled={busy} onClick={() => window.confirm("Hand this parcel back? Another rider will get it, and it won't be offered to you again.") && run(async () => { await riderApi.handBack(job.id); navigate("/delivery"); })}>Hand it back</button>}
       {job.canConfirm && <form className="data-card" onSubmit={(e) => { e.preventDefault(); run(async () => { const r = await riderApi.confirm(job.id, code.trim()); window.alert(`Delivered. You earned ${money(r.earned)}.`); navigate("/delivery"); }); }}>
         <h3>The buyer's code</h3>
         <p className="tiny">Ask for the 6-digit code on their order only when the parcel is in their hands. Five wrong codes lock the delivery for Ikiguzi support.</p>

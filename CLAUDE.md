@@ -25,5 +25,5 @@ npm run build
 ## Rules
 
 - The server decides prices, delivery fees, commission and which order step comes next. Show what it returns.
-- Riders (`/delivery/*`, `RiderDashboard.jsx`) mirror the app. The board refreshes every 10 seconds. While online, the browser's position is sent at most every 4 s after moving 8 m, and at least every 15 s.
+- Riders (`/delivery/*`, `RiderDashboard.jsx`) mirror the app. Parcels are offered when the buyer pays. While `waitingForSeller`, the trip page says the seller is still preparing it. The trip page shows `progress` (order placed to delivered), and "Hand it back" is available before pickup. The board refreshes every 10 seconds. While online, the browser's position is sent at most every 4 s after moving 8 m, and at least every 15 s.
 - Sellers confirm a hand-over with the buyer's 6-digit code (`components/DeliveryTracking.jsx`). They can't ship a parcel an Ikiguzi rider carries.

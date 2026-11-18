@@ -272,3 +272,13 @@
 .live-track-turn { padding: 10px 12px; border-radius: 10px; background: var(--site-soft); font-weight: 600; }
 @media (max-width: 640px) { .live-track-eta { text-align: left; } }
 .live-track-head p { margin: 0; padding: 0; }
+
+/* Rider: the parcel's progress, from order placed to delivered. */
+.rider-tag { display: inline-block; margin-left: 8px; padding: 2px 8px; border-radius: 999px; font-size: 12px; background: var(--site-brand-soft); color: var(--site-brand-deep); }
+.rider-progress { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 10px; }
+.rider-progress li { position: relative; display: flex; justify-content: space-between; gap: 12px; padding-left: 26px; color: var(--site-muted); }
+.rider-progress li::before { content: ""; position: absolute; left: 4px; top: 4px; width: 12px; height: 12px; border-radius: 50%; border: 2px solid currentColor; box-sizing: border-box; }
+.rider-progress li:not(:last-child)::after { content: ""; position: absolute; left: 9px; top: 18px; bottom: -10px; width: 2px; background: currentColor; opacity: .3; }
+.rider-progress li.done { color: var(--site-brand); }
+.rider-progress li.done::before { background: currentColor; }
+.rider-progress li.done span { color: var(--site-ink); font-weight: 600; }

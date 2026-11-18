@@ -20,6 +20,8 @@ export const riderApi = {
   history: () => client.get("/rider/deliveries/history").then(data),
   accept: (id) => client.post(`/rider/deliveries/${id}/accept`).then(data),
   decline: (id) => client.post(`/rider/deliveries/${id}/reject`).then(data),
+  // Before pickup: give the parcel back to other riders.
+  handBack: (id) => client.post(`/rider/deliveries/${id}/release`).then(data),
   step: (id, status) => client.patch(`/rider/deliveries/${id}/status`, { status }).then(data),
   confirm: (id, code) => client.post(`/rider/deliveries/${id}/confirm`, { code }).then(data),
   wallet: () => client.get("/rider/wallet").then(data),
