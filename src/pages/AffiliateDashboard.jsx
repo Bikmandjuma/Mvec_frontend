@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Link, useLocation } from "react-router-dom";
 import DashboardLayout from "../components/DashboardLayout";
 import Icon from "../components/Icon";
@@ -8,6 +9,7 @@ import { useAuth } from "../context/AuthContext";
 import { affiliatesApi } from "../API/affiliates";
 import { authApi } from "../API/auth";
 import { extractErrorMessage } from "../API/client";
+import { useLoader } from "../lib/useLoader";
 import ProductImage from "../components/ProductImage";
 
 const money = n => new Intl.NumberFormat("en-RW").format(Number(n) || 0) + " RWF";
@@ -23,34 +25,27 @@ async function copyText(text) {
   el.remove();
 }
 
+// One cache key for the dashboard numbers: creating or terminating a link
+// invalidates it, so the overview never shows counts from before the change.
+const OVERVIEW_KEY = ["affiliate-overview"];
+
 function Overview() {
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const { data, loading, error, reload } = useLoader(OVERVIEW_KEY, affiliatesApi.getOverview);
 
-  const load = () => {
-    setLoading(true);
-    setError("");
-    affiliatesApi.getOverview()
-      .then(res => setData(res))
-      .catch(err => setError(extractErrorMessage(err)))
-      .finally(() => setLoading(false));
-  };
-  useEffect(load, []);
-
-  const v = (x, fmt = n => n) => (loading ? "..." : fmt(x ?? 0));
+  // "..." while loading; "—" when the request failed, so a failure is never read as a real 0.
+  const v = (x, fmt = n => n) => (loading ? "..." : error && !data ? "—" : fmt(x ?? 0));
   const c = data?.commission || {};
   const recent = data?.recent || [];
   const top = data?.stats?.topLinks || [];
 
   return <>
-    <div className="dash-page-head"><div><span className="eyebrow">AFFILIATE PLATFORM</span><h1>Affiliate dashboard</h1><p>Live performance of your links, attributed orders and commissions.</p></div><button className="outline-btn" onClick={load} disabled={loading}>{loading ? "Refreshing…" : "Refresh"}</button></div>
-    {error && <div className="form-error">{error} <button className="outline-btn" onClick={load}>Retry</button></div>}
+    <div className="dash-page-head"><div><span className="eyebrow">AFFILIATE PLATFORM</span><h1>Affiliate dashboard</h1><p>Live performance of your links, attributed orders and commissions.</p></div><button className="outline-btn" onClick={reload} disabled={loading}>{loading ? "Refreshing…" : "Refresh"}</button></div>
+    {error && <div className="form-error">{error} <button className="outline-btn" onClick={reload}>Retry</button></div>}
     <div className="metric-grid">
-      <div className="metric"><div className="metric-icon"><Icon name="tag" /></div><div><span>Created links</span><strong>{v(data?.links?.created)}</strong><small>{v(data?.links?.active)} active · {v(data?.links?.terminated)} terminated</small></div></div>
+      <div className="metric"><div className="metric-icon"><Icon name="tag" /></div><div><span>All created links</span><strong>{v(data?.links?.created)}</strong><small>{v(data?.links?.active)} active · {v(data?.links?.terminated)} terminated</small></div></div>
       <div className="metric"><div className="metric-icon"><Icon name="chart" /></div><div><span>Clicked links</span><strong>{v(data?.links?.clicked)}</strong><small>Visited, whether or not they led to a sale</small></div></div>
       <div className="metric"><div className="metric-icon"><Icon name="cart" /></div><div><span>Successful links</span><strong>{v(data?.links?.successful)}</strong><small>Clicked, ordered and delivered</small></div></div>
-      <div className="metric"><div className="metric-icon"><Icon name="chart" /></div><div><span>Clicks</span><strong>{v(data?.clicks)}</strong><small>{v(data?.uniqueVisitors)} unique visitors</small></div></div>
+      <div className="metric"><div className="metric-icon"><Icon name="chart" /></div><div><span>All clicks</span><strong>{v(data?.clicks)}</strong><small>{v(data?.uniqueVisitors)} unique visitors</small></div></div>
       <div className="metric"><div className="metric-icon"><Icon name="cart" /></div><div><span>Attributed orders</span><strong>{v(data?.attributedOrders)}</strong><small>{v(data?.conversionRate)}% of clicks · {v(data?.conversions)} items</small></div></div>
       <div className="metric"><div className="metric-icon"><Icon name="wallet" /></div><div><span>Net commission</span><strong>{v(c.net, money)}</strong><small>{v(c.reversed, money)} reversed by refunds</small></div></div>
       <div className="metric"><div className="metric-icon"><Icon name="wallet" /></div><div><span>Pending</span><strong>{v(c.pending, money)}</strong><small>Held until delivery is confirmed</small></div></div>
@@ -59,7 +54,7 @@ function Overview() {
     </div>
 
     <div className="data-card"><h3>Recent attributed orders</h3>
-      {!loading && !recent.length && <div className="empty-state"><h3>No attributed orders yet</h3><p>Orders placed after a visitor clicks your link will appear here once paid.</p></div>}
+      {!loading && !error && !recent.length && <div className="empty-state"><h3>No attributed orders yet</h3><p>Orders placed after a visitor clicks your link will appear here once paid.</p></div>}
       {!!recent.length && <SmartTable
         columns={[
           { key: "orderNumber", label: "Order" },
@@ -76,7 +71,7 @@ function Overview() {
     </div>
 
     <div className="data-card"><h3>Top links (last 30 days)</h3>
-      {!loading && !top.length && <div className="empty-state"><h3>No links yet</h3><p>Create one from the Promote Products tab.</p></div>}
+      {!loading && !error && !top.length && <div className="empty-state"><h3>No links yet</h3><p>Create one from the Promote Products tab.</p></div>}
       {!!top.length && <SmartTable
         columns={[
           { key: "product", label: "Product", render: r => r.targetProduct?.name || "—" },
@@ -94,6 +89,8 @@ function Overview() {
 }
 
 function Products() {
+  const queryClient = useQueryClient();
+  const refreshOverview = () => queryClient.invalidateQueries({ queryKey: OVERVIEW_KEY });
   const [catalog, setCatalog] = useState([]);
   const [links, setLinks] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -129,6 +126,7 @@ function Products() {
     try {
       const res = await affiliatesApi.generateLink({ productId: p.id });
       setLinks(prev => [res.link || res.data, ...prev]);
+      refreshOverview();
     } catch (err) {
       setError(extractErrorMessage(err));
     } finally {
@@ -140,7 +138,7 @@ function Products() {
     let link = linkFor(p.id);
     if (!link) {
       const res = await affiliatesApi.generateLink({ productId: p.id }).catch(() => null);
-      if (res) { link = res.link || res.data; setLinks(prev => [link, ...prev]); }
+      if (res) { link = res.link || res.data; setLinks(prev => [link, ...prev]); refreshOverview(); }
     }
     if (!link) return;
     await copyText(affiliateUrl(link.affiliateCode));
@@ -162,6 +160,7 @@ function Products() {
     try {
       await affiliatesApi.terminateLink(link.id || link._id);
       setLinks(prev => prev.map(item => String(item.id || item._id) === String(link.id || link._id) ? { ...item, status: "TERMINATED", isActive: false } : item));
+      refreshOverview();
     } catch (err) {
       setError(extractErrorMessage(err));
     } finally {
@@ -252,6 +251,7 @@ function Products() {
 }
 
 function Links() {
+  const queryClient = useQueryClient();
   const [links, setLinks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -283,6 +283,7 @@ function Links() {
     setBusy(String(l.id));
     try {
       await affiliatesApi.terminateLink(l.id);
+      queryClient.invalidateQueries({ queryKey: OVERVIEW_KEY });
       setConfirm(null);
       load();
     } catch (err) {
