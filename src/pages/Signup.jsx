@@ -88,8 +88,8 @@ export default function Signup() {
     setLoading(true);
     try {
       if (!riderCode) {
-        const res = await authApi.sendCode(form.telephone.trim(), "registration");
-        setRiderCode({ code: "", sentTo: res.message || "" });
+        const res = await authApi.sendCode(form.telephone.trim(), "registration", "delivery");
+        setRiderCode({ code: res.devCode || "", sentTo: res.devCode ? `${res.message} Your code: ${res.devCode}` : res.message || "" });
         return;
       }
       if (!/^\d{6}$/.test(riderCode.code)) {

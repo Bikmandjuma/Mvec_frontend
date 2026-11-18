@@ -27,7 +27,7 @@ export default function Login() {
     setLoading(true);
     try {
       const res = await authApi.sendCode(codeLogin.phone.trim(), "login");
-      setCodeLogin((c) => ({ ...c, sent: true, sentTo: res.message || "" }));
+      setCodeLogin((c) => ({ ...c, sent: true, code: res.devCode || c.code, sentTo: res.devCode ? `${res.message} Your code: ${res.devCode}` : res.message || "" }));
     } catch (err) {
       if (err.response?.status === 429) setCodeLogin((c) => ({ ...c, sent: true }));
       setError(extractErrorMessage(err));

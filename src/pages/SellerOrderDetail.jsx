@@ -8,6 +8,7 @@ import { extractErrorMessage } from '../API/client';
 import { useAuth } from '../context/AuthContext';
 import { money, dateDMY, personName, titleCase, parsePercent, sellerNextStatuses, canRecordCash, stepLabelFor, orderFlowFor, flowIndexOf, flowStepLabel, StatusPill, FormModal } from './seller/shared';
 import ProductImage from '../components/ProductImage';
+import LiveTracking from '../components/LiveTracking';
 
 const idOf = v => String(v?._id || v?.id || v || '');
 
@@ -76,6 +77,7 @@ export default function SellerOrderDetail() {
       </div>
       {error && <div className="form-error">{error}</div>}
       {done && <div className="form-alert success">{done}</div>}
+      {!['DELIVERED', 'CANCELLED'].includes(order.orderStatus) && <LiveTracking orderId={id} viewer="seller" />}
       <div className="detail-grid">
         <section className="data-card">
           <div className="data-card-head"><div><h3>{isAdmin ? 'Order items' : 'Your items'}</h3><span>{items.length} item{items.length === 1 ? '' : 's'}</span></div><StatusPill value={order.orderStatus} /></div>

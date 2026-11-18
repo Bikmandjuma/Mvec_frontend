@@ -9,6 +9,7 @@ import { reviewsApi } from "../API/reviews";
 import { extractErrorMessage } from "../API/client";
 import { money, formatDate } from "../utils/format";
 import { buyerStatus, canCancel, countdown, isAwaitingPayment, paidCancelRemaining } from "../utils/orders";
+import LiveTracking from "../components/LiveTracking";
 
 // Who moves the order at each step, so the buyer knows what to expect.
 const STEPS = [
@@ -236,6 +237,8 @@ export default function OrderDetails() {
         <button type="button" className="outline-btn" onClick={cancel} disabled={cancelling}>{cancelling ? "Cancelling…" : "Cancel order"}</button>
       </section>
     )}
+
+    {!delivered && !cancelled && <LiveTracking orderId={id} viewer="buyer" />}
 
     {order.paymentStatus === "PAID" && order.deliveryOtp && !delivered && !cancelled && (
       <section className="verified-box otp-buyer-box">
