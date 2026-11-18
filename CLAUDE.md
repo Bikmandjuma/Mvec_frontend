@@ -26,4 +26,7 @@ npm run build
 
 - The server decides prices, delivery fees, commission and which order step comes next. Show what it returns.
 - Riders (`/delivery/*`, `RiderDashboard.jsx`) mirror the app. Parcels are offered when the buyer pays. While `waitingForSeller`, the trip page says the seller is still preparing it. The trip page shows `progress` (order placed to delivered), and "Hand it back" is available before pickup. The board refreshes every 10 seconds. While online, the browser's position is sent at most every 4 s after moving 8 m, and at least every 15 s.
+- **Variants:** a cart line's `id` is `"productId~variantId"` for a size or colour (`asVariantLine()` in `services/catalogApi.js`). `ProductDetails` uses `VariantPicker`. Shared product bits are in `components/ProductExtras.jsx` (deal countdown, seller badges, alerts).
+- **Returns:** `components/returns/ReturnRequest.jsx` (on a delivered order), `/account/returns` (buyer), and `ReturnsBoard` (seller at `/vendor/returns` and `/supplier/returns`, Ikiguzi at `/admin/returns`).
+- Deals live at `/deals`. Seller documents are in `components/dashboard/SellerDocuments.jsx`.
 - Sellers confirm a hand-over with the buyer's 6-digit code (`components/DeliveryTracking.jsx`). They can't ship a parcel an Ikiguzi rider carries.

@@ -70,7 +70,7 @@ export default function Storefront({ children }) {
   const dashboard = DASHBOARD_BY_ROLE[user?.role];
   const notificationPath = NOTIFICATIONS_BY_ROLE[user?.role] || '/buyer/notifications';
   const accountPath = dashboard || '/profile';
-  const links = [['/', t('home')], ['/shop', t('shop')], ['/shop?deal=true', t('deals')], ['/vendors', t('vendors')], ['/buyer/recommendations', t('forYou')]];
+  const links = [['/', t('home')], ['/shop', t('shop')], ['/deals', t('deals')], ['/vendors', t('vendors')], ['/buyer/recommendations', t('forYou')]];
   const isActive = (to) => (to.includes('?') ? `${location.pathname}${location.search}` === to : location.pathname === to && !location.search.includes('deal='));
 
   return <div className="site">
@@ -117,6 +117,7 @@ export default function Storefront({ children }) {
         <nav aria-label="Menu">
           {links.map(([to, label]) => <Link key={to} to={to}>{label}</Link>)}
           <Link to="/orders">{t('orders')}</Link>
+          {user && <Link to="/account/returns">Returns</Link>}
           {user && <Link to={accountPath}>{dashboard ? 'Dashboard' : 'My account'}</Link>}
           {user && <button type="button" onClick={() => { logout(); navigate('/'); }}>Sign out</button>}
         </nav>
@@ -141,6 +142,7 @@ export default function Storefront({ children }) {
           <Link to="/shop">Shop</Link>
           <Link to="/vendors">Stores</Link>
           <Link to="/orders">Orders</Link>
+          <Link to="/account/returns">Returns</Link>
           <Link to="/buyer/support">{t('help')}</Link>
           {dashboard ? <Link to={dashboard}>Dashboard</Link> : <Link to="/signup" state={{ role: 'vendor' }}>{t('becomeVendor')}</Link>}
         </nav>

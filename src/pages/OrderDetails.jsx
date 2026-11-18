@@ -6,6 +6,7 @@ import { ordersApi } from "../API/orders";
 import { disputesApi } from "../API/disputes";
 import DisputeCase from "../components/DisputeCase";
 import { reviewsApi } from "../API/reviews";
+import ReturnRequest from "../components/returns/ReturnRequest";
 import { extractErrorMessage } from "../API/client";
 import { money, formatDate } from "../utils/format";
 import { buyerStatus, canCancel, countdown, isAwaitingPayment, paidCancelRemaining } from "../utils/orders";
@@ -306,6 +307,8 @@ export default function OrderDetails() {
     )}
 
     {caseId && <section className="data-card"><DisputeCase caseId={caseId} onChanged={refreshCase} /></section>}
+
+    {delivered && !caseOpen && <ReturnRequest orderId={order.id} />}
 
     {order.paymentStatus === "PAID" && !cancelled && !caseOpen && (
       <section className="data-card">

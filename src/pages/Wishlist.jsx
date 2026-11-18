@@ -5,12 +5,18 @@ import ProductImage from '../components/ProductImage';
 import { useMarketplace } from '../context/MarketplaceContext';
 import { loadCatalog } from '../services/catalogApi';
 import { money } from '../utils/format';
+import { productsApi } from '../API/products';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 export default function Wishlist() {
   const { wishlist, addToCart, toggleWishlist } = useMarketplace();
   const [live, setLive] = useState({});
   const [loaded, setLoaded] = useState(false);
   const [notice, setNotice] = useState(null);
+  const qc = useQueryClient();
+  // Back-in-stock and price-drop alerts (saving to the wishlist watches the price too).
+  const { data: alerts = [] } = useQuery({ queryKey: ['alerts', 'mine'], queryFn: productsApi.myAlerts });
+  const stopAlert = async (a) => { await productsApi.unwatch(a.product.id, a.kind).catch(() => {}); qc.invalidateQueries({ queryKey: ['alerts', 'mine'] }); };
 
   // Compare saved items with today's catalogue for current price and stock.
   useEffect(() => {
@@ -60,5 +66,12 @@ export default function Wishlist() {
       })}
     </div>
     {!wishlist.length && <div className="empty-state"><h2>Your wishlist is empty</h2><p>Save products by tapping the heart icon.</p><Link className="gradient-btn" to="/shop">Discover products</Link></div>}
+    {alerts.some((a) => a.kind === 'BACK_IN_STOCK') && <section className="data-card">
+      <h3>Tell me when it's back</h3>
+      <p className="tiny">You'll get a message the moment these are in stock again.</p>
+      {alerts.filter((a) => a.kind === 'BACK_IN_STOCK').map((a) => (
+        <div key={a.id} className="return-line"><ProductImage src={a.product.image} alt="" /><div><Link to={`/product/${a.product.id}`}><b>{a.product.name}</b></Link><small className="tiny">{a.product.inStock ? 'Back in stock now' : 'Still out of stock'} · {money(a.product.price)}</small></div><button type="button" className="outline-btn compact-btn" onClick={() => stopAlert(a)}>Stop</button></div>
+      ))}
+    </section>}
   </main></Storefront>;
 }

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Icon from '../../components/Icon';
 import { vendorsApi } from '../../API/vendors';
+import SellerDocuments from '../../components/dashboard/SellerDocuments';
 import { useAuth } from '../../context/AuthContext';
 import CategorySelect from '../../components/CategorySelect';
 import { payoutsApi } from '../../API/payouts';
@@ -74,6 +75,10 @@ export default function SettingsPage() {
           <div className="seller-kv"><span>Ikiguzi commission</span><b>{fees ? `${fees.defaultPercent}% unless your category differs` : data.commissionRate || '—'}</b></div>
           <div className="seller-kv"><span>Rating</span><b>{Number(vendor.ratingAvg || 0).toFixed(1)} / 5</b></div>
         </div>
+        <SellerDocuments documents={vendor.documents || []} save={async (documents) => {
+          const res = await vendorsApi.updateMyProfile({ documents });
+          setData((d) => ({ ...d, vendor: { ...d.vendor, ...(res.vendor || {}), documents: res.vendor?.documents || documents } }));
+        }} />
         {fees && fees.categories.some(c => c.percent !== fees.defaultPercent) && <div className="data-card">
           <div className="data-card-head"><div><h3>Your Ikiguzi commission by category</h3><span>Taken from each sale when the buyer pays. Payment provider fees are paid by {fees.gatewayFeePayer === 'SELLER' ? 'you' : 'MVEC'}.</span></div></div>
           {fees.categories.filter(c => c.percent !== fees.defaultPercent).map(c => <div className="seller-kv" key={c.categoryId}><span>{c.category}<small className="block-small">{c.source}</small></span><b>{c.percent}%</b></div>)}

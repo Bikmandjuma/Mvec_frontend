@@ -10,6 +10,9 @@ import AffiliateRedirect from "./components/AffiliateRedirect";
 import { ReferralCapture } from "./services/referral";
 // Each page loads on demand, so the first visit downloads only what it shows.
 const Home = lazy(() => import("./pages/Home"));
+const Deals = lazy(() => import("./pages/Deals"));
+const MyReturns = lazy(() => import("./pages/account/MyReturns"));
+const ReturnsAdmin = lazy(() => import("./pages/admin/ReturnsAdmin"));
 const Login = lazy(() => import("./pages/Login"));
 const Signup = lazy(() => import("./pages/Signup"));
 const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
@@ -79,6 +82,7 @@ export default function App() {
       <Route path="/signup" element={<Signup />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/shop" element={<Shop />} />
+      <Route path="/deals" element={<Deals />} />
       <Route path="/product/:id" element={<ProductDetails />} />
       <Route path="/vendors" element={<Vendors />} />
       <Route path="/vendors/:id" element={<VendorDetail />} />
@@ -116,6 +120,7 @@ export default function App() {
           </RequireAuth>
         }
       />
+      <Route path="/account/returns" element={<RequireAuth><MyReturns /></RequireAuth>} />
       <Route
         path="/orders/:id"
         element={
@@ -541,6 +546,7 @@ export default function App() {
           </RequireAuth>
         }
       />
+      <Route path="/admin/returns" element={<RequireAuth roles={["super_admin"]}><ReturnsAdmin /></RequireAuth>} />
       <Route
         path="/admin/disputes"
         element={

@@ -24,6 +24,8 @@ const toProductPayload = (payload) => {
     "name", "sku", "slug", "brand", "shortDescription", "description", "price",
     "discountPrice", "discountType", "discountValue", "discount", "costPrice", "stockQuantity",
     "lowStockThreshold", "status", "storeId",
+    // Flash deal (dealPrice null ends it).
+    "dealPrice", "dealStartsAt", "dealEndsAt", "dealQuantity",
   ];
   const result = Object.fromEntries(editableFields
     .filter((key) => rest[key] !== undefined)
@@ -75,4 +77,14 @@ export const productsApi = {
     client.post("/products/vendor/move-store", { productIds, storeId, note }).then((r) => r.data),
   getStockMovements: (params) =>
     client.get("/products/vendor/stock-movements", { params }).then((r) => r.data),
+  // Sizes/colours: replaces the product's list. [{ id?, options: { Size, Color }, price?, stockQuantity, sku? }]
+  setVariants: (id, variants) =>
+    client.put(`/products/${id}/variants`, { variants }).then((r) => r.data),
+  // Flash deals on now and starting within a day: { live, upcoming, serverTime }
+  deals: () => client.get("/products/deals").then((r) => r.data),
+  // Back-in-stock and price-drop alerts.
+  alertsOn: (id) => client.get(`/products/${id}/alerts`).then((r) => r.data),
+  watch: (id, kind) => client.post(`/products/${id}/alerts`, { kind }).then((r) => r.data),
+  unwatch: (id, kind) => client.delete(`/products/${id}/alerts/${kind}`).then((r) => r.data),
+  myAlerts: () => client.get("/products/alerts/mine").then((r) => r.data.alerts || []),
 };

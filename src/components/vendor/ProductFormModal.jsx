@@ -5,6 +5,7 @@ import ProductImage from "../ProductImage";
 import { categoriesApi } from "../../API/categories";
 import { uploadsApi } from "../../API/uploads";
 import { extractErrorMessage } from "../../API/client";
+import { VariantEditor, DealEditor, variantStateFrom, variantPayload, dealStateFrom, dealPayload } from "./VariantDealEditor";
 
 let idCounter = 0;
 const nextId = () => `product-image-${Date.now()}-${idCounter++}`;
@@ -137,6 +138,10 @@ export default function ProductFormModal({ product, onSave, onClose, saving = fa
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [variantState, setVariantState] = useState(() => variantStateFrom(product));
+  const [deal, setDeal] = useState(() => dealStateFrom(product));
+  const hasVariants = variantState.rows.length > 0;
+  const variantStock = variantState.rows.reduce((n, r) => n + (Number(r.stock) || 0), 0);
   const blobUrls = useRef(new Set());
 
   useEffect(() => {
@@ -277,7 +282,7 @@ export default function ProductFormModal({ product, onSave, onClose, saving = fa
       !form.name.trim() ||
       !form.categoryId ||
       form.price === "" ||
-      form.stockQuantity === "" ||
+      (form.stockQuantity === "" && !hasVariants) ||
       !form.description.trim()
     ) {
       setError("Please complete the required fields before saving.");
@@ -327,7 +332,10 @@ export default function ProductFormModal({ product, onSave, onClose, saving = fa
             ? { type: form.discountType, value: discountValue }
             : null,
         costPrice: form.costPrice === "" ? null : Number(form.costPrice),
-        stockQuantity: Number(form.stockQuantity || 0),
+        stockQuantity: hasVariants ? variantStock : Number(form.stockQuantity || 0),
+        // Saved after the product (PUT /products/:id/variants); [] removes them.
+        variants: hasVariants || (product?.variants || []).length ? variantPayload(variantState) : undefined,
+        ...dealPayload(deal),
         lowStockThreshold: Number(form.lowStockThreshold || 5),
         attributes: {
           color: form.color,
@@ -487,18 +495,22 @@ export default function ProductFormModal({ product, onSave, onClose, saving = fa
                   />
                 </label>
                 <label className="field">
-                  <span>Stock quantity *</span>
+                  <span>Stock quantity *{hasVariants ? " (sum of sizes/colours)" : ""}</span>
                   <input
                     type="number"
                     min="0"
                     name="stockQuantity"
-                    value={form.stockQuantity}
+                    value={hasVariants ? variantStock : form.stockQuantity}
                     onChange={update}
-                    required
+                    disabled={hasVariants}
+                    required={!hasVariants}
                   />
                 </label>
               </div>
             </section>
+
+            <VariantEditor state={variantState} onChange={setVariantState} />
+            <DealEditor deal={deal} onChange={setDeal} price={form.price} />
 
             <section className="editor-section">
               <h3>Main product image *</h3>

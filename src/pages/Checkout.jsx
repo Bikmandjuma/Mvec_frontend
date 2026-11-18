@@ -14,7 +14,7 @@ import PinPicker from "../components/PinPicker";
 import { promotionsApi } from "../API/promotions";
 import { RWANDA_LOCATIONS, PROVINCES } from "../data/rwandaLocations";
 import { extractErrorMessage } from "../API/client";
-import { mapBackendProduct, clearCatalogCache } from "../services/catalogApi";
+import { mapBackendProduct, clearCatalogCache, asVariantLine } from "../services/catalogApi";
 import { money } from "../utils/format";
 import { isRwandanPhone } from "../utils/delivery";
 
@@ -90,8 +90,16 @@ export default function Checkout() {
   useEffect(() => {
     if (!pid) { setLoadingProduct(false); return undefined; }
     let alive = true;
-    productsApi.getById(pid)
-      .then((raw) => alive && setBuyNowProduct(mapBackendProduct(raw)))
+    // "productId~variantId" buys one size/colour.
+    const [productId, variantId] = String(pid).split("~");
+    productsApi.getById(productId)
+      .then((raw) => {
+        if (!alive) return;
+        const product = mapBackendProduct(raw);
+        const variant = variantId ? product.variants.find((v) => String(v.id) === variantId) : null;
+        if (variantId && !variant) throw new Error("gone");
+        setBuyNowProduct(asVariantLine(product, variant));
+      })
       .catch(() => alive && setProductError("This product is no longer available."))
       .finally(() => alive && setLoadingProduct(false));
     return () => { alive = false; };
@@ -452,7 +460,7 @@ export default function Checkout() {
             : Number(x.stock) > 0 && x.qty > x.stock ? `Only ${x.stock} left` : "";
           return <div className="mini-item" key={x.id}>
             <ProductImage src={x.image} alt="" />
-            <div><b>{x.name}</b><span>{x.vendor} · Qty {x.qty}</span>{problem && <small className="danger-text">{problem}</small>}</div>
+            <div><b>{x.name}</b>{x.variantLabel && <small className="variant-chip">{x.variantLabel}</small>}<span>{x.vendor} · Qty {x.qty}</span>{problem && <small className="danger-text">{problem}</small>}</div>
             <strong>{money((Number(x.price) || 0) * x.qty)}</strong>
           </div>;
         })}

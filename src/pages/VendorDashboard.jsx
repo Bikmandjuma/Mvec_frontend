@@ -15,6 +15,8 @@ import { ordersApi } from '../API/orders';
 import { extractErrorMessage } from '../API/client';
 import { clearCatalogCache } from '../services/catalogApi';
 import RestrictedOverview from '../components/dashboard/RestrictedOverview';
+import ReturnsBoard from '../components/returns/ReturnsBoard';
+const SellerReturns = () => <ReturnsBoard />;
 import ProductImage from '../components/ProductImage';
 import { useAuth } from '../context/AuthContext';
 import { STAFF_ROLE_LABEL } from '../data/staffAccess';
@@ -290,12 +292,16 @@ function ProductModule(){
     setError('');
     try{
       let saved;
-      if(editing?.mode==='create') saved=await productsApi.create(payload);
+      const { variants, ...fields } = payload;
+      if(editing?.mode==='create') saved=await productsApi.create(fields);
       else {
         const productId=editing?.product?.id||editing?.product?._id;
         if(!productId) throw new Error('This product no longer exists. Refresh the page.');
-        saved=await productsApi.update(productId,payload);
+        saved=await productsApi.update(productId,fields);
       }
+      // Sizes/colours are saved on the product once it exists.
+      const savedId=saved?.product?._id||saved?.product?.id||editing?.product?.id||editing?.product?._id;
+      if(variants!==undefined&&savedId) await productsApi.setVariants(savedId,variants);
       setSavedNote(saved?.waitingForApproval?saved.message:'');
       clearCatalogCache(); // the marketplace shows the change straight away
       setEditing(null);
@@ -363,7 +369,7 @@ const SELLER_PAGES={
   stores:StorePage, categories:CategoriesPage, customers:CustomersPage, analytics:AnalyticsPage, reports:ReportsPage,
   transactions:TransactionsPage, promotions:PromotionsPage, shipping:ShippingPage, reviews:ReviewsPage,
   team:TeamPage, settings:SettingsPage, advertisements:AdvertisementsPage, subscription:SubscriptionPage,
-  products:ProductModule, inventory:InventoryPage, orders:OrdersPage, payouts:PayoutsPage,
+  products:ProductModule, inventory:InventoryPage, orders:OrdersPage, payouts:PayoutsPage, returns:SellerReturns,
 };
 
 export default function VendorDashboard(){

@@ -3,6 +3,7 @@
 // the ledger, analytics, risk signals, trust scores, subscriptions, platform
 // settings and the audit log. Every number comes from the backend; nothing is
 // stored in the browser.
+import { DocumentLinks } from "../components/dashboard/SellerDocuments";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import DashboardLayout from "../components/DashboardLayout";
@@ -147,6 +148,8 @@ function ReviewModal({ kind, profile, onClose, onDone }) {
         {items.map(([k, v]) => <li key={k} className={v ? "ok" : "missing"}><span aria-hidden="true">{v ? "✓" : "✗"}</span><b>{k}</b><small>{v ? String(v).slice(0, 140) : "Not provided"}</small></li>)}
         {kind === "seller" && <li className="info"><span aria-hidden="true">i</span><b>Products</b><small>{profile.productCount ? `${profile.productCount} listed` : "None listed yet (not needed to verify)"}</small></li>}
       </ul>
+      <h4>Documents</h4>
+      <DocumentLinks documents={profile.documents || []} />
       {kind === "seller" && profile.slug && <p className="tiny"><a href={`/vendors/${profile.slug}`} target="_blank" rel="noreferrer">Open the public store page ↗</a></p>}
       {profile.verificationNote && <div className="verified-box"><b>Last rejection reason</b><p>{profile.verificationNote}</p></div>}
 

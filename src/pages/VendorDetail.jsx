@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { SellerBadges } from '../components/ProductExtras';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Storefront from '../components/Storefront';
@@ -70,6 +71,7 @@ export default function VendorDetail() {
           {vendor.logoUrl ? <ProductImage className="vendor-avatar" src={vendor.logoUrl} alt="" /> : <div className="vendor-avatar">{vendor.businessName?.[0] || 'V'}</div>}
           <div>
             <span className="eyebrow">{vendor.verificationStatus === 'VERIFIED' ? 'VERIFIED STORE' : 'STORE'}</span>
+            <SellerBadges badges={vendor.badges || []} />
             <h1>{vendor.businessName}</h1>
             <p>★ {Number(vendor.ratingAvg || 0).toFixed(1)} · {products.length} products · {followers} {followers === 1 ? 'follower' : 'followers'} · {vendor.category || 'Business'}</p>
             {followError && <p className="form-alert error" role="alert">{followError}</p>}

@@ -47,12 +47,15 @@ const fromServerItem = (item) => {
   const prod = item?.product && typeof item.product === 'object' ? item.product : null;
   if (!prod) return null;
   return {
-    id: String(prod._id || prod.id),
+    // "productId" or "productId~variantId" for one size/colour (the server's line key).
+    id: String(item.lineId || prod._id || prod.id),
+    productId: String(prod._id || prod.id),
+    variantLabel: item.variantLabel || '',
     name: prod.name || 'Product',
-    image: resolveImageUrl(prod.media?.mainImage || prod.image || ''),
+    image: resolveImageUrl(item.image || prod.media?.mainImage || prod.image || ''),
     price: Number(item.price) || effectivePrice(prod),
     qty: Math.max(1, Number(item.quantity) || 1),
-    stock: Number(prod.stockQuantity) || 0,
+    stock: item.variantStock !== null && item.variantStock !== undefined ? Number(item.variantStock) : Number(prod.stockQuantity) || 0,
     status: prod.status || 'ACTIVE',
     sku: prod.sku || '',
     vendor: vendorNameOf(prod.vendor),
@@ -168,6 +171,8 @@ export function MarketplaceProvider({ children }) {
         if (capped < wanted) message = `Only ${stock} available. Your cart has the maximum.`;
         const line = {
           id,
+          productId: product.productId || id,
+          variantLabel: product.variantLabel || '',
           name: product.name,
           image: product.image || '',
           price: Number(product.price) || 0,

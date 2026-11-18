@@ -18,7 +18,9 @@ export function mapBackendProduct(p) {
   const vendor = p.vendor || {};
   const category = p.category || {};
   const rawPrice = Number(p.price || 0);
-  const discountPrice = Number(p.discountPrice || 0);
+  // A live flash deal wins over a regular discount (the server sends `deal`).
+  const deal = p.deal && p.deal.price > 0 ? p.deal : null;
+  const discountPrice = deal?.live ? Number(deal.price) : Number(p.discountPrice || 0);
   const activePrice = discountPrice > 0 && discountPrice < rawPrice ? discountPrice : rawPrice;
   const media = p.media || {};
   const productAttributes = p.attributes || {};
@@ -45,6 +47,11 @@ export function mapBackendProduct(p) {
     description: p.description || p.shortDescription || '',
     status: p.status || 'ACTIVE',
     slug: p.slug || '',
+    deal,
+    // Sizes/colours: [{ id, key, label, options, price, stockQuantity, image }] and [{ name, values }]
+    variants: Array.isArray(p.variants) ? p.variants.map((v) => ({ ...v, image: v.image ? resolveImageUrl(v.image) : '' })) : [],
+    variantOptions: Array.isArray(p.variantOptions) ? p.variantOptions : [],
+    sellerBadges: Array.isArray(p.sellerBadges) ? p.sellerBadges : [],
     attributes: {
       Color: productAttributes.color || p.color || '',
       Size: productAttributes.size || p.size || '',
@@ -141,3 +148,22 @@ export function getProductById(productsList, id) {
   return (productsList || []).find((x) => String(x.id) === String(id)) || null;
 }
 
+
+/**
+ * A cart line for one size/colour of a product: its key, price, stock and
+ * label ("Red / M"). Without a variant, the product itself.
+ */
+export function asVariantLine(product, variant) {
+  if (!product || !variant) return product;
+  return {
+    ...product,
+    id: variant.key,
+    productId: product.id,
+    variantId: variant.id,
+    variantLabel: variant.label,
+    price: Number(variant.price) || product.price,
+    oldPrice: variant.ownPrice ? 0 : product.oldPrice,
+    stock: Number(variant.stockQuantity) || 0,
+    image: variant.image || product.image,
+  };
+}

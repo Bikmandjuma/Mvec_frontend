@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { SellerBadges } from '../components/ProductExtras';
 import { useEffect, useState } from 'react';
 import Storefront from '../components/Storefront';
 import { vendorsApi } from '../API/vendors';
@@ -42,7 +43,7 @@ export default function Vendors() {
                   <small>{v.category || 'Business'} · {typeof v.location === 'string' ? v.location : (v.location?.city || 'Rwanda')}</small>
                   <span>{Number(v.ratingAvg) > 0 ? `★ ${Number(v.ratingAvg).toFixed(1)}` : 'New store'}</span>
                   {v.description && <small>{v.description}</small>}
-                  {v.verificationStatus === 'VERIFIED' ? <small className="verified-badge">✓ Verified seller</small> : <small>Seller on Ikiguzi</small>}
+                  {v.badges?.length ? <SellerBadges badges={v.badges} /> : v.verificationStatus === 'VERIFIED' ? <small className="verified-badge">✓ Verified seller</small> : <small>Seller on Ikiguzi</small>}
                 </div>
                 <Icon name="arrow" />
               </Link>

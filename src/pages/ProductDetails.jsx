@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import Storefront from '../components/Storefront';
-import { loadCatalog, mapBackendProduct } from '../services/catalogApi';
+import { loadCatalog, mapBackendProduct, asVariantLine } from '../services/catalogApi';
+import { DealTag, SellerBadges, VariantPicker, StockAlerts } from '../components/ProductExtras';
 import { productsApi } from '../API/products';
 import { reviewsApi } from '../API/reviews';
 import Icon from '../components/Icon';
@@ -31,6 +32,7 @@ export default function ProductDetails() {
   const [feedback, setFeedback] = useState(null); // { ok, message }
   const [adding, setAdding] = useState(false);
   const [comparing, setComparing] = useState(false);
+  const [variant, setVariant] = useState(null);
   useEffect(() => { setComparing(getCompare().includes(String(id))); }, [id]);
 
   useEffect(() => {
@@ -38,6 +40,7 @@ export default function ProductDetails() {
     setLoading(true);
     setFeedback(null);
     setQty(1);
+    setVariant(null);
     if (!id || id === 'undefined') { setProduct(null); setLoading(false); return undefined; }
     // Fetch the product itself (fresh price and stock); fall back to the
     // cached catalogue for old links that use the public product code.
@@ -65,21 +68,29 @@ export default function ProductDetails() {
     return <Storefront><main className="detail-page"><div className="empty-state"><h3>Product not found</h3><p>It may have been removed or is no longer available.</p><Link className="gradient-btn" to="/shop">Back to shop</Link></div></main></Storefront>;
   }
 
-  const stock = Number(p.stock) || 0;
-  const soldOut = stock <= 0;
+  // A product with sizes/colours is bought as one of them: price and stock follow the choice.
+  const hasVariants = p.variants.length > 0;
+  const line = asVariantLine(p, variant);
+  const stock = Number(line.stock) || 0;
+  const soldOut = hasVariants ? p.variants.every((v) => v.stockQuantity <= 0) || (variant && stock <= 0) : stock <= 0;
+  const needsChoice = hasVariants && !variant;
   const maxQty = Math.max(1, Math.min(stock, 100));
   const wished = isWishlisted(p.id);
   const images = [...new Set([p.image, ...(p.gallery || [])].filter(Boolean))];
-  const onSale = p.oldPrice > p.price;
+  const onSale = line.oldPrice > line.price;
 
   const changeQty = (next) => setQty(Math.max(1, Math.min(maxQty, next)));
   const addToCartClick = async () => {
+    if (needsChoice) { setFeedback({ ok: false, message: `Choose ${p.variantOptions.map((o) => o.name.toLowerCase()).join(' and ')} first.` }); return; }
     setAdding(true);
-    const result = await addToCart(p, qty);
+    const result = await addToCart(line, qty);
     setAdding(false);
     setFeedback(result);
   };
-  const buy = () => navigate(`/checkout?product=${encodeURIComponent(p.id)}&qty=${qty}`);
+  const buy = () => {
+    if (needsChoice) { setFeedback({ ok: false, message: `Choose ${p.variantOptions.map((o) => o.name.toLowerCase()).join(' and ')} first.` }); return; }
+    navigate(`/checkout?product=${encodeURIComponent(line.id)}&qty=${qty}`);
+  };
   const wish = () => {
     if (!user) { navigate('/login', { state: { from: `${location.pathname}${location.search}` } }); return; }
     toggleWishlist(p);
@@ -104,12 +115,15 @@ export default function ProductDetails() {
         <small>{p.category}{p.sku ? ` · SKU ${p.sku}` : ''}</small>
         <h1>{p.name}</h1>
         <div className="rating large">★ {ratingLabel(p.rating)} <span>{reviews.length} review{reviews.length === 1 ? '' : 's'}</span></div>
-        <div className="price-line"><strong>{money(p.price)}</strong>{onSale && <del>{money(p.oldPrice)}</del>}{onSale && <span>{Math.round((1 - p.price / p.oldPrice) * 100)}% OFF</span>}</div>
-        <p className={soldOut ? 'stock-line out' : stock <= 5 ? 'stock-line low' : 'stock-line'}>
-          {soldOut ? 'Out of stock' : stock <= 5 ? `Only ${stock} left in stock` : 'In stock'}
+        <DealTag deal={p.deal} />
+        <div className="price-line"><strong>{money(line.price)}</strong>{onSale && <del>{money(line.oldPrice)}</del>}{onSale && <span>{Math.round((1 - line.price / line.oldPrice) * 100)}% OFF</span>}</div>
+        {hasVariants && <VariantPicker options={p.variantOptions} variants={p.variants} value={variant} onChange={(v) => { setVariant(v); setQty(1); setFeedback(null); if (v?.image) setActiveImage(v.image); }} />}
+        <p className={soldOut ? 'stock-line out' : needsChoice ? 'stock-line' : stock <= 5 ? 'stock-line low' : 'stock-line'}>
+          {soldOut ? 'Out of stock' : needsChoice ? `Choose ${p.variantOptions.map((o) => o.name.toLowerCase()).join(' and ')}` : stock <= 5 ? `Only ${stock} left in stock` : 'In stock'}
         </p>
+        <StockAlerts productId={p.id} soldOut={soldOut} signedIn={Boolean(user)} onSignIn={() => navigate('/login', { state: { from: `${location.pathname}${location.search}` } })} />
         {p.description && <p>{p.description}</p>}
-        <div className="vendor-line"><div className="vendor-avatar" aria-hidden="true">{(p.vendor || 'M')[0]}</div><div><small>Sold by</small><span>{p.vendor}</span></div></div>
+        <div className="vendor-line"><div className="vendor-avatar" aria-hidden="true">{(p.vendor || 'M')[0]}</div><div><small>Sold by</small><span>{p.vendor}</span><SellerBadges badges={p.sellerBadges} /></div></div>
         <div className="attributes">{Object.entries(p.attributes || {}).filter(([, v]) => v).map(([k, v]) => <div key={k}><small>{k}</small><b>{v}</b></div>)}</div>
         {!user && <div className="guest-shopping-note">✓ You can browse and add to cart without an account. You&apos;ll sign in at checkout.</div>}
         {feedback && <div className={`form-alert ${feedback.ok ? 'success' : 'error'}`} role="status">{feedback.message}{feedback.ok && (feedback.compare ? <> <Link to="/buyer/compare">Open compare</Link></> : <> <Link to="/cart">View cart</Link></>)}</div>}
@@ -127,7 +141,7 @@ export default function ProductDetails() {
             ⇄ {comparing ? 'Comparing' : 'Compare'}
           </button>
         </div>
-        <div className="product-trust"><span>✓ Mobile money or card</span><span>✓ Payment held until delivery</span><span>✓ Delivery code at your door</span></div>
+        <div className="product-trust"><span>✓ Mobile money or card</span><span>✓ Payment held until delivery</span><span>✓ Delivery code at your door</span><span>✓ Returns after delivery</span></div>
       </div>
     </section>
     <section className="reviews-section">

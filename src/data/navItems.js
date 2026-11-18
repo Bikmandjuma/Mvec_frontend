@@ -3,9 +3,9 @@
 // (MobileBottomNav) so the two stay perfectly in sync.
 // Shape: [href, label, iconName]
 
-export const sellerNav = [['/vendor','Dashboard','grid'],['/vendor/stores','My Stores','shop'],['/vendor/products','Products','box'],['/vendor/categories','Categories','tag'],['/vendor/inventory','Inventory','grid'],['/vendor/orders','Orders','cart'],['/vendor/purchases','Purchases','receipt'],['/vendor/quotes','Quote Requests','receipt'],['/vendor/customers','Customers','users'],['/vendor/analytics','Analytics','chart'],['/vendor/payouts','Payouts','wallet'],['/vendor/transactions','Transactions','wallet'],['/vendor/suppliers','Find Suppliers','shop'],['/vendor/affiliates','Affiliate Marketing','users'],['/vendor/advertisements','Advertisements','tag'],['/vendor/promotions','Promotions','tag'],['/vendor/subscription','Subscription','wallet'],['/vendor/reviews','Reviews','heart'],['/vendor/refunds','Refunds','wallet'],['/vendor/shipping','Shipping','shop'],['/vendor/delivery','Delivery & Settlement','box'],['/vendor/reports','Reports','chart'],['/vendor/messages','Messages','users'],['/vendor/notifications','Notifications','bell'],['/vendor/team','Team / Staff','users'],['/vendor/settings','Settings','settings'],['/vendor/support','Ikiguzi Support','bell']];
+export const sellerNav = [['/vendor','Dashboard','grid'],['/vendor/stores','My Stores','shop'],['/vendor/products','Products','box'],['/vendor/categories','Categories','tag'],['/vendor/inventory','Inventory','grid'],['/vendor/orders','Orders','cart'],['/vendor/purchases','Purchases','receipt'],['/vendor/quotes','Quote Requests','receipt'],['/vendor/customers','Customers','users'],['/vendor/analytics','Analytics','chart'],['/vendor/payouts','Payouts','wallet'],['/vendor/transactions','Transactions','wallet'],['/vendor/suppliers','Find Suppliers','shop'],['/vendor/affiliates','Affiliate Marketing','users'],['/vendor/advertisements','Advertisements','tag'],['/vendor/promotions','Promotions','tag'],['/vendor/subscription','Subscription','wallet'],['/vendor/reviews','Reviews','heart'],['/vendor/refunds','Refunds','wallet'],['/vendor/returns','Returns','receipt'],['/vendor/shipping','Shipping','shop'],['/vendor/delivery','Delivery & Settlement','box'],['/vendor/reports','Reports','chart'],['/vendor/messages','Messages','users'],['/vendor/notifications','Notifications','bell'],['/vendor/team','Team / Staff','users'],['/vendor/settings','Settings','settings'],['/vendor/support','Ikiguzi Support','bell']];
 
-export const adminNav = [['/admin','Overview','grid'],['/admin/become-seller','Become a Seller','shop'],['/admin/analytics','Analytics','chart'],['/admin/trust','Trust Scores','chart'],['/admin/users','Users','users'],['/admin/vendors','Sellers','shop'],['/admin/suppliers','Suppliers','shop'],['/admin/affiliates','Affiliates','users'],['/admin/riders','Riders','box'],['/admin/products','Products','box'],['/admin/categories','Categories','tag'],['/admin/orders','Orders','cart'],['/admin/deliveries','Deliveries','box'],['/admin/disputes','Disputes','bell'],['/admin/payments','Payments','wallet'],['/admin/vendor-payouts','Seller Payouts','wallet'],['/admin/transfers','Refunds & Withdrawals','wallet'],['/admin/commissions','Ikiguzi Earnings','wallet'],['/admin/commission-rules','Commission Rules','tag'],['/admin/ledger','Financial Ledger','wallet'],['/admin/advertising','Advertising','tag'],['/admin/subscriptions','Subscriptions','wallet'],['/admin/risk','Fraud & Risk','bell'],['/admin/audit-logs','Audit Log','box'],['/admin/settings','Settings','settings'],['/admin/messages','Messages','users'],['/admin/notifications','Notifications','bell'],['/admin/support','Support Inbox','bell']];
+export const adminNav = [['/admin','Overview','grid'],['/admin/become-seller','Become a Seller','shop'],['/admin/analytics','Analytics','chart'],['/admin/trust','Trust Scores','chart'],['/admin/users','Users','users'],['/admin/vendors','Sellers','shop'],['/admin/suppliers','Suppliers','shop'],['/admin/affiliates','Affiliates','users'],['/admin/riders','Riders','box'],['/admin/products','Products','box'],['/admin/categories','Categories','tag'],['/admin/orders','Orders','cart'],['/admin/deliveries','Deliveries','box'],['/admin/disputes','Disputes','bell'],['/admin/returns','Returns','receipt'],['/admin/payments','Payments','wallet'],['/admin/vendor-payouts','Seller Payouts','wallet'],['/admin/transfers','Refunds & Withdrawals','wallet'],['/admin/commissions','Ikiguzi Earnings','wallet'],['/admin/commission-rules','Commission Rules','tag'],['/admin/ledger','Financial Ledger','wallet'],['/admin/advertising','Advertising','tag'],['/admin/subscriptions','Subscriptions','wallet'],['/admin/risk','Fraud & Risk','bell'],['/admin/audit-logs','Audit Log','box'],['/admin/settings','Settings','settings'],['/admin/messages','Messages','users'],['/admin/notifications','Notifications','bell'],['/admin/support','Support Inbox','bell']];
 
 // Grouped version of the admin sidebar: a short list of always-visible top
 // links, then collapsible categories each holding their sub-links. Built
@@ -22,7 +22,7 @@ export const adminNavGroups = [
   },
   {
     label: 'Orders',
-    items: [['/admin/orders','Orders','cart'],['/admin/deliveries','Deliveries','box'],['/admin/disputes','Disputes','bell']],
+    items: [['/admin/orders','Orders','cart'],['/admin/deliveries','Deliveries','box'],['/admin/disputes','Disputes','bell'],['/admin/returns','Returns','receipt']],
   },
   {
     label: 'Money',
@@ -50,7 +50,7 @@ export const adminNavGroups = [
   },
 ];
 
-export const supplierNav = [['/supplier','Dashboard','grid'],['/supplier/stores','My Stores','shop'],['/supplier/products','Wholesale Products','box'],['/supplier/inventory','Inventory','grid'],['/supplier/orders','Vendor Orders','cart'],['/supplier/sales','Marketplace Orders','cart'],['/supplier/quotes','Quote Requests','receipt'],['/supplier/analytics','Analytics','chart'],['/supplier/payments','Payments','wallet'],['/supplier/transactions','Transactions','wallet'],['/supplier/reports','Reports','chart'],['/supplier/reviews','Reviews','heart'],['/supplier/messages','Messages','users'],['/supplier/team','Team / Staff','users'],['/supplier/notifications','Notifications','bell'],['/supplier/settings','Settings','settings'],['/supplier/support','Ikiguzi Support','bell']];
+export const supplierNav = [['/supplier','Dashboard','grid'],['/supplier/stores','My Stores','shop'],['/supplier/products','Wholesale Products','box'],['/supplier/inventory','Inventory','grid'],['/supplier/orders','Vendor Orders','cart'],['/supplier/sales','Marketplace Orders','cart'],['/supplier/returns','Returns','receipt'],['/supplier/quotes','Quote Requests','receipt'],['/supplier/analytics','Analytics','chart'],['/supplier/payments','Payments','wallet'],['/supplier/transactions','Transactions','wallet'],['/supplier/reports','Reports','chart'],['/supplier/reviews','Reviews','heart'],['/supplier/messages','Messages','users'],['/supplier/team','Team / Staff','users'],['/supplier/notifications','Notifications','bell'],['/supplier/settings','Settings','settings'],['/supplier/support','Ikiguzi Support','bell']];
 
 export const affiliateNav = [['/affiliate','Dashboard','grid'],['/affiliate/messages','Messages','users'],['/affiliate/products','Promote Products','box'],['/affiliate/links','My Links','tag'],['/affiliate/commissions','Commissions','chart'],['/affiliate/wallet','Wallet','wallet'],['/affiliate/withdrawals','Withdrawals','wallet'],['/affiliate/notifications','Notifications','bell'],['/affiliate/profile','Profile','user'],['/affiliate/support','Ikiguzi Support','bell']];
 
@@ -77,7 +77,7 @@ export function navForRole(role){
 export const sellerNavGroups = [
   { label: 'Overview', items: [['/vendor','Dashboard','grid']] },
   { label: 'Store', items: [['/vendor/stores','My Stores','shop'],['/vendor/products','Products','box'],['/vendor/categories','Categories','tag'],['/vendor/inventory','Inventory','grid'],['/vendor/shipping','Shipping','shop']] },
-  { label: 'Orders & Customers', items: [['/vendor/orders','Orders','cart'],['/vendor/purchases','Purchases','receipt'],['/vendor/quotes','Quote Requests','receipt'],['/vendor/customers','Customers','users'],['/vendor/delivery','Delivery & Settlement','box'],['/vendor/refunds','Refunds','wallet']] },
+  { label: 'Orders & Customers', items: [['/vendor/orders','Orders','cart'],['/vendor/purchases','Purchases','receipt'],['/vendor/quotes','Quote Requests','receipt'],['/vendor/customers','Customers','users'],['/vendor/delivery','Delivery & Settlement','box'],['/vendor/refunds','Refunds','wallet'],['/vendor/returns','Returns','receipt']] },
   { label: 'Finance', items: [['/vendor/payouts','Payouts','wallet'],['/vendor/transactions','Transactions','wallet'],['/vendor/subscription','Subscription','wallet']] },
   { label: 'Growth', items: [['/vendor/suppliers','Find Suppliers','shop'],['/vendor/affiliates','Affiliate Marketing','users'],['/vendor/advertisements','Advertisements','tag'],['/vendor/promotions','Promotions','tag'],['/vendor/reviews','Reviews','heart'],['/vendor/reports','Reports','chart'],['/vendor/analytics','Analytics','chart']] },
   { label: 'Team & Settings', items: [['/vendor/team','Team / Staff','users'],['/vendor/settings','Settings','settings']] },
@@ -86,7 +86,7 @@ export const sellerNavGroups = [
 
 export const supplierNavGroups = [
   { label: 'Overview', items: [['/supplier','Dashboard','grid']] },
-  { label: 'Catalog & Orders', items: [['/supplier/stores','My Stores','shop'],['/supplier/products','Wholesale Products','box'],['/supplier/inventory','Inventory','grid'],['/supplier/orders','Vendor Orders','cart'],['/supplier/sales','Marketplace Orders','cart'],['/supplier/quotes','Quote Requests','receipt']] },
+  { label: 'Catalog & Orders', items: [['/supplier/stores','My Stores','shop'],['/supplier/products','Wholesale Products','box'],['/supplier/inventory','Inventory','grid'],['/supplier/orders','Vendor Orders','cart'],['/supplier/sales','Marketplace Orders','cart'],['/supplier/returns','Returns','receipt'],['/supplier/quotes','Quote Requests','receipt']] },
   { label: 'Finance & Insights', items: [['/supplier/payments','Payments','wallet'],['/supplier/transactions','Transactions','wallet'],['/supplier/analytics','Analytics','chart'],['/supplier/reports','Reports','chart'],['/supplier/reviews','Reviews','heart'],['/supplier/subscription','Subscription','tag']] },
   { label: 'Team & Settings', items: [['/supplier/team','Team / Staff','users'],['/supplier/settings','Settings','settings']] },
   { label: 'Support', items: [['/supplier/messages','Messages','users'],['/supplier/notifications','Notifications','bell'],['/supplier/support','Ikiguzi Support','bell']] },
@@ -122,6 +122,7 @@ const VENDOR_SECTION_PERMISSIONS = {
   '/vendor/quotes': 'canManageOrders',
   '/vendor/customers': 'canManageOrders',
   '/vendor/refunds': 'canManageOrders',
+  '/vendor/returns': 'canManageOrders',
   '/vendor/delivery': 'canManageOrders',
   '/vendor/payouts': 'canManagePayouts',
   '/vendor/transactions': 'canManagePayouts',

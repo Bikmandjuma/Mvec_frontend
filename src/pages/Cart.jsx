@@ -40,7 +40,7 @@ export default function Cart() {
             return <div className="cart-item" key={item.id}>
               <ProductImage src={item.image} alt="" />
               <div className="cart-main">
-                <Link to={`/product/${item.id}`}>{item.name}</Link>
+                <Link to={`/product/${item.productId || item.id}`}>{item.name}</Link>{item.variantLabel && <small className="variant-chip">{item.variantLabel}</small>}
                 {item.sku && <small>SKU: {item.sku}</small>}
                 <b>{money(item.price)}</b>
                 {outOfStock && <small className="danger-text">No longer available. Remove it to continue.</small>}

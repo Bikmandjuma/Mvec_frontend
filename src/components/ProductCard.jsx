@@ -4,6 +4,7 @@ import ProductImage from './ProductImage';
 import { useAuth } from '../context/AuthContext';
 import { useMarketplace } from '../context/MarketplaceContext';
 import { money, ratingLabel } from '../utils/format';
+import { DealTag } from './ProductExtras';
 
 /**
  * Storefront product tile used on Home, Shop and store pages.
@@ -33,7 +34,7 @@ export default function ProductCard({ p, href, label }) {
       <div className="product-img-wrap">
         <Link to={to} className="product-img">
           <ProductImage src={p.image} alt={p.name} loading="lazy" />
-          {soldOut ? <span className="sale-badge sold-out-badge">SOLD OUT</span> : onSale && <span className="sale-badge">SALE</span>}
+          {soldOut ? <span className="sale-badge sold-out-badge">SOLD OUT</span> : p.deal?.live ? <span className="sale-badge deal-badge">−{p.deal.percentOff}%</span> : onSale && <span className="sale-badge">SALE</span>}
         </Link>
         <button
           type="button"
@@ -54,6 +55,7 @@ export default function ProductCard({ p, href, label }) {
         <div>
           <b>{money(p.price)}</b> {onSale && <del>{money(p.oldPrice)}</del>}
         </div>
+        {p.deal && <DealTag deal={p.deal} compact />}
       </div>
     </div>
   );
