@@ -11,7 +11,7 @@ const nextId = () => `product-image-${Date.now()}-${idCounter++}`;
 
 const STATUS_OPTIONS = [
   ["DRAFT", "Draft"],
-  ["PENDING_APPROVAL", "Pending approval"],
+  ["PENDING_APPROVAL", "Waiting for approval"],
   ["ACTIVE", "Active"],
   ["OUT_OF_STOCK", "Out of stock"],
 ];

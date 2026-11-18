@@ -236,6 +236,7 @@ function ProductModule(){
   const [storeFilter,setStoreFilter]=useState('');
   const [categoryFilter,setCategoryFilter]=useState(()=>new URLSearchParams(location.search).get('category')||'');
   const [allCategories,setAllCategories]=useState([]);
+  const [savedNote,setSavedNote]=useState('');
   const [stores,setStores]=useState([]);
   const per=6;
   useEffect(()=>{ storesApi.getMyStores().then(res=>setStores(res.stores||[])).catch(()=>{}); },[]);
@@ -288,12 +289,14 @@ function ProductModule(){
     setSaving(true);
     setError('');
     try{
-      if(editing?.mode==='create') await productsApi.create(payload);
+      let saved;
+      if(editing?.mode==='create') saved=await productsApi.create(payload);
       else {
         const productId=editing?.product?.id||editing?.product?._id;
         if(!productId) throw new Error('This product no longer exists. Refresh the page.');
-        await productsApi.update(productId,payload);
+        saved=await productsApi.update(productId,payload);
       }
+      setSavedNote(saved?.waitingForApproval?saved.message:'');
       clearCatalogCache(); // the marketplace shows the change straight away
       setEditing(null);
       load();
@@ -323,6 +326,8 @@ function ProductModule(){
     </div>
     {bulk&&<BulkUpload onClose={()=>setBulk(false)} onDone={()=>{clearCatalogCache();load();}}/>}
     {error&&<div className="form-error">{error}</div>}
+    {savedNote&&<div className="form-alert success">{savedNote}</div>}
+    {rows.some(p=>p.status==='PENDING_APPROVAL')&&<div className="form-alert"><b>Waiting for approval.</b> You can add and edit products now. Buyers see them on the marketplace once Ikiguzi approves your store.</div>}
     <div className="dash-toolbar">
       <div className="dash-filter"><Icon name="search"/><input value={q} onChange={e=>{setQ(e.target.value);setPage(1)}} placeholder="Search products, SKU, brand or category"/></div>
       <select className="table-filter-select" value={statusFilter} onChange={e=>{setStatusFilter(e.target.value);setPage(1)}}><option value="">All statuses</option>{[...new Set(rows.map(p=>p.status).filter(Boolean))].map(x=><option key={x}>{x}</option>)}</select>
@@ -337,7 +342,7 @@ function ProductModule(){
         {shown.map(p=><div className="product-admin-row" key={p.id}>
           <div className="admin-product-main">{(p.media?.mainImage||p.mainImage)?<ProductImage src={p.media?.mainImage||p.mainImage} alt=""/>:<div className="product-placeholder"><Icon name="box"/></div>}<div><b>{p.name}</b><small>{p.sku} · {p.brand||'No brand'} · {p.category?.name||''}{stores.length>1&&storeName(p)?` · ${storeName(p)}`:''}</small></div></div>
           <div>{p.discountPrice&&p.discountPrice<p.price?<><b>{money(p.discountPrice)}</b><small><s>{money(p.price)}</s> <em className="seller-discount-badge">{p.discountType==='PERCENT'?`-${p.discountValue}%`:`-${money(p.price-p.discountPrice)}`}</em></small></>:<b>{money(p.price)}</b>}<small>Stock: {p.stockQuantity}</small></div>
-          <em className={'status '+(p.status==='ACTIVE'?'active':'warning')}>{p.status}</em>
+          <em className={'status '+(p.status==='ACTIVE'?'active':'warning')}>{p.status==='PENDING_APPROVAL'?'Waiting for approval':p.status}</em>
           <div className="row-actions"><button type="button" title="Edit product" onClick={()=>setEditing({mode:'edit',product:p})}><Icon name="edit"/></button><button type="button" title={p.status==='INACTIVE'?'Restore product':'Archive product'} onClick={()=>toggleArchive(p)}><Icon name={p.status==='INACTIVE'?'check':'box'}/></button><button type="button" title="Delete product" onClick={()=>removeProduct(p)}><Icon name="trash"/></button></div>
         </div>)}
       </div>}

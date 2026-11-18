@@ -13,5 +13,5 @@ export default function RestrictedOverview({ children }) {
     return <><div className="restricted-warning"><div><strong>Ikiguzi asked you to update your store profile</strong><span>{user.verificationNote || "Check your business details."} Saving your profile sends it back for review.</span></div><Link className="gradient-btn" to="/vendor/settings">Fix my profile</Link></div>{children}</>;
   }
   if (!needsOnboarding(user)) return children;
-  return <><div className="restricted-warning"><div><strong>Onboarding incomplete</strong><span>Complete your business profile and wait for Ikiguzi verification before publishing products, creating a store, or placing supply orders.</span></div><button className="gradient-btn" onClick={() => setOpen(true)}>Complete Onboarding</button></div>{children}{open && <OnboardingModal onClose={() => setOpen(false)}/>}</>;
+  return <><div className="restricted-warning"><div><strong>Onboarding incomplete</strong><span>Complete your business profile to add products, create a store and place supply orders. Buyers see your products once Ikiguzi approves your store.</span></div><button className="gradient-btn" onClick={() => setOpen(true)}>Complete Onboarding</button></div>{children}{open && <OnboardingModal onClose={() => setOpen(false)}/>}</>;
 }
