@@ -58,7 +58,7 @@ function Remote({ load, children, deps = [] }) {
 function VerificationBanner() {
   const { user } = useAuth();
   if (user?.verificationStatus === "REJECTED") return <div className="form-alert error"><b>Ikiguzi asked you to update your profile.</b> {user.verificationNote || "Check your details."} <Link to="/supplier/settings">Fix it in Settings</Link>; saving sends it back for review automatically.</div>;
-  if (user?.verificationStatus === "PENDING") return <div className="form-alert">Ikiguzi is reviewing your profile. You will get a message, SMS and email when it is done.</div>;
+  if (user?.verificationStatus === "PENDING") return <div className="form-alert">Ikiguzi is reviewing your profile. You can add products and put stock on the marketplace now; buyers see it once you are verified. You will get a message, SMS and email when it is done.</div>;
   return null;
 }
 

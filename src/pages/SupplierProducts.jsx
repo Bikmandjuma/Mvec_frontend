@@ -142,7 +142,7 @@ function MarketplaceModal({ product, onClose, onDone }) {
     { name: 'units', label: mode === 'remove' ? `Units to move back (up to ${listing?.stockQuantity ?? 0})` : `Units to put on sale (up to ${product.stockQuantity} in wholesale stock)`, type: 'number', required: !live, half: !live },
   ];
   return <FormModal title={live ? `Marketplace · ${product.name}` : `Sell ${product.name} to buyers`}
-    subtitle={live ? `${listing.stockQuantity} units on the marketplace at ${money(listing.price)}. Buyers order and pay online; you ship and are paid on delivery.` : 'Buyers see it in the marketplace as a product from your shop. The units you choose leave wholesale stock so vendors can\'t order them too; move them back any time.'}
+    subtitle={live && listing.status === 'PENDING_APPROVAL' ? `${listing.stockQuantity} units ready for the marketplace at ${money(listing.price)}. Buyers see them once Ikiguzi verifies your supplier profile.` : live ? `${listing.stockQuantity} units on the marketplace at ${money(listing.price)}. Buyers order and pay online; you ship and are paid on delivery.` : 'Buyers see it in the marketplace as a product from your shop. The units you choose leave wholesale stock so vendors can\'t order them too; move them back any time.'}
     fields={fields}
     initial={{ price: listing?.price || product.retailPrice || '', units: '', mode }}
     submitLabel={live ? 'Save listing' : 'Publish'} onClose={onClose}
